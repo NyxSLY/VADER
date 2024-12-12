@@ -33,6 +33,8 @@ def main():
     oc_train_data = nc_data_org[keep_indices]
     oc_train_label = nc_labels_org[keep_indices]
 
+    # 读取参数组合 - 分布式
+    combinations_file = "param_combinations.json"
 
     # 准备数据
     model_params = config.get_model_params()
@@ -72,11 +74,15 @@ def main():
         labels=oc_train_label,
         num_classes=num_classes,
         base_params=base_params,
-        device=device
+        device=device,
+        pc_id=1,
+        total_pcs=4,
+        combinations_file=combinations_file
     )
     
     results, best_result = grid_search.search(project_dir)
     
+
     print("\n网格搜索完成!")
     print("最佳参数组合:", best_result['params'])
     print(f"最佳准确率: {best_result['acc']:.4f}")

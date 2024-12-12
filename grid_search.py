@@ -1,3 +1,4 @@
+from typing import Optional
 import itertools
 import numpy as np
 from train import train_manager
@@ -7,8 +8,26 @@ import json
 from datetime import datetime
 import os
 
+def generate_combinations(param_grid, output_file):
+    """生成所有参数组合并保存到文件"""
+    param_combinations = [dict(zip(param_grid.keys(), v)) 
+                        for v in itertools.product(*param_grid.values())]
+    
+    # 为每个组合添加索引
+    indexed_combinations = [
+        {'index': i, 'params': params} 
+        for i, params in enumerate(param_combinations)
+    ]
+    
+    # 保存到文件
+    with open(output_file, 'w') as f:
+        json.dump(indexed_combinations, f, indent=4)
+    
+    return len(param_combinations)
+
 class GridSearch:
-    def __init__(self, model_class, data, labels, num_classes, base_params, device):
+    def __init__(self, model_class, data, labels, num_classes, base_params, device, 
+                 pc_id=0, total_pcs=1, combinations_file: Optional[str] = None):
         """
         初始化网格搜索
         
@@ -19,6 +38,9 @@ class GridSearch:
             num_classes: 类别数量
             base_params: 基础模型参数
             device: 设备
+            pc_id: 当前PC的ID（从0开始）
+            total_pcs: 总计算机数量
+            combinations_file: 参数组合文件路径，可以为None
         """
         self.model_class = model_class
         self.data = data
@@ -26,15 +48,17 @@ class GridSearch:
         self.num_classes = num_classes
         self.base_params = base_params
         self.device = device
+        self.pc_id = pc_id
+        self.total_pcs = total_pcs
+        self.combinations_file = combinations_file if combinations_file else "param_combinations.json"
         
         # 设置网格搜索参数范围
         self.param_grid = {
-            'lamb1': [0, 1, 1e3, 1e4, 1e5, 1e6],
+            'lamb1': [0, 1, 1e3, 1e5],
             'lamb2': [0.1, 1.0, 10.0],
-            'lamb3': [0.0, 0.1, 1.0],
-            'lamb4': [0, 1, 1e3, 1e4, 1e5, 1e6],
-            'lamb5': [0, 0.1, 0.5, 1.0],
-            'lamb6': [0, 0.1, 0.5, 1.0]
+            'lamb4': [0, 1, 1e3, 1e5],
+            'lamb5': [0, 0.1, 0.5],
+            'lamb6': [0, 0.1, 0.5]
         }
         
     def create_model(self, params):
@@ -80,6 +104,19 @@ class GridSearch:
                 'ari': 0
             }
     
+    def get_assigned_combinations(self):
+        """获取分配给当前PC的参数组合"""
+        with open(self.combinations_file, 'r') as f:
+            all_combinations = json.load(f)
+        
+        # 根据PC ID分配任务
+        assigned_combinations = []
+        for item in all_combinations:
+            if item['index'] % self.total_pcs == self.pc_id:
+                assigned_combinations.append(item['params'])
+        
+        return assigned_combinations
+    
     def search(self, project_dir):
         """执行网格搜索"""
         # 准备数据加载器
@@ -87,16 +124,15 @@ class GridSearch:
             self.data, self.labels, self.base_params['batch_size'], self.device
         )
         
-        # 生成所有参数组合
-        param_combinations = [dict(zip(self.param_grid.keys(), v)) 
-                            for v in itertools.product(*self.param_grid.values())]
+        # 获取分配给当前PC的参数组合
+        param_combinations = self.get_assigned_combinations()
         
         results = []
         best_result = {'acc': 0, 'params': None}
         
         # 创建结果保存目录
         timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
-        results_dir = os.path.join(project_dir, 'grid_search_results', timestamp)
+        results_dir = os.path.join(project_dir, f'grid_search_results_pc{self.pc_id}', timestamp)
         os.makedirs(results_dir, exist_ok=True)
         
         for i, params in enumerate(param_combinations):
