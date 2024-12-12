@@ -107,10 +107,18 @@ class GridSearch:
             param_str = '_'.join([f"{k}_{v}" for k, v in params.items()])
             paths = {
                 'train_path': os.path.join(results_dir, param_str),
-                'tensorboard_log': os.path.join(results_dir, param_str, 'logs')
+                'tensorboard_log': os.path.join(results_dir, param_str, 'logs'),
+                'plot': os.path.join(results_dir, param_str, 'plot'),
+                'pth': os.path.join(results_dir, param_str, 'pth'),
+                'training_log': os.path.join(results_dir, param_str, 'txt')
             }
-            os.makedirs(paths['train_path'], exist_ok=True)
-            os.makedirs(paths['tensorboard_log'], exist_ok=True)
+            # 创建所有必要的目录
+            print("Creating directories:")
+            for path in paths.values():
+                if path.endswith('.txt'):  # 如果是文件路径
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                else:  # 如果是目录路径
+                    os.makedirs(path, exist_ok=True)
             
             # 评估参数组合
             result = self.evaluate_params(

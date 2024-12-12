@@ -9,6 +9,8 @@ from train import train_manager
 import torch
 from utility import wavelet_transform
 from grid_search import GridSearch
+import os
+from datetime import datetime
 
 set_random_seed(123)
 
@@ -17,10 +19,10 @@ def main():
     # 读取数据
     # oc_train_data = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_data_fil_191.txt", delimiter=" ")
     # oc_train_label = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_labels_to_confmatrix.txt", delimiter=" ").astype(int)
-    #nc_data_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/X_reference.npy")
-    #nc_labels_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
-    nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference.npy")
-    nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
+    nc_data_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/X_reference.npy")
+    nc_labels_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
+    #nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference.npy")
+    #nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
     # nc_data_org = np.load("/home/zym/DESC/Datasets/NC-30-species/X_reference.npy")
     # nc_labels_org = np.load("/home/zym/DESC/Datasets/NC-30-species/y_reference.npy").astype(int)
     keep_indices = np.where((nc_labels_org == 2) | (
