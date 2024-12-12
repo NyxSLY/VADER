@@ -1,0 +1,9 @@
+# results
+nc/
+nc_test/
+nc_test*/
+model_config.yaml
+baseline/
+home_pc/
+**/
+!.gitignore

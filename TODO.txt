@@ -1,0 +1,39 @@
+1. 计算一个baseline: done
+    2. 计算一个baseline: 直接Leiden
+    3. 计算一个baseline: svd分解 + Leiden
+
+2. encoder 哪个好 - basic, cnn, advanced - new graphic card
+    ）1 我现在正在做的：测试advanced，用一样的权重，简化了advanced部分
+    ）2 初步结论：basic最好，有可能是因为decoder没有对称
+
+3. loss function 哪个好 - 
+
+4. 初分布切换有没有用 - 
+
+5. 倒着查有没有异常光谱 - working on this one
+
+6. 预训练
+
+
+# 张艳美
+
+0. 过滤NC数据 - QC
+
+1. 保证，我们2个用的一个版本
+    ）1 tensorboard
+    ）2 跑一下，留一个baseline - basic
+
+2. 初分布切换有没有用
+
+3. 预训练 - 
+
+4. Encoder
+
+
+
+# 孙鲁阳
+# loss function
+# cluster with P_value
+
+
+
