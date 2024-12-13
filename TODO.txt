@@ -14,6 +14,11 @@
 
 6. 预训练
 
+7. GMM cluster还是Leiden，哪个好，Leiden有点不对劲
+
+8. GMM cluster
+
+
 
 # 张艳美
 

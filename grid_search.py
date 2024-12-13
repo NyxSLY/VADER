@@ -7,6 +7,8 @@ from utility import prepare_data_loader
 import json
 from datetime import datetime
 import os
+from metrics_new import ModelEvaluator
+import torch.nn.functional as F
 
 def generate_combinations(param_grid, output_file):
     """生成所有参数组合并保存到文件"""
@@ -81,11 +83,27 @@ class GridSearch:
                 paths=paths
             )
             
-            # 获取最终评估指标
+            # 使用ModelEvaluator进行评估
+            evaluator = ModelEvaluator(model=trained_model, device=self.device)
             with torch.no_grad():
                 trained_model.eval()
-                _, _, _, _, _, y_pred = trained_model(tensor_gpu_data)
-                metrics = trained_model.compute_metrics(tensor_gpu_labels, y_pred)
+                recon_x, _, _, _, _, y_pred = trained_model(tensor_gpu_data)
+                cluster_probs = F.softmax(y_pred, dim=1)
+                pred_labels = torch.argmax(cluster_probs, dim=1)
+                
+                # 计算聚类指标
+                clustering_metrics = evaluator.compute_clustering_metrics(
+                    pred_labels.cpu().numpy(), 
+                    tensor_gpu_labels.cpu().numpy()
+                )
+                
+                # 计算重构指标
+                recon_metrics = evaluator.compute_reconstruction_metrics(
+                    tensor_gpu_data, 
+                    recon_x
+                )
+                
+                metrics = {**clustering_metrics, **recon_metrics}
             
             return {
                 'params': params,
@@ -174,3 +192,36 @@ class GridSearch:
                 }, f, indent=4)
             
         return results, best_result 
+    def evaluate_model(self, model, data, labels):
+        """评估模型性能"""
+        tensor_data = torch.FloatTensor(data).to(self.device)
+        tensor_labels = torch.LongTensor(labels).to(self.device)
+        
+        try:
+            evaluator = ModelEvaluator(model=model, device=self.device)
+            with torch.no_grad():
+                recon_x, mean, log_var, z, z_prior_mean, y_pred = model(tensor_data)
+                cluster_probs = F.softmax(y_pred, dim=1)
+                pred_labels = torch.argmax(cluster_probs, dim=1)
+                
+                metrics = evaluator.compute_clustering_metrics(
+                    pred_labels.cpu().numpy(), 
+                    labels
+                )
+                
+                recon_metrics = evaluator.compute_reconstruction_metrics(
+                    tensor_data, 
+                    recon_x
+                )
+                
+                metrics.update(recon_metrics)
+                return metrics
+                
+        except Exception as e:
+            print(f"评估模型时出错: {str(e)}")
+            return {
+                'acc': 0.0,
+                'nmi': 0.0,
+                'ari': 0.0,
+                'mse': float('inf')
+            }
