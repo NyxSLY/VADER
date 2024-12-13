@@ -12,8 +12,8 @@ import random
 from torch.utils.data import DataLoader, TensorDataset
 import os
 from scipy.optimize import linear_sum_assignment
+import datetime
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
-import multiprocessing as mp
 
 def set_random_seed(seed):
     random.seed(seed)       # 设置 Python 内置随机数生成器的种子
@@ -111,14 +111,10 @@ def prepare_data_loader(
     tensor_gpu_labels = tensor_labels.to(device)
 
     # 创建数据加载器
-    cpu_cores = mp.cpu_count()  
     dataloader = DataLoader(
         TensorDataset(tensor_gpu_data, tensor_gpu_labels),
         batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=cpu_cores * 2,
-        pin_memory=True,
-        prefetch_factor = 2
+        shuffle=shuffle
     )
 
     return (
