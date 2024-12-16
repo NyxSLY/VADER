@@ -1,6 +1,6 @@
 import numpy as np
 
-
+'''
 # 加载原始数据
 nc_data_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/X_reference.npy")
 nc_labels_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
@@ -21,6 +21,9 @@ np.savetxt('./raw_data_qc/filtered_train_label.txt', oc_train_label, delimiter='
 '''
 # plot the spectra
 from utility import plot_reconstruction
+oc_train_data = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9.npy")
+oc_train_label = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9_label.npy").astype(int)
+
 
 #plot_reconstruction(recon_data=oc_train_data, labels=oc_train_label, save_path='./raw_data_qc/raw_spectra.png')
 
@@ -40,5 +43,4 @@ selected_indices = np.array(selected_indices)
 selected_data = oc_train_data[selected_indices]
 selected_labels = oc_train_label[selected_indices]
 
-plot_reconstruction(recon_data=selected_data, labels=selected_labels, save_path='./raw_data_qc/raw_spectra_sampled.png')
-'''
+plot_reconstruction(recon_data=selected_data, labels=selected_labels, save_path='./raw_data_qc/QCed_spectra_sampled.png')
