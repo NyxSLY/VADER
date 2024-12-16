@@ -714,6 +714,7 @@ class VaDE(nn.Module):
         """初始化聚类中心"""
         encoded_data = []
         for x, _ in dataloader:
+            x = x.to(self.device)
             mean, _ = self.encoder(x)
             encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
@@ -726,7 +727,16 @@ class VaDE(nn.Module):
         # 初始化高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
         self.cluster_centers = cluster_centers
-
+    # def init_kmeans_centers(self,x):
+    #     """初始化聚类中心"""
+    #     encoded_data, _ = self.encoder(x)
+    #     encoded_data = encoded_data.to(x.device)
+    #     kmeans = KMeans(n_clusters=self.num_classes)
+    #     cluster_labels = kmeans.fit_predict(encoded_data.cpu().detach().numpy())
+    #     cluster_centers = kmeans.cluster_centers_
+    #     cluster_centers = torch.tensor(cluster_centers).to(x.device)
+    #     self.gaussian.means.data.copy_(cluster_centers)
+    #     self.cluster_centers = cluster_centers
     @torch.no_grad()
     def update_kmeans_centers(self, dataloader):
         """使用 KMeans 更新聚类中心"""

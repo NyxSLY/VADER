@@ -38,6 +38,13 @@ class ModelEvaluator:
         self.paths = paths
         self.writer = writer
 
+        if self.paths and not os.path.exists(os.path.join(self.paths['training_log'], "training_log.txt")):
+            with open(os.path.join(self.paths['training_log'], "training_log.txt"), "w") as f:
+                f.write("Epoch\tTotal_loss\tRecon_loss\tKL_loss\tPeak_loss\tSpectral_loss\t"
+                        "gmm_acc\tgmm_nmi\tgmm_ari\t"
+                        "z_leiden_acc\tz_leiden_nmi\tz_leiden_ari\t"
+                        "Learning_Rate\n")
+
     def compute_reconstruction_metrics(
         self, x: torch.Tensor, recon_x: torch.Tensor
     ) -> Dict[str, float]:
@@ -154,22 +161,31 @@ class ModelEvaluator:
         """
         self.model.eval()
         with torch.no_grad():
-            recon_x, _, _, x_encoded, _, y_pred = self.model(tensor_gpu_data)
+            recon_x, _, _, x_encoded, _, gmm_labels = self.model(tensor_gpu_data)
 
         # 转换数据到CPU
         z_cpu = x_encoded.detach().cpu().numpy()
-        y_pred_cpu = y_pred.detach().cpu().numpy()
-        y_pred = y_pred_cpu.argmax(axis=1)
+        gmm_labels_cpu = gmm_labels.detach().cpu().numpy()
+        gmm_labels = gmm_labels_cpu.argmax(axis=1)
         recon_x_cpu = recon_x.detach().cpu().numpy()
         y_true = labels.detach().cpu().numpy()
 
-
         # 计算Leiden聚类标签
-        y_pred = leiden_clustering(z_cpu, resolution=0.9, n_neighbors=20)
+        z_leiden_labels = leiden_clustering(z_cpu, resolution=0.9, n_neighbors=20)
 
         # 计算评估指标
-        metrics = self.compute_clustering_metrics(y_pred, y_true)
+        gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
+        z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
         #recon_metrics = self.compute_reconstruction_metrics(tensor_gpu_data, recon_x)
+
+        metrics = {
+            'gmm_acc':gmm_metrics['acc'],
+            'gmm_nmi':gmm_metrics['nmi'],
+            'gmm_ari':gmm_metrics['ari'],
+            'leiden_acc':z_leiden_metrics['acc'],
+            'leiden_nmi':z_leiden_metrics['nmi'],
+            'leiden_ari':z_leiden_metrics['ari']
+        }
 
         # 解包训练指标
         train_metrics_names = ['total_loss', 'kl_loss', 'recon_loss', 'peak_loss', 'spectral_loss', 'non_neg_loss', 'baseline_loss']
@@ -179,22 +195,26 @@ class ModelEvaluator:
         #metrics.update(recon_metrics)
         metrics.update(train_metrics_dict)
 
-        # 打印评估结果
-        self._print_metrics(epoch,lr, metrics)
+        self._save_log(epoch, metrics, lr)
+        self._save_to_tensorboard(epoch, metrics)
 
-        # 保存结果
-        self._save_results(
-            epoch, 
-            metrics, 
-            lr,
-            z_cpu, 
-            recon_x_cpu, 
-            colors_map, 
-            y_true,
-            y_pred,
-            t_plot,
-            r_plot
-        )
+        # 打印评估结果
+
+        if epoch % 10 == 0:
+            self._print_metrics(epoch,lr, metrics)
+            self._save_results(
+                epoch, 
+                metrics, 
+                lr,
+                z_cpu, 
+                recon_x_cpu, 
+                colors_map, 
+                y_true,
+                gmm_labels,
+                z_leiden_labels,
+                t_plot,
+                r_plot
+            )
 
         return metrics
 
@@ -207,29 +227,38 @@ class ModelEvaluator:
             lr: 学习率
             metrics: 评估指标字典
         """
+        
         # 创建要打印的指标列表
-        metric_items = [
-            ('Epoch', epoch),
-            ('Total Loss', metrics.get('total_loss', 0.0)),
-            ('KL Loss', metrics.get('kl_loss', 0.0)),
-            ('Recon Loss', metrics.get('recon_loss', 0.0)),
-            ('Peak Loss', metrics.get('peak_loss', 0.0)),
-            ('Spectral Loss', metrics.get('spectral_loss', 0.0)),
-            ('Clustering Confidence Loss', metrics.get('clustering_confidence_loss', 0.0)),
-            ('Cluster Separation Loss', metrics.get('cluster_separation_loss', 0.0)),
-            ('ACC', metrics.get('acc', 0.0)),
-            ('NMI', metrics.get('nmi', 0.0)),
-            ('ARI', metrics.get('ari', 0.0)),
-            ('LR', lr)
+        loss_items = [
+            ('LR', lr, '.4f'),
+            ('Total Loss', metrics.get('total_loss', 0.0), '.2f'),
+            ('KL Loss', metrics.get('kl_loss', 0.0), '.2f'),
+            ('Recon Loss', metrics.get('recon_loss', 0.0), '.2f'),
+            ('Peak Loss', metrics.get('peak_loss', 0.0), '.2f'),
+            ('Spectral Loss', metrics.get('spectral_loss', 0.0), 'f'),
+            ('Clustering Confidence Loss', metrics.get('clustering_confidence_loss', 0.0), '.2f'),
+            ('Cluster Separation Loss', metrics.get('cluster_separation_loss', 0.0), '.2f')
+        ]
+
+        gmm_items = [
+            ('GMM ACC', metrics.get('gmm_acc', 0.0), '.4f'),
+            ('GMM NMI', metrics.get('gmm_nmi', 0.0), '.4f'),
+            ('GMM ARI', metrics.get('gmm_ari', 0.0), '.4f')
+        ]
+        z_leiden_items = [
+            ('Z_Leiden ACC', metrics.get('leiden_acc', 0.0), '.4f'),
+            ('Z_Leiden NMI', metrics.get('leiden_nmi', 0.0), '.4f'),
+            ('Z_Leiden ARI', metrics.get('leiden_ari', 0.0), '.4f') 
         ]
         
         # 构建打印字符串
-        metrics_str = ', '.join([
-            f'{name}: {value:.4f}' if isinstance(value, float) else f'{name}: {value}'
-            for name, value in metric_items
-        ])
-        
-        print(metrics_str)
+        loss_str = ', '.join([f'{name}: {value:{fmt}}' if fmt != 'd' else f'{name}: {value}' for name, value, fmt in loss_items])
+        gmm_str = ', '.join([f'{name}: {value:{fmt}}' for name, value, fmt in gmm_items])
+        z_leiden_str = ', '.join([f'{name}: {value:{fmt}}' for name, value, fmt in z_leiden_items])
+
+        print(loss_str)
+        print(gmm_str)
+        print(z_leiden_str)
 
     def _save_results(
         self,
@@ -240,7 +269,8 @@ class ModelEvaluator:
         recon_x_cpu: np.ndarray,
         colors_map: Dict[int, str],
         labels:np.ndarray,
-        y_pred_labels: np.ndarray,
+        gmm_labels: np.ndarray,
+        leiden_labels: np.ndarray,
         t_plot: bool,
         r_plot: bool,
         wavenumber:Optional[np.ndarray] = None
@@ -262,17 +292,17 @@ class ModelEvaluator:
             print("Warning: No paths specified for saving results")
             return
 
-        # 记录到文件
-        self._save_log(epoch, metrics, lr)
+        # # 记录到文件
+        # self._save_log(epoch, metrics, lr)
 
-        # 记录到TensorBoard
-        self._save_to_tensorboard(epoch, metrics)
+        # # 记录到TensorBoard
+        # self._save_to_tensorboard(epoch, metrics)
 
         # 保存t-SNE可视化
-        self._save_tsne_plot(epoch, z_cpu, labels, y_pred_labels, colors_map,t_plot)
+        self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, colors_map,t_plot)
 
         # 保存模型
-        self._save_model(epoch, metrics)
+        # self._save_model(epoch, metrics)
 
         # 保存重构可视化
         self._save_recon_plot(epoch, recon_x_cpu, labels, colors_map, wavenumber,r_plot)
@@ -306,7 +336,9 @@ class ModelEvaluator:
                 f.write(
                     f'{epoch}\t{metrics["total_loss"]:.4f}\t{metrics["recon_loss"]:.4f}\t'
                     f'{metrics["kl_loss"]:.4f}\t{metrics["peak_loss"]:.4f}\t{metrics["spectral_loss"]:.4f}\t'
-                    f'{metrics["acc"]:.4f}\t{metrics["nmi"]:.4f}\t{metrics["ari"]:.4f}\t{lr}\n'
+                    f'{metrics["gmm_acc"]:.4f}\t{metrics["gmm_nmi"]:.4f}\t{metrics["gmm_ari"]:.4f}\t'
+                    f'{metrics["leiden_acc"]:.4f}\t{metrics["leiden_nmi"]:.4f}\t{metrics["leiden_ari"]:.4f}\t'
+                    f'{lr:.4f}\n'
                 )
         except Exception as e:
             print(f"Error saving log file: {e}")
@@ -320,15 +352,23 @@ class ModelEvaluator:
             metrics: 评估指标字典
         """
         if self.writer:
-            for key in ['acc', 'nmi', 'ari']:
-                self.writer.add_scalar(key.upper(), metrics[key], epoch)
+            # GMM clustering metrics
+            self.writer.add_scalar('GMM/ACC', metrics['gmm_acc'], epoch)
+            self.writer.add_scalar('GMM/NMI', metrics['gmm_nmi'], epoch)
+            self.writer.add_scalar('GMM/ARI', metrics['gmm_ari'], epoch)
+            
+            # Leiden clustering metrics
+            self.writer.add_scalar('Leiden/ACC', metrics['leiden_acc'], epoch)
+            self.writer.add_scalar('Leiden/NMI', metrics['leiden_nmi'], epoch)
+            self.writer.add_scalar('Leiden/ARI', metrics['leiden_ari'], epoch)
 
     def _save_tsne_plot(
         self,
         epoch: int,
         z_cpu: np.ndarray,
         labels: np.ndarray,
-        y_pred_labels: np.ndarray,
+        gmm_labels:np.ndarray,  
+        leiden_labels:np.ndarray,
         colors_map: Dict[int, str],
         plot: bool
     ) -> None:
@@ -342,10 +382,10 @@ class ModelEvaluator:
             colors_map: 类别到颜色的映射字典
         """
         tsne_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_tsne_plot.png')
-        tsne_txt_pth = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
-        np.savetxt(tsne_txt_pth,z_cpu)
+        # tsne_txt_pth = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
+        # np.savetxt(tsne_txt_pth,z_cpu)
         if plot :
-            visualize_clusters(z=z_cpu, labels=labels, pred_labels=y_pred_labels, save_path=tsne_plot_path)
+            visualize_clusters(z=z_cpu, labels=labels, gmm_labels=gmm_labels, leiden_labels=leiden_labels, save_path=tsne_plot_path)
 
     def _save_model(self, epoch: int, metrics: Dict[str, float]) -> None:
         """
@@ -357,7 +397,7 @@ class ModelEvaluator:
         """
         model_path = os.path.join(
             self.paths['pth'],
-            f'epoch_{epoch}_acc_{metrics["acc"]:.2f}_nmi_{metrics["nmi"]:.2f}_ari_{metrics["ari"]:.2f}.pth'
+            f'epoch_{epoch}_gmm_acc_{metrics["gmm_acc"]:.2f}_gmm_nmi_{metrics["gmm_nmi"]:.2f}_gmm_ari_{metrics["gmm_ari"]:.2f}.pth'
         )
         torch.save(self.model.state_dict(), model_path)
 
@@ -374,8 +414,8 @@ class ModelEvaluator:
         保存重构可视化。
         """
         recon_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_plot.png')
-        recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
-        np.savetxt(recon_txt_path, recon_x_cpu)
+        # recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
+        # np.savetxt(recon_txt_path, recon_x_cpu)
         
         if plot:
             plot_reconstruction(

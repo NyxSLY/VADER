@@ -9,6 +9,7 @@ import torch.multiprocessing as mp
 from torch.multiprocessing import Process, Queue
 from contextlib import contextmanager
 import time
+import os
 
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
@@ -64,6 +65,8 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
         
         # 反向传播
         optimizer.zero_grad()
+        print(loss_dict['total_loss'])
+        print(type(loss_dict['total_loss']))
         loss_dict['total_loss'].backward()
         optimizer.step()
         
@@ -114,7 +117,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         scheduler = None
         
     device = model.device
-    writer = SummaryWriter(paths['tensorboard_log'])
+    model_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+    writer = SummaryWriter(log_dir=paths['tensorboard_log']+f'/{model_name}')
     evaluator = ModelEvaluator(
         model=model,
         device=device,
@@ -168,24 +172,23 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         if writer is not None:
             writer.add_scalar('Learning_rate', lr, epoch)
         
-        # 同步评估（每隔一定间隔进行）
-        if epoch % train_config['save_interval'] == 0:
-            metrics = evaluator.evaluate_epoch(
-                tensor_gpu_data, 
-                labels, 
-                epoch, 
-                colors_map,
-                lr, 
-                train_metrics, 
-                t_plot, 
-                r_plot
-            )
+        # 同步评估
+        metrics = evaluator.evaluate_epoch(
+            tensor_gpu_data, 
+            labels, 
+            epoch, 
+            colors_map,
+            lr, 
+            train_metrics, 
+            t_plot, 
+            r_plot
+        )
             
-            # 检查早停条件
-            if check_early_stopping(metrics, train_config['min_loss_threshold']):
-                print(f'达到最小损失阈值,提前停止训练。总损失:{metrics["total_loss"]:.6f}, '
-                      f'重建损失:{metrics["recon_loss"]:.6f}')
-                return model
+        # 检查早停条件
+        if check_early_stopping(metrics, train_config['min_loss_threshold']):
+            print(f'达到最小损失阈值,提前停止训练。总损失:{metrics["total_loss"]:.6f}, '
+                  f'重建损失:{metrics["recon_loss"]:.6f}')
+            return model
     
     return model
 
