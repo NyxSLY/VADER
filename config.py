@@ -26,6 +26,10 @@ class ProjectConfig:
             'epochs': int(config['model_params']['epochs']),
             'device':str(config['model_params']['device']),
             'encoder_type': str(config['model_params']['encoder_type']),
+            'pretrain_epochs': int(config['model_params']['pretrain_epochs']),
+            'clustering_method': str(config['model_params']['clustering_method']),
+            'resolution_1': float(config['model_params']['resolution_1']),
+            'resolution_2': float(config['model_params']['resolution_2']),
             'cnn':{
                 'cnn1': int(config['model_params']['cnn_parameters']['cnn1']),
                 'cnn2': int(config['model_params']['cnn_parameters']['cnn2']),

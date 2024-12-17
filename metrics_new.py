@@ -31,13 +31,14 @@ class ModelEvaluator:
         model: torch.nn.Module,
         device: torch.device,
         paths: Optional[Dict] = None,
-        writer: Optional[SummaryWriter] = None
+        writer: Optional[SummaryWriter] = None,
+        resolution_2: float = 1.0
     ):
         self.model = model
         self.device = device
         self.paths = paths
         self.writer = writer
-
+        self.resolution_2 = resolution_2
         if self.paths and not os.path.exists(os.path.join(self.paths['training_log'], "training_log.txt")):
             with open(os.path.join(self.paths['training_log'], "training_log.txt"), "w") as f:
                 f.write("Epoch\tTotal_loss\tRecon_loss\tKL_loss\tPeak_loss\tSpectral_loss\t"
@@ -171,7 +172,7 @@ class ModelEvaluator:
         y_true = labels.detach().cpu().numpy()
 
         # 计算Leiden聚类标签
-        z_leiden_labels = leiden_clustering(z_cpu, resolution=0.9, n_neighbors=20)
+        z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
 
         # 计算评估指标
         gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
