@@ -583,7 +583,7 @@ def plot_reconstruction(
     plt.savefig(save_path,bbox_inches='tight', dpi=500)
     plt.close()
 
-def leiden_clustering(spectra, n_neighbors=15, resolution=1.0, seed=42):
+def leiden_clustering(spectra, n_neighbors=20, resolution=1.0, seed=42):
     """使用Leiden算法进行聚类
     
     Args:
