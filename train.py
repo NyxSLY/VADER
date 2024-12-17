@@ -65,8 +65,8 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
         
         # 反向传播
         optimizer.zero_grad()
-        print(loss_dict['total_loss'])
-        print(type(loss_dict['total_loss']))
+        #print(loss_dict['total_loss'])
+        #print(type(loss_dict['total_loss']))
         loss_dict['total_loss'].backward()
         optimizer.step()
         
