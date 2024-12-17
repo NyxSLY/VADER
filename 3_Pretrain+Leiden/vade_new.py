@@ -628,7 +628,7 @@ class VaDE(nn.Module):
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
                  pretrain_epochs=50,
-                 num_classes=0, resolution=1.0, clustering_method='leiden'):
+                 num_classes=0, resolution_1=1.0, resolution_2=0.9, clustering_method='leiden'):
         super(VaDE, self).__init__()
         self.device = device
         self.latent_dim = latent_dim
@@ -647,7 +647,8 @@ class VaDE(nn.Module):
         self.cluster_separation_method = cluster_separation_method
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
-        self.resolution = resolution
+        self.resolution_1 = resolution_1
+        self.resolution_2 = resolution_2
         self.clustering_method = clustering_method
 
         self.peak_detector = PeakDetector().to(device)
@@ -787,7 +788,7 @@ class VaDE(nn.Module):
             adj_matrix = nn.kneighbors_graph(encoded_data, mode='distance')
             
             G = nx.from_scipy_sparse_matrix(adj_matrix)
-            partition = community_louvain.best_partition(G, resolution=self.resolution)
+            partition = community_louvain.best_partition(G, resolution=self.resolution_1)
             labels = np.array(list(partition.values()))
             
             # 计算聚类中心
@@ -799,7 +800,7 @@ class VaDE(nn.Module):
         
         elif self.clustering_method == 'leiden':
             # Leiden方法
-            labels = leiden_clustering(encoded_data,  resolution=self.resolution)
+            labels = leiden_clustering(encoded_data,  resolution=self.resolution_1)
             
             # 计算聚类中心
             unique_labels = np.unique(labels)
