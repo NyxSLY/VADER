@@ -21,7 +21,7 @@ model_params:
   pretrain_epochs: 50
   clustering_method: 'leiden'
   resolution_1: 2.0
-  resolution_2: 1.0
+  resolution_2: 0.9
 
   basic_parameters:
     latent_dim: 20
