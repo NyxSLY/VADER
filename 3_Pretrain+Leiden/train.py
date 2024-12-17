@@ -15,7 +15,7 @@ import os
 mp.set_start_method('spawn', force=True)
 
 class WeightScheduler:
-    def __init__(self, init_weights, max_weights, n_epochs, resolution):
+    def __init__(self, init_weights, max_weights, n_epochs, resolution_2):
         """
         Args:
             init_weights: 初始权重字典 {'lamb1': 1.0, 'lamb2': 0.1, ...}
@@ -26,7 +26,7 @@ class WeightScheduler:
         self.max_weights = max_weights
         self.n_epochs = n_epochs
         self.warmup_epochs = n_epochs // 5  # 预热期为总轮数的1/5
-        self.resolution = resolution
+        self.resolution_2 = resolution_2
         
     def get_weights(self, epoch):
         """获取当前epoch的权重"""
@@ -123,7 +123,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         device=device,
         paths=paths,
         writer=writer,
-        resolution=model_params['resolution']
+        resolution_2=model_params['resolution_2']
     )
 
     # 初始化权重调度器
@@ -131,7 +131,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         init_weights=weight_config['init_weights'],
         max_weights=weight_config['max_weights'],
         n_epochs=model_params['epochs'],
-        resolution=model_params['resolution']
+        resolution_2=model_params['resolution_2']
     )
     model.init_kmeans_centers(dataloader)
 
