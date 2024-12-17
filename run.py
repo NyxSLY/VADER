@@ -23,8 +23,10 @@ def main():
     # 读取数据
     # oc_train_data = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_data_fil_191.txt", delimiter=" ")
     # oc_train_label = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_labels_to_confmatrix.txt", delimiter=" ").astype(int)
-    nc_data_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/X_reference.npy")
-    nc_labels_org = np.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
+    # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9.npy")
+    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9_label.npy").astype(int)
+    nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
+    nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
     #nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference.npy")
     #nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
     # nc_data_org = np.load("/home/zym/DESC/Datasets/NC-30-species/X_reference.npy")
@@ -65,7 +67,6 @@ def main():
         input_dim=input_dim,
         intermediate_dim=model_params['intermediate_dim'],
         latent_dim=model_params['latent_dim'],
-        num_classes=num_classes,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
@@ -73,8 +74,14 @@ def main():
         lamb5=weight_scheduler_config['init_weights']['lamb5'],
         lamb6=weight_scheduler_config['init_weights']['lamb6'],
         device=device,
+        l_c_dim=l_c_dim,
+        batch_size=batch_size,
         encoder_type=model_params['encoder_type'],
-        l_c_dim=l_c_dim
+        pretrain_epochs=model_params['pretrain_epochs'],
+        num_classes=num_classes,
+        clustering_method=model_params['clustering_method'],
+        resolution_1=model_params['resolution_1'],
+        resolution_2=model_params['resolution_2']
     ).to(device)
 
     # model.eval()
@@ -83,8 +90,13 @@ def main():
     #model.kmeans_init = choose_kmeans_method
     model.kmeans_init = 'random'
     # 训练模型
-    print("\n开始模型训练...")
+    print("\n开始预训练...  ")
+    model.pretrain(
+        dataloader=dataloader,
+        learning_rate=1e-5
+    )
 
+    print("\n开始模型训练...")
     # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))
     model = train_manager(
         model=model,

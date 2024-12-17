@@ -10,6 +10,10 @@ import torch.cuda
 from utility import leiden_clustering, compute_cluster_means
 import time
 from collections import defaultdict
+import networkx as nx
+from sklearn.neighbors import NearestNeighbors
+from community import community_louvain
+from utility import leiden_clustering
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, intermediate_dim,latent_dim):
@@ -424,11 +428,11 @@ class Decoder(nn.Module):
         return self.net(z)
 
 class Gaussian(nn.Module):
-    def __init__(self, num_classes, latent_dim):
+    def __init__(self, num_clusters, latent_dim):
         super(Gaussian, self).__init__()
-        self.num_classes = num_classes
-        self.means = nn.Parameter(torch.zeros(num_classes, latent_dim))
-        self.log_variances = nn.Parameter(torch.zeros(num_classes, latent_dim))
+        self.num_clusters = num_clusters
+        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
+        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
 
     def forward(self, z):
         log_p = self.gaussian_log_prob(z)
@@ -439,7 +443,7 @@ class Gaussian(nn.Module):
 
     def gaussian_log_prob(self, z):
         log_p_list = []
-        for c in range(self.num_classes):
+        for c in range(self.num_clusters):
             log_p_list.append(
                 self.gaussian_log_pdf(z, self.means[c:c + 1, :], self.log_variances[c:c + 1, :]).unsqueeze(1))
         return torch.cat(log_p_list, dim=1)
@@ -619,10 +623,14 @@ class ImprovedSpectralEncoder(nn.Module):
         return mean, logvar
 
 class VaDE(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim, num_classes, device, l_c_dim, encoder_type="basic", lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, cluster_separation_method='cosine', batch_size=None):
+    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, 
+                 encoder_type="basic", batch_size=None, 
+                 lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
+                 cluster_separation_method='cosine',
+                 pretrain_epochs=50,
+                 num_classes=0, resolution_1=1.0, resolution_2=0.9, clustering_method='leiden'):
         super(VaDE, self).__init__()
         self.device = device
-        self.num_classes = num_classes
         self.latent_dim = latent_dim
         self.batch_size = batch_size
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim)
@@ -637,6 +645,11 @@ class VaDE(nn.Module):
         self.lamb6 = lamb6
         self.lamb7 = lamb7
         self.cluster_separation_method = cluster_separation_method
+        self.pretrain_epochs = pretrain_epochs
+        self.num_classes = num_classes
+        self.resolution_1 = resolution_1
+        self.resolution_2 = resolution_2
+        self.clustering_method = clustering_method
 
         self.peak_detector = PeakDetector().to(device)
         self.spectral_constraints = SpectralConstraints(
@@ -709,6 +722,98 @@ class VaDE(nn.Module):
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
+
+    def pretrain(self, dataloader, learning_rate=1e-3):
+        """预训练自编码器部分
+        
+        Args:
+            dataloader: 数据加载器
+            epochs: 预训练轮数
+            learning_rate: 学习率
+        """
+        print("Starting pretraining...")
+        optimizer = torch.optim.Adam(
+            list(self.encoder.parameters()) + 
+            list(self.decoder.parameters()), 
+            lr=learning_rate
+        )
+        
+        self.train()
+        for epoch in range(self.pretrain_epochs):
+            total_loss = 0
+            for batch_idx, (x, _) in enumerate(dataloader):
+                x = x.to(self.device)
+                
+                # 前向传播
+                mean, log_var = self.encoder(x)
+                z = self.reparameterize(mean, log_var)
+                recon_x = self.decoder(z)
+                
+                # 计算预训练损失（仅包含重构损失和KL散度）
+                recon_loss = self.vae_loss(recon_x, x)
+                kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
+                loss = recon_loss # + 0.1 * kl_loss  # KL散度权重较小
+                
+                # 反向传播
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                
+                total_loss += loss.item()
+            
+            # 打印训练进度
+            avg_loss = total_loss / len(dataloader)
+            if (epoch + 1) % 10 == 0:
+                print(f'Pretrain Epoch [{epoch+1}/{self.pretrain_epochs}], Average Loss: {avg_loss:.4f}')
+        
+        print("Pretraining finished!")
+        
+        # 预训练后初始化聚类中心
+        print("Initializing cluster centers...")
+        self.init_kmeans_centers(dataloader)
+
+    def _apply_clustering(self, encoded_data):
+        """应用选定的聚类方法"""
+        if self.clustering_method == 'kmeans':
+            # K-means方法
+            kmeans = KMeans(n_clusters=self.num_classes, random_state=0)
+            labels = kmeans.fit_predict(encoded_data)
+            cluster_centers = kmeans.cluster_centers_
+            
+        elif self.clustering_method == 'louvain':
+            # Louvain方法
+            # 构建 KNN 图
+            nn = NearestNeighbors(n_neighbors=10)
+            nn.fit(encoded_data)
+            adj_matrix = nn.kneighbors_graph(encoded_data, mode='distance')
+            
+            G = nx.from_scipy_sparse_matrix(adj_matrix)
+            partition = community_louvain.best_partition(G, resolution=self.resolution_1)
+            labels = np.array(list(partition.values()))
+            
+            # 计算聚类中心
+            unique_labels = np.unique(labels)
+            cluster_centers = np.zeros((len(unique_labels), encoded_data.shape[1]))
+            for i, label in enumerate(unique_labels):
+                mask = labels == label
+                cluster_centers[i] = encoded_data[mask].mean(axis=0)
+        
+        elif self.clustering_method == 'leiden':
+            # Leiden方法
+            labels = leiden_clustering(encoded_data,  resolution=self.resolution_1)
+            
+            # 计算聚类中心
+            unique_labels = np.unique(labels)
+            cluster_centers = np.zeros((len(unique_labels), encoded_data.shape[1]))
+            for i, label in enumerate(unique_labels):
+                mask = labels == label
+                cluster_centers[i] = encoded_data[mask].mean(axis=0)
+        
+        else:
+            raise ValueError(f"Unsupported clustering method: {self.clustering_method}")
+        
+        return labels, cluster_centers
+
     @torch.no_grad()
     def init_kmeans_centers(self, dataloader):
         """初始化聚类中心"""
@@ -719,27 +824,22 @@ class VaDE(nn.Module):
             encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
-        # 使用 KMeans 初始化
-        kmeans = KMeans(n_clusters=self.num_classes, random_state=0)
-        kmeans.fit(encoded_data)
-        cluster_centers = torch.tensor(kmeans.cluster_centers_, device=self.device)
+        # 使用选定的聚类方法
+        labels, cluster_centers = self._apply_clustering(encoded_data)
+        num_clusters = len(np.unique(labels))
+        cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
         # 初始化高斯分布参数
+        self.num_clusters = num_clusters
+        self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
         self.gaussian.means.data.copy_(cluster_centers)
         self.cluster_centers = cluster_centers
-    # def init_kmeans_centers(self,x):
-    #     """初始化聚类中心"""
-    #     encoded_data, _ = self.encoder(x)
-    #     encoded_data = encoded_data.to(x.device)
-    #     kmeans = KMeans(n_clusters=self.num_classes)
-    #     cluster_labels = kmeans.fit_predict(encoded_data.cpu().detach().numpy())
-    #     cluster_centers = kmeans.cluster_centers_
-    #     cluster_centers = torch.tensor(cluster_centers).to(x.device)
-    #     self.gaussian.means.data.copy_(cluster_centers)
-    #     self.cluster_centers = cluster_centers
+
+
     @torch.no_grad()
     def update_kmeans_centers(self, dataloader):
-        """使用 KMeans 更新聚类中心"""
+        """更新聚类中心"""
+        print(f'Update clustering centers..........')
         encoded_data = []
         for x, _ in dataloader:
             x = x.to(self.device)
@@ -747,10 +847,17 @@ class VaDE(nn.Module):
             encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
-        # 使用 KMeans 更新中心
-        kmeans = KMeans(n_clusters=self.num_classes, random_state=0)
-        kmeans.fit(encoded_data)
-        cluster_centers = torch.tensor(kmeans.cluster_centers_, device=self.device)
+        # 使用选定的方法更新聚类中心
+        labels, cluster_centers = self._apply_clustering(encoded_data)
+        num_clusters = len(np.unique(labels))
+        cluster_centers = torch.tensor(cluster_centers, device=self.device)
+
+        # 如果聚类数量发生变化，需要重新初始化高斯分布
+        if num_clusters != self.gaussian.num_clusters:
+            print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
+            self.num_clusters = num_clusters
+            self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
+
 
         # 更新高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
