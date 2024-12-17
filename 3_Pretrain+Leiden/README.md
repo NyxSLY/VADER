@@ -1,2 +1,0 @@
-# VADER
-Raman VADE
