@@ -20,7 +20,8 @@ model_params:
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 50
   clustering_method: 'leiden'
-  resolution: 1.0
+  resolution_1: 2.0
+  resolution_2: 0.9
   basic_parameters:
     latent_dim: 20
     intermediate_dim: 512
