@@ -80,7 +80,8 @@ def main():
         pretrain_epochs=model_params['pretrain_epochs'],
         num_classes=num_classes,
         clustering_method=model_params['clustering_method'],
-        resolution=model_params['resolution']
+        resolution_1=model_params['resolution_1'],
+        resolution_2=model_params['resolution_2']
     ).to(device)
 
     # model.eval()
