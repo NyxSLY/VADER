@@ -393,8 +393,8 @@ def sample_plot(
 def visualize_clusters(
     z: np.ndarray,
     labels: np.ndarray,
-    gmm_labels:np.ndarray,
-    leiden_labels:np.ndarray,
+    gmm_labels: np.ndarray,
+    leiden_labels: np.ndarray,
     save_path: str,
     colors_map: Optional[Dict[int, str]] = None,
     random_state: int = 42,
@@ -432,24 +432,24 @@ def visualize_clusters(
     ari_leiden = adjusted_rand_score(labels, leiden_labels)
 
     # 绘图
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 8))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(22, 8))
     
     # 绘制真实标签的散点图
     scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=colors_map)
     ax1.set_title('True Labels')
-    legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes")
+    legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
     
     # 绘制GMM预测聚类结果的散点图
-    scatter2 = ax2.scatter(z_tsne[:, 0], z_tsne[:, 1], c=gmm_labels, cmap='tab20')
+    scatter2 = ax2.scatter(z_tsne[:, 0], z_tsne[:, 1], c=gmm_labels, cmap='tab30')
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
-    legend2 = ax2.legend(*scatter2.legend_elements(), title="Classes")
+    legend2 = ax2.legend(*scatter2.legend_elements(), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
 
     # 绘制Leiden预测聚类结果的散点图
     scatter3 = ax3.scatter(z_tsne[:, 0], z_tsne[:, 1], c=leiden_labels, cmap='tab20')
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
-    legend3 = ax3.legend(*scatter3.legend_elements(), title="Classes")
+    legend3 = ax3.legend(*scatter3.legend_elements(), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax3.add_artist(legend3)
     
     # 保存图像
