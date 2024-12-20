@@ -433,10 +433,20 @@ class Gaussian(nn.Module):
         self.num_clusters = num_clusters
         self.latent_dim = latent_dim
         
-        # GMM参数
-        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)  # 混合权重
-        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))  # 均值
-        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))  # 方差
+        # 初始化参数
+        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
+        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
+        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
+        
+    def update_parameters(self, cluster_centers=None, variances=None, weights=None):
+        """更新GMM参数"""
+        with torch.no_grad():
+            if cluster_centers is not None:
+                self.means.data.copy_(cluster_centers)
+            if variances is not None:
+                self.log_variances.data.copy_(torch.log(variances + 1e-10))
+            if weights is not None:
+                self.pi.data.copy_(weights)
 
     def forward(self, z):
         # 计算条件概率/可能性
@@ -848,11 +858,8 @@ class VaDE(nn.Module):
         num_clusters = len(np.unique(labels))
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
-        # 初始化高斯分布参数
-        self.num_clusters = num_clusters
-        self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
+        # 直接用聚类中心更新高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
-        self.cluster_centers = cluster_centers
 
 
     @torch.no_grad()
