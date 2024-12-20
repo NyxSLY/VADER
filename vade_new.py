@@ -431,26 +431,41 @@ class Gaussian(nn.Module):
     def __init__(self, num_clusters, latent_dim):
         super(Gaussian, self).__init__()
         self.num_clusters = num_clusters
+        self.latent_dim = latent_dim
+        
+        # 添加混合权重参数
+        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
         self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
         self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
 
     def forward(self, z):
-        log_p = self.gaussian_log_prob(z)
-        means = torch.sum(torch.exp(log_p.unsqueeze(2) - log_p.max(dim=1, keepdim=True)[0].unsqueeze(1)) * self.means,
-                          dim=1)
-        y_pre = torch.exp(self.gaussian_log_prob(z))
-        return means, y_pre
+        # 计算完整的对数似然
+        log_p = self.gaussian_log_prob(z)  # log p(z|c)
+        log_pi = torch.log(self.pi + 1e-10)  # log p(c)
+        y = log_p + log_pi.unsqueeze(0)  # log p(z,c) = log p(z|c) + log p(c)
+        
+        # 计算后验概率
+        gamma = F.softmax(y, dim=1)  # p(c|z)
+        
+        # 计算条件均值
+        means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
+        
+        return means, y
 
     def gaussian_log_prob(self, z):
+        """计算log p(z|c)"""
         log_p_list = []
         for c in range(self.num_clusters):
-            log_p_list.append(
-                self.gaussian_log_pdf(z, self.means[c:c + 1, :], self.log_variances[c:c + 1, :]).unsqueeze(1))
+            log_p_c = -0.5 * (
+                self.latent_dim * math.log(2 * math.pi) +
+                torch.sum(
+                    self.log_variances[c] +
+                    (z - self.means[c]).pow(2) / torch.exp(self.log_variances[c]),
+                    dim=1
+                )
+            )
+            log_p_list.append(log_p_c.unsqueeze(1))
         return torch.cat(log_p_list, dim=1)
-
-    @staticmethod
-    def gaussian_log_pdf(x, mu, log_var):
-        return -0.5 * (torch.sum(log_var + ((x - mu).pow(2) / torch.exp(log_var)), dim=1))
 
 class SpectralAnalyzer:
     def __init__(self, peak_detector, spectral_constraints):
@@ -877,17 +892,6 @@ class VaDE(nn.Module):
         z_prior_mean, y = self.gaussian(z)
         return recon_x, mean, log_var, z, z_prior_mean, y
 
-    def kl_div_loss(self, mean, log_var, z_prior_mean):
-        z_mean = mean.unsqueeze(1)
-        z_log_var = log_var.unsqueeze(1)
-        kl_loss = -0.5 * torch.sum(1 + z_log_var - (z_mean - z_prior_mean) ** 2 - torch.exp(z_log_var), dim=-1)
-        kl_loss = torch.mean(kl_loss)
-        return kl_loss
-
-    def vae_loss(self, recon_x, x):
-        xent_loss = 0.5 * torch.mean((x - recon_x) ** 2)
-        return xent_loss 
-
     def compute_spectral_constraints(self, x, recon_x):
         """计算光谱约束时只使用数据集统计信息"""
         constraints = {}
@@ -923,50 +927,47 @@ class VaDE(nn.Module):
         return constraints
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
-        """计算所有损失"""
-        # 1. 基础损失计算
-        recon_loss = self.vae_loss(recon_x, x) / (torch.mean(x**2) + 1e-8)
-        kl_loss = self.kl_div_loss(mean, log_var, z_prior_mean) / self.latent_dim
-        peak_loss = torch.mean(self.peak_detector(x) * (x - recon_x) ** 2)
+        """计算所有损失，严格按照原始VaDE论文"""
+        batch_size = x.size(0)
         
-        # 2. 光谱约束损失
-        spectral_constraints = self.compute_spectral_constraints(x, recon_x)
-        spectral_loss = sum(spectral_constraints.values())  # 合并所有光谱约束损失
+        # 1. 重构损失
+        recon_loss = self.alpha * self.original_dim * F.mse_loss(recon_x, x, reduction='mean')
         
-        # 3. 聚类损失
-        cluster_probs = F.softmax(y, dim=1)
-        clustering_confidence_loss = -torch.mean(torch.max(cluster_probs, dim=1)[0])
+        # 2. 从y计算gamma (y已经包含了log p(z|c) + log p(c))
+        gamma = F.softmax(y, dim=1)  # [batch_size, n_centroid]
+        gamma_t = gamma.unsqueeze(2).expand(-1, -1, self.latent_dim)
         
-        # 计算类间分离损失
-        cluster_assignments = torch.argmax(cluster_probs, dim=1)
-        cluster_separation_loss = self._compute_cluster_separation(
-            mean, 
-            cluster_assignments,
-            method=self.cluster_separation_method
+        # 3. GMM先验的KL散度
+        kl_gmm = torch.sum(
+            0.5 * gamma_t * (
+                self.latent_dim * math.log(2*math.pi) +
+                torch.log(self.gaussian.log_variances.exp()) +
+                torch.exp(log_var.unsqueeze(1)) / self.gaussian.log_variances.exp() +
+                (mean.unsqueeze(1) - self.gaussian.means).pow(2) / self.gaussian.log_variances.exp()
+            ),
+            dim=(1,2)
         )
-
-        # 4. 合并所有损失
-        total_loss = (
-            self.lamb1 * recon_loss +
-            self.lamb2 * kl_loss +
-            self.lamb4 * spectral_loss +
-            self.lamb5 * clustering_confidence_loss +
-            self.lamb6 * cluster_separation_loss
+        
+        # 4. 标准正态分布的KL散度
+        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=1)
+        
+        # 5. GMM熵项
+        entropy = (
+            -torch.sum(torch.log(self.gaussian.pi.unsqueeze(0)) * gamma, dim=1) +
+            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=1)
         )
-
-        # 5. 返回详细的损失字典
+        
+        # 6. 总损失
+        loss = recon_loss + kl_gmm + kl_standard + entropy
+        
+        # 返回损失字典
         loss_dict = {
-            'total_loss': total_loss,  # 不要调用.item()，保持计算图
-            'recon_loss': recon_loss.item(),  # 这些可以转换为标量
-            'kl_loss': kl_loss.item(),
-            'spectral_loss': spectral_loss.item(),
-            'clustering_confidence_loss': clustering_confidence_loss.item(),
-            'cluster_separation_loss': cluster_separation_loss.item()
+            'total_loss': loss,
+            'recon_loss': recon_loss.item(),
+            'kl_gmm': torch.mean(kl_gmm).item(),
+            'kl_standard': torch.mean(kl_standard).item(),
+            'entropy': torch.mean(entropy).item()
         }
-        
-        # 添加详细的光谱约束损失
-        for key, value in spectral_constraints.items():
-            loss_dict[f'spectral_{key}'] = value.item()
         
         return loss_dict
 
