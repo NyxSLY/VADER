@@ -433,16 +433,19 @@ class Gaussian(nn.Module):
         self.num_clusters = num_clusters
         self.latent_dim = latent_dim
         
-        # 添加混合权重参数
-        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
-        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
-        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
+        # GMM参数
+        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)  # 混合权重
+        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))  # 均值
+        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))  # 方差
 
     def forward(self, z):
-        # 计算完整的对数似然
+        # 计算条件概率/可能性
         log_p = self.gaussian_log_prob(z)  # log p(z|c)
-        log_pi = torch.log(self.pi + 1e-10)  # log p(c)
-        y = log_p + log_pi.unsqueeze(0)  # log p(z,c) = log p(z|c) + log p(c)
+        
+        # 加入先验概率
+        pi = self.pi  # 获取当前的混合权重
+        log_pi = torch.log(pi + 1e-10)  # log p(c)
+        y = log_p + log_pi.unsqueeze(0)  # log p(z,c)
         
         # 计算后验概率
         gamma = F.softmax(y, dim=1)  # p(c|z)
@@ -450,7 +453,8 @@ class Gaussian(nn.Module):
         # 计算条件均值
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
         
-        return means, y
+        # 返回所有需要的值
+        return means, y, gamma, pi  # 输出PI
 
     def gaussian_log_prob(self, z):
         """计算log p(z|c)"""
@@ -888,9 +892,55 @@ class VaDE(nn.Module):
         """模型前向传播"""
         mean, log_var = self.encoder(x)
         z = self.reparameterize(mean, log_var)
+        
+        # 通过GMM获取所有需要的值
+        means, y, gamma, pi = self.gaussian(z)
+        
+        # 解码
         recon_x = self.decoder(z)
-        z_prior_mean, y = self.gaussian(z)
-        return recon_x, mean, log_var, z, z_prior_mean, y
+        
+        return recon_x, mean, log_var, z, gamma, pi
+
+    def loss_function(self, recon_x, x, mean, log_var, z, gamma, pi):
+        """计算损失函数
+        Args:
+            recon_x: 重构的输入
+            x: 原始输入
+            mean: 编码器输出的均值
+            log_var: 编码器输出的对数方差
+            z: 重参数化后的潜在变量
+            gamma: 后验概率 p(c|z)
+            pi: GMM的混合权重
+        """
+        # 重构损失
+        recon_loss = F.mse_loss(recon_x, x)
+        
+        # GMM的KL散度
+        kl_gmm = self.compute_gmm_kl(mean, log_var, gamma)
+        
+        # 标准正态的KL散度
+        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=1)
+        
+        # Entropy项
+        entropy = (
+            -torch.sum(torch.log(pi.unsqueeze(0)) * gamma, dim=1) +
+            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=1)
+        )
+        
+        return recon_loss + kl_gmm + kl_standard + entropy
+
+    def train_step(self, x):
+        """单步训练
+        Args:
+            x: 输入数据
+        """
+        # 前向传播
+        recon_x, mean, log_var, z, gamma, pi = self(x)
+        
+        # 计算损失
+        loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
+        
+        return loss
 
     def compute_spectral_constraints(self, x, recon_x):
         """计算光谱约束时只使用数据集统计信息"""
