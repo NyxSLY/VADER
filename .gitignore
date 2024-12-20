@@ -5,4 +5,5 @@ nc_test*/
 baseline/
 home_pc/
 **/
+model_config.yaml
 !.gitignore
