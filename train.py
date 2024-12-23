@@ -59,10 +59,13 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
         x = x[0].to(model.device)
         
         # 前向传播
-        recon_x, mean, log_var, z, z_prior_mean, y_pred = model(x)
+        recon_x, mean, log_var, z, gamma, pi = model(x)
+        
+        # 获取GMM的输出
+        _, y, gamma, pi = model.gaussian(z)
         
         # 损失计算
-        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z_prior_mean, y_pred)
+        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
         
         # 反向传播
         optimizer.zero_grad()
@@ -71,7 +74,10 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
         
         # 更新总指标
         for key, value in loss_dict.items():
-            total_metrics[key] += value
+            if isinstance(value, torch.Tensor):
+                total_metrics[key] += value.item()
+            else:
+                total_metrics[key] += value
             
         # 记录到tensorboard
         if writer is not None and batch_idx % 10 == 0:
@@ -161,8 +167,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # 添加进度打印
         print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
-        if (epoch + 1) % 10 == 0:
-            model.update_kmeans_centers(dataloader)
+        # skip update kmeans centers
+        #if (epoch + 1) % 10 == 0:
+        #    model.update_kmeans_centers(dataloader)
             
         # 更新学习率
         lr = model_params['learning_rate'] if scheduler is None else scheduler.get_last_lr()[0]

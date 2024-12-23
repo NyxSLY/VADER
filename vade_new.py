@@ -772,16 +772,15 @@ class VaDE(nn.Module):
                 x = x.to(self.device)
                 
                 # 前向传播
-               # mean, log_var = self.encoder(x)
-                z, _= self.encoder(x)  # 模拟encoder
-                #z = self.reparameterize(mean, log_var)
+                mean, log_var = self.encoder(x)
+                # z, _= self.encoder(x)  # 模拟encoder
+                z = self.reparameterize(mean, log_var)
                 recon_x = self.decoder(z)
                 
                 # 计算预训练损失（仅包含重构损失和KL散度）
                 recon_loss = F.mse_loss(recon_x, x, reduction='mean')
-                # kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
-                #loss = recon_loss  + 0.1 * kl_loss  # KL散度权重较小
-                loss = recon_loss
+                kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
+                loss = recon_loss  + kl_loss 
                 # 反向传播
                 optimizer.zero_grad()
                 loss.backward()
@@ -1012,16 +1011,17 @@ class VaDE(nn.Module):
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
         )
+
         # 6. 总损失
-        loss = recon_loss + kl_gmm.mean() + kl_standard.mean() + entropy.mean()
+        loss = recon_loss + kl_gmm.sum() + kl_standard.sum() + entropy.sum()
         
         # 返回损失字典
         loss_dict = {
             'total_loss': loss,
             'recon_loss': recon_loss.item(),
-            'kl_gmm': torch.mean(kl_gmm).item(),
-            'kl_standard': torch.mean(kl_standard).item(),
-            'entropy': torch.mean(entropy).item()
+            'kl_gmm': torch.sum(kl_gmm).item(),
+            'kl_standard': torch.sum(kl_standard).item(),
+            'entropy': torch.sum(entropy).item()
         }
         
         return loss_dict

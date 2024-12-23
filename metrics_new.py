@@ -41,7 +41,8 @@ class ModelEvaluator:
         self.resolution_2 = resolution_2
         if self.paths and not os.path.exists(os.path.join(self.paths['training_log'], "training_log.txt")):
             with open(os.path.join(self.paths['training_log'], "training_log.txt"), "w") as f:
-                f.write("Epoch\tTotal_loss\tRecon_loss\tKL_loss\tPeak_loss\tSpectral_loss\t"
+                f.write("Epoch\tTotal_loss\tRecon_loss\tKL_GMM\tKL_Standard\tEntropy\t"
+                        "Peak_loss\tSpectral_loss\t"
                         "gmm_acc\tgmm_nmi\tgmm_ari\t"
                         "z_leiden_acc\tz_leiden_nmi\tz_leiden_ari\t"
                         "Learning_Rate\n")
@@ -148,6 +149,7 @@ class ModelEvaluator:
         """
         评估一个 epoch 的结果,计算各种指标,并保存到文件和 TensorBoard。
         """
+        
         self.model.eval()
         with torch.no_grad():
             # 获取模型输出
@@ -155,8 +157,8 @@ class ModelEvaluator:
             
             # 转换数据到CPU
             z_cpu = z.detach().cpu().numpy()
-            gmm_probs = gamma.detach().cpu().numpy()  # shape: [batch_size, num_clusters]
-            gmm_labels = np.argmax(gmm_probs, axis=1)  # shape: [batch_size]
+            gmm_probs = gamma.detach().cpu().numpy()
+            gmm_labels = np.argmax(gmm_probs, axis=1)
             recon_x_cpu = recon_x.detach().cpu().numpy()
             y_true = labels.cpu().numpy()
 
@@ -177,7 +179,7 @@ class ModelEvaluator:
             }
 
             # 解包训练指标
-            train_metrics_names = ['total_loss', 'kl_loss', 'recon_loss', 'peak_loss', 'spectral_loss', 'non_neg_loss', 'baseline_loss']
+            train_metrics_names = ['total_loss', 'recon_loss', 'kl_gmm', 'kl_standard', 'entropy', 'peak_loss', 'spectral_loss', 'clustering_confidence_loss', 'cluster_separation_loss']
             train_metrics_dict = {name: train_metrics[name] for name in train_metrics_names}
 
             # 合并所有指标
@@ -215,12 +217,14 @@ class ModelEvaluator:
             metrics: 评估指标字典
         """
         
-        # 创建要打印的指标列表
+        # 创建要打印的指标列表，匹配 vade_new.py 中的 loss_dict
         loss_items = [
             ('LR', lr, '.4f'),
             ('Total Loss', metrics.get('total_loss', 0.0), '.2f'),
-            ('KL Loss', metrics.get('kl_loss', 0.0), '.2f'),
             ('Recon Loss', metrics.get('recon_loss', 0.0), '.2f'),
+            ('KL GMM', metrics.get('kl_gmm', 0.0), '.2f'),
+            ('KL Standard', metrics.get('kl_standard', 0.0), '.2f'),
+            ('Entropy', metrics.get('entropy', 0.0), '.2f'),
             ('Peak Loss', metrics.get('peak_loss', 0.0), '.2f'),
             ('Spectral Loss', metrics.get('spectral_loss', 0.0), 'f'),
             ('Clustering Confidence Loss', metrics.get('clustering_confidence_loss', 0.0), '.2f'),
@@ -273,7 +277,7 @@ class ModelEvaluator:
             colors_map: 类别到颜色的映射字典
             labels: 标签数据
             # num_classes: 类别数量
-            # unique_label: ��一标签值数组
+            # unique_label: 一标签值数组
         """
         if not self.paths:
             print("Warning: No paths specified for saving results")
@@ -310,7 +314,7 @@ class ModelEvaluator:
         else:
             return np.asarray(tensor)
 
-    def _save_log(self, epoch: int, metrics: Dict[str, float],lr:float) -> None:
+    def _save_log(self, epoch: int, metrics: Dict[str, float], lr: float) -> None:
         """
         将评估指标保存到日志文件。
 
@@ -322,7 +326,8 @@ class ModelEvaluator:
             with open(os.path.join(self.paths['training_log'], "training_log.txt"), "a") as f:
                 f.write(
                     f'{epoch}\t{metrics["total_loss"]:.4f}\t{metrics["recon_loss"]:.4f}\t'
-                    f'{metrics["kl_loss"]:.4f}\t{metrics["peak_loss"]:.4f}\t{metrics["spectral_loss"]:.4f}\t'
+                    f'{metrics["kl_gmm"]:.4f}\t{metrics["kl_standard"]:.4f}\t{metrics["entropy"]:.4f}\t'
+                    f'{metrics["peak_loss"]:.4f}\t{metrics["spectral_loss"]:.4f}\t'
                     f'{metrics["gmm_acc"]:.4f}\t{metrics["gmm_nmi"]:.4f}\t{metrics["gmm_ari"]:.4f}\t'
                     f'{metrics["leiden_acc"]:.4f}\t{metrics["leiden_nmi"]:.4f}\t{metrics["leiden_ari"]:.4f}\t'
                     f'{lr:.4f}\n'
