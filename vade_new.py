@@ -14,6 +14,8 @@ import networkx as nx
 from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
 from utility import leiden_clustering
+import math
+
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, intermediate_dim,latent_dim):
@@ -450,12 +452,7 @@ class Gaussian(nn.Module):
 
     def forward(self, z):
         # 计算条件概率/可能性
-        log_p = self.gaussian_log_prob(z)  # log p(z|c)
-        
-        # 加入先验概率
-        pi = self.pi  # 获取当前的混合权重
-        log_pi = torch.log(pi + 1e-10)  # log p(c)
-        y = log_p + log_pi.unsqueeze(0)  # log p(z,c)
+        y = self.gaussian_log_prob(z)  # log p(z|c)
         
         # 计算后验概率
         gamma = F.softmax(y, dim=1)  # p(c|z)
@@ -464,22 +461,22 @@ class Gaussian(nn.Module):
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
         
         # 返回所有需要的值
-        return means, y, gamma, pi  # 输出PI
+        return means, y, gamma, self.pi  # 输出PI
 
     def gaussian_log_prob(self, z):
         """计算log p(z|c)"""
-        log_p_list = []
-        for c in range(self.num_clusters):
-            log_p_c = -0.5 * (
-                self.latent_dim * math.log(2 * math.pi) +
-                torch.sum(
-                    self.log_variances[c] +
-                    (z - self.means[c]).pow(2) / torch.exp(self.log_variances[c]),
-                    dim=1
-                )
-            )
-            log_p_list.append(log_p_c.unsqueeze(1))
-        return torch.cat(log_p_list, dim=1)
+        z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
+        log_vars_expanded = self.log_variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
+        pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
+    
+        log_p_c = (
+            torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
+            - 0.5 * torch.sum(torch.log(2*math.pi*torch.exp(log_vars_expanded)), dim=2)  # 常数项和方差项
+            - torch.sum((z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
+        )
+        return log_p_c
+
 
 class SpectralAnalyzer:
     def __init__(self, peak_detector, spectral_constraints):
@@ -679,6 +676,7 @@ class VaDE(nn.Module):
         self.resolution_1 = resolution_1
         self.resolution_2 = resolution_2
         self.clustering_method = clustering_method
+        self.input_dim = input_dim
 
         self.peak_detector = PeakDetector().to(device)
         self.spectral_constraints = SpectralConstraints(
@@ -774,15 +772,16 @@ class VaDE(nn.Module):
                 x = x.to(self.device)
                 
                 # 前向传播
-                mean, log_var = self.encoder(x)
-                z = self.reparameterize(mean, log_var)
+               # mean, log_var = self.encoder(x)
+                z, _= self.encoder(x)  # 模拟encoder
+                #z = self.reparameterize(mean, log_var)
                 recon_x = self.decoder(z)
                 
                 # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = self.vae_loss(recon_x, x)
-                kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
-                loss = recon_loss # + 0.1 * kl_loss  # KL散度权重较小
-                
+                recon_loss = F.mse_loss(recon_x, x, reduction='mean')
+                # kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
+                #loss = recon_loss  + 0.1 * kl_loss  # KL散度权重较小
+                loss = recon_loss
                 # 反向传播
                 optimizer.zero_grad()
                 loss.backward()
@@ -845,7 +844,6 @@ class VaDE(nn.Module):
 
     @torch.no_grad()
     def init_kmeans_centers(self, dataloader):
-        """初始化聚类中心"""
         encoded_data = []
         for x, _ in dataloader:
             x = x.to(self.device)
@@ -854,12 +852,20 @@ class VaDE(nn.Module):
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
         # 使用选定的聚类方法
+        print(f"Using clustering method: {self.clustering_method}")
         labels, cluster_centers = self._apply_clustering(encoded_data)
         num_clusters = len(np.unique(labels))
+    
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        # 如果聚类数量发生变化，需要重新初始化高斯分布
+        if num_clusters != self.gaussian.num_clusters:
+            print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
+            self.num_clusters = num_clusters
+            self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
 
         # 直接用聚类中心更新高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
+        self.cluster_centers = cluster_centers
 
 
     @torch.no_grad()
@@ -908,33 +914,6 @@ class VaDE(nn.Module):
         
         return recon_x, mean, log_var, z, gamma, pi
 
-    def loss_function(self, recon_x, x, mean, log_var, z, gamma, pi):
-        """计算损失函数
-        Args:
-            recon_x: 重构的输入
-            x: 原始输入
-            mean: 编码器输出的均值
-            log_var: 编码器输出的对数方差
-            z: 重参数化后的潜在变量
-            gamma: 后验概率 p(c|z)
-            pi: GMM的混合权重
-        """
-        # 重构损失
-        recon_loss = F.mse_loss(recon_x, x)
-        
-        # GMM的KL散度
-        kl_gmm = self.compute_gmm_kl(mean, log_var, gamma)
-        
-        # 标准正态的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=1)
-        
-        # Entropy项
-        entropy = (
-            -torch.sum(torch.log(pi.unsqueeze(0)) * gamma, dim=1) +
-            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=1)
-        )
-        
-        return recon_loss + kl_gmm + kl_standard + entropy
 
     def train_step(self, x):
         """单步训练
@@ -988,34 +967,53 @@ class VaDE(nn.Module):
         batch_size = x.size(0)
         
         # 1. 重构损失
-        recon_loss = self.alpha * self.original_dim * F.mse_loss(recon_x, x, reduction='mean')
+        recon_loss = self.lamb1 * self.input_dim * F.mse_loss(recon_x, x, reduction='mean')
+
+        # 2. 从y计算gamma
+        gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
         
-        # 2. 从y计算gamma (y已经包含了log p(z|c) + log p(c))
-        gamma = F.softmax(y, dim=1)  # [batch_size, n_centroid]
-        gamma_t = gamma.unsqueeze(2).expand(-1, -1, self.latent_dim)
+        # 扩展gamma的维度用于广播
+        gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
+        
+        # 调整其他张量的维度
+        mean = mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        
+        # 调整高斯分布参数的维度
+        gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
+        gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
         # 3. GMM先验的KL散度
-        kl_gmm = torch.sum(
-            0.5 * gamma_t * (
-                self.latent_dim * math.log(2*math.pi) +
-                torch.log(self.gaussian.log_variances.exp()) +
-                torch.exp(log_var.unsqueeze(1)) / self.gaussian.log_variances.exp() +
-                (mean.unsqueeze(1) - self.gaussian.means).pow(2) / self.gaussian.log_variances.exp()
-            ),
-            dim=(1,2)
-        )
+        try:
+            kl_gmm = torch.sum(
+                0.5 * gamma_t * (
+                    self.latent_dim * math.log(2*math.pi) +
+                    torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
+                    torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
+                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                ),
+                dim=(1,2)
+            )
+        except RuntimeError as e:
+            print(f"Error in KL_GMM calculation:")
+            print(f"gamma_t shape: {gamma_t.shape}")
+            print(f"log_var shape: {log_var.shape}")
+            print(f"mean shape: {mean.shape}")
+            print(f"gaussian_means shape: {gaussian_means.shape}")
+            print(f"gaussian_log_vars shape: {gaussian_log_vars.shape}")
+            raise e
         
         # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=1)
+        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).mean(1)
         
         # 5. GMM熵项
+        pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
         entropy = (
-            -torch.sum(torch.log(self.gaussian.pi.unsqueeze(0)) * gamma, dim=1) +
-            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=1)
+            -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
+            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
         )
-        
         # 6. 总损失
-        loss = recon_loss + kl_gmm + kl_standard + entropy
+        loss = recon_loss + kl_gmm.mean() + kl_standard.mean() + entropy.mean()
         
         # 返回损失字典
         loss_dict = {

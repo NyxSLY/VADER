@@ -6,7 +6,7 @@ from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 import matplotlib
 from sklearn.manifold import TSNE
-from typing import Optional, Dict, Union, Any,Tuple
+from typing import Optional, Dict, Union, Any, Tuple, Mapping
 from torch.distributions import Normal
 import random
 from torch.utils.data import DataLoader, TensorDataset
@@ -14,6 +14,7 @@ import os
 from scipy.optimize import linear_sum_assignment
 import datetime, pywt
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
+from scipy.sparse import spmatrix, csr_matrix
 
 def set_random_seed(seed):
     random.seed(seed)       # 设置 Python 内置随机数生成器的种子
@@ -69,7 +70,7 @@ def prepare_data_loader(
     data: np.ndarray,
     labels: np.ndarray,
     batch_size: int = 128,
-    device : str = None,
+    device: Optional[str] = None,
     shuffle: bool = True
 ) -> Tuple[DataLoader, np.ndarray, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
@@ -393,10 +394,10 @@ def sample_plot(
 def visualize_clusters(
     z: np.ndarray,
     labels: np.ndarray,
-    gmm_labels:np.ndarray,
-    leiden_labels:np.ndarray,
+    gmm_labels: np.ndarray,
+    leiden_labels: np.ndarray,
     save_path: str,
-    colors_map: Optional[Dict[int, str]] = None,
+    colors_map: Optional[Mapping[int, Any]] = None,
     random_state: int = 42,
     fig_size: Tuple[int, int] = (10, 8),
     title: Optional[str] = None

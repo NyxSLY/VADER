@@ -147,77 +147,63 @@ class ModelEvaluator:
     ) -> Dict[str, float]:
         """
         评估一个 epoch 的结果,计算各种指标,并保存到文件和 TensorBoard。
-
-        Args:
-            tensor_gpu_data: 输入数据,已移动到设备上的 Tensor
-            labels: 标签数据,已移动到设备上的 Tensor
-            epoch: 当前 epoch 编号
-            colors_map: 类别到颜色的映射字典
-            train_metrics: 训练指标字典
-            num_classes: 类别数量
-            unique_label: 唯一标签值数组
-
-        Returns:
-            字典,包含各种评估指标
         """
         self.model.eval()
         with torch.no_grad():
-            recon_x, _, _, x_encoded, _, gmm_labels = self.model(tensor_gpu_data)
+            # 获取模型输出
+            recon_x, mean, log_var, z, gamma, pi = self.model(tensor_gpu_data)
+            
+            # 转换数据到CPU
+            z_cpu = z.detach().cpu().numpy()
+            gmm_probs = gamma.detach().cpu().numpy()  # shape: [batch_size, num_clusters]
+            gmm_labels = np.argmax(gmm_probs, axis=1)  # shape: [batch_size]
+            recon_x_cpu = recon_x.detach().cpu().numpy()
+            y_true = labels.cpu().numpy()
 
-        # 转换数据到CPU
-        z_cpu = x_encoded.detach().cpu().numpy()
-        gmm_labels_cpu = gmm_labels.detach().cpu().numpy()
-        gmm_labels = gmm_labels_cpu.argmax(axis=1)
-        recon_x_cpu = recon_x.detach().cpu().numpy()
-        y_true = labels.detach().cpu().numpy()
+            # 计算Leiden聚类标签
+            z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
 
-        # 计算Leiden聚类标签
-        z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
+            # 计算评估指标
+            gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
+            z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
 
-        # 计算评估指标
-        gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
-        z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
-        #recon_metrics = self.compute_reconstruction_metrics(tensor_gpu_data, recon_x)
+            metrics = {
+                'gmm_acc': gmm_metrics['acc'],
+                'gmm_nmi': gmm_metrics['nmi'],
+                'gmm_ari': gmm_metrics['ari'],
+                'leiden_acc': z_leiden_metrics['acc'],
+                'leiden_nmi': z_leiden_metrics['nmi'],
+                'leiden_ari': z_leiden_metrics['ari']
+            }
 
-        metrics = {
-            'gmm_acc':gmm_metrics['acc'],
-            'gmm_nmi':gmm_metrics['nmi'],
-            'gmm_ari':gmm_metrics['ari'],
-            'leiden_acc':z_leiden_metrics['acc'],
-            'leiden_nmi':z_leiden_metrics['nmi'],
-            'leiden_ari':z_leiden_metrics['ari']
-        }
+            # 解包训练指标
+            train_metrics_names = ['total_loss', 'kl_loss', 'recon_loss', 'peak_loss', 'spectral_loss', 'non_neg_loss', 'baseline_loss']
+            train_metrics_dict = {name: train_metrics[name] for name in train_metrics_names}
 
-        # 解包训练指标
-        train_metrics_names = ['total_loss', 'kl_loss', 'recon_loss', 'peak_loss', 'spectral_loss', 'non_neg_loss', 'baseline_loss']
-        train_metrics_dict = {name: train_metrics[name] for name in train_metrics_names}
+            # 合并所有指标
+            metrics.update(train_metrics_dict)
 
-        # 合并所有指标
-        #metrics.update(recon_metrics)
-        metrics.update(train_metrics_dict)
+            self._save_log(epoch, metrics, lr)
+            self._save_to_tensorboard(epoch, metrics)
 
-        self._save_log(epoch, metrics, lr)
-        self._save_to_tensorboard(epoch, metrics)
+            # 打印评估结果
+            if epoch % 10 == 0:
+                self._print_metrics(epoch, lr, metrics)
+                self._save_results(
+                    epoch, 
+                    metrics, 
+                    lr,
+                    z_cpu, 
+                    recon_x_cpu, 
+                    colors_map, 
+                    y_true,
+                    gmm_labels,
+                    z_leiden_labels,
+                    t_plot,
+                    r_plot
+                )
 
-        # 打印评估结果
-
-        if epoch % 10 == 0:
-            self._print_metrics(epoch,lr, metrics)
-            self._save_results(
-                epoch, 
-                metrics, 
-                lr,
-                z_cpu, 
-                recon_x_cpu, 
-                colors_map, 
-                y_true,
-                gmm_labels,
-                z_leiden_labels,
-                t_plot,
-                r_plot
-            )
-
-        return metrics
+            return metrics
 
     def _print_metrics(self, epoch: int, lr: float, metrics: Dict[str, float]) -> None:
         """
@@ -287,7 +273,7 @@ class ModelEvaluator:
             colors_map: 类别到颜色的映射字典
             labels: 标签数据
             # num_classes: 类别数量
-            # unique_label: 唯一标签值数组
+            # unique_label: ��一标签值数组
         """
         if not self.paths:
             print("Warning: No paths specified for saving results")
