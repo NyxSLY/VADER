@@ -18,7 +18,7 @@ model_params:
   epochs: 120
   device: "cuda:0"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
-  pretrain_epochs: 100
+  pretrain_epochs: 220
   clustering_method: 'kmeans'
   resolution_1: 2.0
   resolution_2: 0.9

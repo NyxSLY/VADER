@@ -20,7 +20,7 @@ class ProjectConfig:
         # 确保MODEL_PARAMS中的数值类型正确
         self.MODEL_PARAMS = {
             'latent_dim': int(config['model_params']['basic_parameters']['latent_dim']),
-            'intermediate_dim': int(config['model_params']['basic_parameters']['intermediate_dim']),
+            'intermediate_dim': config['model_params']['basic_parameters']['intermediate_dim'],
             'learning_rate': float(config['model_params']['learning_rate']),
             'batch_size': int(config['model_params']['batch_size']),
             'epochs': int(config['model_params']['epochs']),
