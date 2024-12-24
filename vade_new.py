@@ -5,7 +5,6 @@ from sklearn.cluster import KMeans
 import numpy as np
 from scipy import signal,sparse
 import os
-import torch.nn.functional as F
 import torch.cuda
 from utility import leiden_clustering, compute_cluster_means
 import time
@@ -784,7 +783,7 @@ class VaDE(nn.Module):
                 recon_x = self.decoder(z)
                 
                 # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = F.mse_loss(recon_x, x, reduction='mean')
+                recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
                 kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
                 loss = recon_loss  + kl_loss 
                 # 反向传播
@@ -974,7 +973,7 @@ class VaDE(nn.Module):
         batch_size = x.size(0)
         
         # 1. 重构损失
-        recon_loss = self.lamb1 * self.input_dim * F.mse_loss(recon_x, x, reduction='mean')
+        recon_loss = self.lamb1 * self.input_dim * F.mse_loss(recon_x, x, reduction='none').sum(dim=1).mean()
 
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
@@ -1000,7 +999,7 @@ class VaDE(nn.Module):
                     (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
-            )
+            ).mean()
         except RuntimeError as e:
             print(f"Error in KL_GMM calculation:")
             print(f"gamma_t shape: {gamma_t.shape}")
@@ -1011,25 +1010,25 @@ class VaDE(nn.Module):
             raise e
         
         # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).mean(1)
+        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).mean()
         
         # 5. GMM熵项
         pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
         entropy = (
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
-        )
+        ).mean()
 
         # 6. 总损失
-        loss = recon_loss + kl_gmm.sum() + kl_standard.sum() + entropy.sum()
+        loss = recon_loss + kl_gmm + kl_standard + entropy
         
         # 返回损失字典
         loss_dict = {
             'total_loss': loss,
             'recon_loss': recon_loss.item(),
-            'kl_gmm': torch.sum(kl_gmm).item(),
-            'kl_standard': torch.sum(kl_standard).item(),
-            'entropy': torch.sum(entropy).item()
+            'kl_gmm': kl_gmm.item(),
+            'kl_standard': kl_standard.item(),
+            'entropy': entropy.item()
         }
         
         return loss_dict
