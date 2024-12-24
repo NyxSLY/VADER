@@ -19,24 +19,30 @@ import math
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, intermediate_dim,latent_dim):
+        """
+        Args:
+            input_dim: 输入维度
+            intermediate_dim: 中间维度
+            latent_dim: 潜在空间
+        """
         super(Encoder, self).__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
-        dim_1 = intermediate_dim*4
-        dim_2 = intermediate_dim*2
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, dim_1),
-            nn.BatchNorm1d(dim_1),
-            nn.LeakyReLU(),
-            nn.Linear(dim_1, dim_2),
-            nn.BatchNorm1d(dim_2),
-            nn.LeakyReLU(),
-            nn.Linear(dim_2, intermediate_dim),
-            nn.BatchNorm1d(intermediate_dim),
-            nn.LeakyReLU(),
-        )
-        self.to_mean = nn.Linear(intermediate_dim, latent_dim)
-        self.to_logvar = nn.Linear(intermediate_dim, latent_dim)
+
+        layers = []
+        prev_dim = input_dim
+        for dim in intermediate_dim:
+            layers.extend([
+                nn.Linear(prev_dim, dim),
+                nn.BatchNorm1d(dim),
+                nn.LeakyReLU(),
+            ])
+            prev_dim = dim
+
+        self.net = nn.Sequential(*layers)
+
+        self.to_mean = nn.Linear(intermediate_dim[-1], latent_dim)
+        self.to_logvar = nn.Linear(intermediate_dim[-1], latent_dim)
 
     def forward(self, x):
         x = self.net(x)
@@ -407,24 +413,24 @@ class PeakDetector(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dim,intermediate_dim, input_dim):
         super(Decoder, self).__init__()
-        self.latent_dim = latent_dim
-        self.input_dim = input_dim
-        dim_1 = intermediate_dim*4
-        dim_2 = intermediate_dim*2
-        self.net = nn.Sequential(
-            nn.Linear(latent_dim, intermediate_dim),
-            nn.BatchNorm1d(intermediate_dim),
-            nn.LeakyReLU(),
-            nn.Linear(intermediate_dim, dim_2),
-            nn.BatchNorm1d(dim_2),
-            nn.LeakyReLU(),
-            nn.Linear(dim_2, dim_1),
-            nn.BatchNorm1d(dim_1),
-            nn.LeakyReLU(),
-            nn.Linear(dim_1, input_dim),
+
+        decoder_dims = intermediate_dim[::-1]
+
+        layers = []
+        prev_dim = latent_dim
+        for dim in decoder_dims:
+            layers.extend([
+                nn.Linear(prev_dim, dim),   
+                nn.BatchNorm1d(dim),
+                nn.LeakyReLU()
+            ])
+            prev_dim = dim
+        layers.extend([
+            nn.Linear(prev_dim, input_dim),
             nn.BatchNorm1d(input_dim),
             nn.Sigmoid()
-        )
+        ])
+        self.net = nn.Sequential(*layers)
 
     def forward(self, z):
         return self.net(z)
