@@ -18,8 +18,8 @@ model_params:
   epochs: 120
   device: "cuda:0"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
-  pretrain_epochs: 10
-  clustering_method: 'leiden'
+  pretrain_epochs: 100
+  clustering_method: 'kmeans'
   resolution_1: 2.0
   resolution_2: 0.9
 
@@ -45,7 +45,7 @@ weight_scheduler:
     lamb5: 0    # 聚类置信度损失权重 - 鼓励明确的类别归属
     lamb6: 0    # 类间分离损失权重 - 最大化类内相似度,最小化类间相似度
   max_weights:
-    lamb1: 1    # 重构损失最大权重
+    lamb1: 1e5    # 重构损失最大权重
     lamb2: 1      # KL散度损失最大权重  
     lamb3: 0      # 峰保持损失最大权重
     lamb4: 1      # 光谱物理约束损失最大权重
@@ -62,7 +62,7 @@ train_config:
     total: 0.5
     recon: 0.02
   tsne_plot: True
-  recon_plot: True
+  recon_plot: False
 
 # 可视化配置
 vis_config:
