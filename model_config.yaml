@@ -1,7 +1,7 @@
 # 基础路径配置
 base_paths:
   data_dir: './VADERdata'
-  tensorboard_dir: 'tensorboard_logs'
+  tensorboard_dir: 'tensorboard_logs_new_VADER'
   model_dir: 'models'
   result_dir: './results'
   pth_dir: 'pth'
@@ -10,9 +10,9 @@ base_paths:
 
 # 模型参数配置
 model_params:
-  latent_dim: 10
-  intermediate_dim: [500,500,2000]
-  learning_rate: 0.002
+  latent_dim: 20
+  intermediate_dim: [2048,1024,512]
+  learning_rate: 1.0e-3
   use_lr_scheduler: False
   batch_size: 128
   epochs: 120
@@ -24,8 +24,8 @@ model_params:
   resolution_2: 0.9
 
   basic_parameters:
-    latent_dim: 10
-    intermediate_dim: [500,500,2000]
+    latent_dim: 20
+    intermediate_dim: [2048,1024,512]
   cnn_parameters:
     cnn1: 32
     cnn2: 64
