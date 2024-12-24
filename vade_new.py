@@ -807,6 +807,8 @@ class VaDE(nn.Module):
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
+        print(f"\nClustering method: {self.clustering_method}")
+        
         if self.clustering_method == 'kmeans':
             # K-means方法
             kmeans = KMeans(n_clusters=self.num_classes, random_state=0)
