@@ -112,16 +112,16 @@ def main():
 
     
 
-    # print("\n开始模型训练...")
-    # # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))
-    # model = train_manager(
-    #     model=model,
-    #     dataloader=dataloader,
-    #     tensor_gpu_data=tensor_gpu_data,
-    #     labels=tensor_gpu_labels,
-    #     num_classes=num_classes,
-    #     paths=paths,
-    # )
+    print("\n开始模型训练...")
+    # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))
+    model = train_manager(
+        model=model,
+        dataloader=dataloader,
+        tensor_gpu_data=tensor_gpu_data,
+        labels=tensor_gpu_labels,
+        num_classes=num_classes,
+        paths=paths,
+    )
 
     return model
 
