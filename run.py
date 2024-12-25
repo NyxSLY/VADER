@@ -108,7 +108,8 @@ def main():
     model.pretrain(
         dataloader=dataloader,
         learning_rate=1e-3,
-        labels = tensor_gpu_labels
+        labels = tensor_gpu_labels,
+        tensor_gpu_data = tensor_gpu_data
     )
 
     

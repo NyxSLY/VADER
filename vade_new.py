@@ -12,7 +12,7 @@ from collections import defaultdict
 import networkx as nx
 from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
-from utility import leiden_clustering
+from metrics_new import ModelEvaluator
 import math
 
 
@@ -755,7 +755,7 @@ class VaDE(nn.Module):
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
 
-    def pretrain(self, dataloader, learning_rate=1e-3, labels):
+    def pretrain(self, dataloader, learning_rate, labels, tensor_gpu_data):
         """预训练自编码器部分
         
         Args:
@@ -793,9 +793,25 @@ class VaDE(nn.Module):
                 
                 total_loss += loss.item()
 
-                y_true = labels.cpu().numpy()
-                z_leiden_labels = leiden_clustering(z.detach().cpu().numpy(), resolution=self.resolution_2)
-                z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
+            y_true = labels.cpu().numpy()
+
+            encoded_data = []
+            self.eval()
+            with torch.no_grad(): 
+                mean, _ = self.encoder(tensor_gpu_data)
+                encoded_data.append(mean.cpu())
+                encoded_data = torch.cat(encoded_data, dim=0).numpy()
+                
+                z_leiden_labels = leiden_clustering(encoded_data, resolution=self.resolution_2)
+
+                evaluator = ModelEvaluator(
+                    model=self,  
+                    device=self.device, 
+                    paths=None,  
+                    writer=None,  
+                    resolution_2=self.resolution_2
+                )
+                z_leiden_metrics = evaluator.compute_clustering_metrics(z_leiden_labels, y_true)
 
                 print(f"\nEpoch {epoch} Leiden Clustering Metrics: ACC: {z_leiden_metrics['acc']:.4f}, NMI: {z_leiden_metrics['nmi']:.4f}, ARI: {z_leiden_metrics['ari']:.4f}")
 
@@ -804,7 +820,7 @@ class VaDE(nn.Module):
                 #     'leiden_nmi': z_leiden_metrics['nmi'],
                 #     'leiden_ari': z_leiden_metrics['ari']
                 # }
-            
+            self.train()
             # 打印训练进度
             avg_loss = total_loss / len(dataloader)
             if (epoch + 1) % 10 == 0:
@@ -812,8 +828,6 @@ class VaDE(nn.Module):
         
         print("Pretraining finished!")
         
-        # 预训练后初始化聚类中心
-        print("Initializing cluster centers...")
 
 
     def _apply_clustering(self, encoded_data):
