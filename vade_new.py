@@ -755,7 +755,7 @@ class VaDE(nn.Module):
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
 
-    def pretrain(self, dataloader, learning_rate=1e-3):
+    def pretrain(self, dataloader, learning_rate=1e-3, labels):
         """预训练自编码器部分
         
         Args:
@@ -792,6 +792,18 @@ class VaDE(nn.Module):
                 optimizer.step()
                 
                 total_loss += loss.item()
+
+                y_true = labels.cpu().numpy()
+                z_leiden_labels = leiden_clustering(z.detach().cpu().numpy(), resolution=self.resolution_2)
+                z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
+
+                print(f"\nEpoch {epoch} Leiden Clustering Metrics: ACC: {z_leiden_metrics['acc']:.4f}, NMI: {z_leiden_metrics['nmi']:.4f}, ARI: {z_leiden_metrics['ari']:.4f}")
+
+                # metrics = {
+                #     'leiden_acc': z_leiden_metrics['acc'],
+                #     'leiden_nmi': z_leiden_metrics['nmi'],
+                #     'leiden_ari': z_leiden_metrics['ari']
+                # }
             
             # 打印训练进度
             avg_loss = total_loss / len(dataloader)
@@ -802,7 +814,7 @@ class VaDE(nn.Module):
         
         # 预训练后初始化聚类中心
         print("Initializing cluster centers...")
-        self.init_kmeans_centers(dataloader)
+
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
