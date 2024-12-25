@@ -655,7 +655,7 @@ class ImprovedSpectralEncoder(nn.Module):
 
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, 
-                 encoder_type="basic", batch_size=None, 
+                 encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
                  pretrain_epochs=50,
@@ -664,6 +664,7 @@ class VaDE(nn.Module):
         self.device = device
         self.latent_dim = latent_dim
         self.batch_size = batch_size
+        self.tensor_gpu_data = tensor_gpu_data
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
         self.gaussian = Gaussian(num_classes, latent_dim)
@@ -851,10 +852,8 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def init_kmeans_centers(self, dataloader):
         encoded_data = []
-        for x, _ in dataloader:
-            x = x.to(self.device)
-            mean, _ = self.encoder(x)
-            encoded_data.append(mean.cpu())
+        mean, _ = self.encoder(self.tensor_gpu_data)
+        encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
         # 使用选定的聚类方法

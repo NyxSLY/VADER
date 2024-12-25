@@ -81,6 +81,7 @@ def main():
         input_dim=input_dim,
         intermediate_dim=model_params['intermediate_dim'],
         latent_dim=model_params['latent_dim'],
+        tensor_gpu_data=tensor_gpu_data,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
