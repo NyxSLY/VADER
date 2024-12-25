@@ -14,6 +14,7 @@ from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
 from metrics_new import ModelEvaluator
 import math
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Encoder(nn.Module):
@@ -755,7 +756,7 @@ class VaDE(nn.Module):
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
 
-    def pretrain(self, dataloader, learning_rate, labels, tensor_gpu_data):
+    def pretrain(self, dataloader, learning_rate, labels, tensor_gpu_data, method='VAE'):
         """预训练自编码器部分
         
         Args:
@@ -764,33 +765,49 @@ class VaDE(nn.Module):
             learning_rate: 学习率
         """
         print("Starting pretraining...")
+        writer = SummaryWriter(log_dir='pretrain_logs')
         optimizer = torch.optim.Adam(
             list(self.encoder.parameters()) + 
             list(self.decoder.parameters()), 
             lr=learning_rate
         )
         
-        self.train()
         for epoch in range(self.pretrain_epochs):
+            total_recon_loss = 0
+            total_kl_loss = 0
             total_loss = 0
+
+            self.train()
             for batch_idx, (x, _) in enumerate(dataloader):
                 x = x.to(self.device)
                 
-                # 前向传播
-                mean, log_var = self.encoder(x)
-                # z, _= self.encoder(x)  # 模拟encoder
-                z = self.reparameterize(mean, log_var)
-                recon_x = self.decoder(z)
+                if method == 'VAE':
+                    mean, log_var = self.encoder(x)
+                    z = self.reparameterize(mean, log_var)
+                    recon_x = self.decoder(z)
+                    recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
+                    kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
+                    
+                elif method == 'AE':
+                    mean, _ = self.encoder(x)
+                    recon_x = self.decoder(mean)
+                    recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
+                    kl_loss = torch.tensor(0.0, device=self.device)
                 
-                # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
-                kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
-                loss = recon_loss  + kl_loss 
+                loss = self.lamb1 * recon_loss  + kl_loss 
+
                 # 反向传播
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                
+
+                step = epoch * len(dataloader) + batch_idx
+                writer.add_scalar('Batch/total_loss', loss.item(), step)
+                writer.add_scalar('Batch/recon_loss', self.lamb1 * recon_loss.item(), step)
+                writer.add_scalar('Batch/kl_standard', kl_loss.item(), step)
+                    
+                total_recon_loss += self.lamb1 * recon_loss.item()
+                total_kl_loss += kl_loss.item()
                 total_loss += loss.item()
 
             y_true = labels.cpu().numpy()
@@ -813,6 +830,10 @@ class VaDE(nn.Module):
                 )
                 z_leiden_metrics = evaluator.compute_clustering_metrics(z_leiden_labels, y_true)
 
+                writer.add_scalar('Leiden/ACC', z_leiden_metrics['acc'], epoch)
+                writer.add_scalar('Leiden/NMI', z_leiden_metrics['nmi'], epoch)
+                writer.add_scalar('Leiden/ARI', z_leiden_metrics['ari'], epoch)
+
                 print(f"\nEpoch {epoch} Leiden Clustering Metrics: ACC: {z_leiden_metrics['acc']:.4f}, NMI: {z_leiden_metrics['nmi']:.4f}, ARI: {z_leiden_metrics['ari']:.4f}")
 
                 # metrics = {
@@ -820,14 +841,14 @@ class VaDE(nn.Module):
                 #     'leiden_nmi': z_leiden_metrics['nmi'],
                 #     'leiden_ari': z_leiden_metrics['ari']
                 # }
-            self.train()
             # 打印训练进度
             avg_loss = total_loss / len(dataloader)
+
             if (epoch + 1) % 10 == 0:
                 print(f'Pretrain Epoch [{epoch+1}/{self.pretrain_epochs}], Average Loss: {avg_loss:.4f}')
         
         print("Pretraining finished!")
-        
+        writer.close()
 
 
     def _apply_clustering(self, encoded_data):

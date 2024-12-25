@@ -50,8 +50,8 @@ def main():
                             (nc_labels_org == 18) | (nc_labels_org == 21) |
                             (nc_labels_org == 1) | (nc_labels_org == 5) | (nc_labels_org == 13) | (
                                         nc_labels_org == 20) | (nc_labels_org == 24))
-    oc_train_data = nc_data_org[keep_indices]
-    oc_train_label = nc_labels_org[keep_indices]
+    oc_train_data = nc_data_org#[keep_indices]
+    oc_train_label = nc_labels_org#[keep_indices]
 
 
     # 准备数据
@@ -106,6 +106,7 @@ def main():
     # 训练模型
     print("\n开始预训练...  ")
     model.pretrain(
+        method='AE',
         dataloader=dataloader,
         learning_rate=1e-3,
         labels = tensor_gpu_labels,

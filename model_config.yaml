@@ -16,9 +16,9 @@ model_params:
   use_lr_scheduler: False
   batch_size: 128
   epochs: 120
-  device: "cuda:0"
+  device: "cuda:2"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
-  pretrain_epochs: 100
+  pretrain_epochs: 220
   clustering_method: 'leiden'
   resolution_1: 2.0
   resolution_2: 0.9
@@ -38,7 +38,7 @@ model_params:
 # 权重调度器配置
 weight_scheduler:
   init_weights:
-    lamb1: 1    # 重构损失权重 - 控制重建质量
+    lamb1: 1e5    # 重构损失权重 - 控制重建质量
     lamb2: 1     # KL散度损失权重 - 控制潜在空间分布
     lamb3: 0      # 峰保持损失权重 - 保持光谱峰的形状
     lamb4: 0      # 光谱物理约束损失权重 - 包括非负约束和基线一致性
