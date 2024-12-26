@@ -15,8 +15,8 @@ model_params:
   learning_rate: 1.0e-3
   use_lr_scheduler: False
   batch_size: 128
-  epochs: 120
-  device: "cuda:0"
+  epochs: 300
+  device: "cuda:3"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 100
   clustering_method: 'kmeans'
@@ -62,7 +62,7 @@ train_config:
     total: 0.5
     recon: 0.02
   tsne_plot: True
-  recon_plot: True
+  recon_plot: False
 
 # 可视化配置
 vis_config:

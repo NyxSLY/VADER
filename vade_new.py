@@ -779,14 +779,11 @@ class VaDE(nn.Module):
                 
                 # 前向传播
                 mean, log_var = self.encoder(x)
-                # z, _= self.encoder(x)  # 模拟encoder
-                z = self.reparameterize(mean, log_var)
-                recon_x = self.decoder(z)
+                recon_x = self.decoder(mean)
                 
                 # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
-                kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
-                loss = recon_loss  + kl_loss 
+                recon_loss = F.binary_cross_entropy(recon_x, x, reduction='none').mean()
+                loss = recon_loss
                 # 反向传播
                 optimizer.zero_grad()
                 loss.backward()
@@ -972,7 +969,7 @@ class VaDE(nn.Module):
         batch_size = x.size(0)
         
         # 1. 重构损失
-        recon_loss = self.lamb1 * self.input_dim * F.mse_loss(recon_x, x, reduction='none').sum(dim=1).mean()
+        recon_loss = self.lamb1 * self.input_dim * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).mean()
 
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]

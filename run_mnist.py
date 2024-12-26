@@ -37,7 +37,7 @@ def main():
     # 准备数据
     
     model_params = config.get_model_params()
-    device = torch.device('cuda:4')
+    device = torch.device('cuda:3')
     batch_size = 100
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(X, Y,batch_size,device)
 
