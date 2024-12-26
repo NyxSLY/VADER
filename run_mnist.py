@@ -10,6 +10,7 @@ import torch
 from utility import wavelet_transform
 import sys
 import gzip
+import pickle
 set_random_seed(123)
 
 
@@ -23,7 +24,7 @@ except IndexError:
 def main():
 
     f = gzip.open(r"/mnt/sda/zhangym/VADER/VADE/dataset/mnist/mnist.pkl.gz", 'rb')
-    (x_train, y_train), (x_test, y_test) = cPickle.load(f, encoding="bytes")
+    (x_train, y_train), (x_test, y_test) = pickle.load(f, encoding="bytes")
     f.close()
     x_train = x_train.astype('float32') / 255.
     x_test = x_test.astype('float32') / 255.
@@ -41,7 +42,7 @@ def main():
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(X, Y,batch_size,device)
 
     # 获取模型配置
-    input_dim = tensor_data.shape[1]
+    input_dim = 784
     num_classes = len(unique_label)
     project_dir = create_project_folders("home_pc")
     
@@ -59,8 +60,8 @@ def main():
     # 初始化模型
     model = VaDE(
         input_dim=input_dim,
-        intermediate_dim=model_params['intermediate_dim'],
-        latent_dim=model_params['latent_dim'],
+        intermediate_dim=[500,500,2000],
+        latent_dim=10,
         tensor_gpu_data=tensor_gpu_data,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
@@ -71,12 +72,12 @@ def main():
         device=device,
         l_c_dim=l_c_dim,
         batch_size=batch_size,
-        encoder_type=model_params['encoder_type'],
-        pretrain_epochs=model_params['pretrain_epochs'],
+        encoder_type='basic',
+        pretrain_epochs=10,
         num_classes=num_classes,
-        clustering_method=model_params['clustering_method'],
-        resolution_1=model_params['resolution_1'],
-        resolution_2=model_params['resolution_2']
+        clustering_method='kmeans',
+        resolution_1=2.0,
+        resolution_2=0.9
     ).to(device)
 
     # model.eval()
