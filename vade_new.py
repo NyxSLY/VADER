@@ -777,28 +777,29 @@ class VaDE(nn.Module):
 
             self.train()
             for batch_idx, (x, _) in enumerate(dataloader):
-                x = x.to(self.device)
+              ordim=x.shape[1] 
+              x = x.to(self.device)
 
-                if method == 'VAE':
-                    mean, log_var = self.encoder(x)
-                    z = self.reparameterize(mean, log_var)
-                    recon_x = self.decoder(z)
-                    recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
-                    kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
-                    
-                elif method == 'AE':
-                    mean, _ = self.encoder(x)
-                    recon_x = self.decoder(mean)
-                    recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
-                    kl_loss = torch.tensor(0.0, device=self.device)
+              if method == 'VAE':
+                  mean, log_var = self.encoder(x)
+                  z = self.reparameterize(mean, log_var)
+                  recon_x = self.decoder(z)
+                  recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
+                  kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
+                  
+              elif method == 'AE':
+                  mean, _ = self.encoder(x)
+                  recon_x = self.decoder(mean)
+                  recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
+                  kl_loss = torch.tensor(0.0, device=self.device)
 
-                loss = self.lamb1 * recon_loss  + kl_loss 
-                # 反向传播
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                
-                total_loss += loss.item()
+              loss = self.lamb1 * ordim * recon_loss  + ordim*kl_loss 
+              # 反向传播
+              optimizer.zero_grad()
+              loss.backward()
+              optimizer.step()
+              
+              total_loss += loss.item()
             
             # 打印训练进度
             avg_loss = total_loss / len(dataloader)
@@ -978,7 +979,7 @@ class VaDE(nn.Module):
         batch_size = x.size(0)
         
         # 1. 重构损失
-        recon_loss = self.lamb1 * self.input_dim * F.mse_loss(recon_x, x, reduction='none').sum(dim=1).mean()
+        recon_loss = self.input_dim * F.mse_loss(recon_x, x, reduction='none').sum(dim=1).mean()
 
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
@@ -1004,7 +1005,7 @@ class VaDE(nn.Module):
                     (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
-            ).mean()
+            )
         except RuntimeError as e:
             print(f"Error in KL_GMM calculation:")
             print(f"gamma_t shape: {gamma_t.shape}")
@@ -1015,17 +1016,17 @@ class VaDE(nn.Module):
             raise e
         
         # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).mean()
+        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2)
         
         # 5. GMM熵项
         pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
         entropy = (
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
-        ).mean()
+        )
 
         # 6. 总损失
-        loss = recon_loss + kl_gmm + kl_standard + entropy
+        loss = self.lamb1*recon_loss + self.lamb2*(kl_gmm + kl_standard) + entropy
         
         # 返回损失字典
         loss_dict = {
