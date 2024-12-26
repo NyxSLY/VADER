@@ -782,7 +782,7 @@ class VaDE(nn.Module):
                 recon_x = self.decoder(mean)
                 
                 # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = F.binary_cross_entropy(recon_x, x, reduction='none').mean()
+                recon_loss = F.binary_cross_entropy(recon_x, x, reduction='none').sum()
                 loss = recon_loss
                 # 反向传播
                 optimizer.zero_grad()
@@ -969,7 +969,7 @@ class VaDE(nn.Module):
         batch_size = x.size(0)
         
         # 1. 重构损失
-        recon_loss = self.lamb1 * self.input_dim * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).mean()
+        recon_loss = self.lamb1 * self.input_dim * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).sum()
 
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
@@ -995,7 +995,7 @@ class VaDE(nn.Module):
                     (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
-            ).mean()
+            ).sum()
         except RuntimeError as e:
             print(f"Error in KL_GMM calculation:")
             print(f"gamma_t shape: {gamma_t.shape}")
@@ -1006,14 +1006,14 @@ class VaDE(nn.Module):
             raise e
         
         # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).mean()
+        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).sum()
         
         # 5. GMM熵项
         pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
         entropy = (
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
-        ).mean()
+        ).sum()
 
         # 6. 总损失
         loss = recon_loss + kl_gmm + kl_standard + entropy
