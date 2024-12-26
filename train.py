@@ -103,7 +103,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     model_params = config.get_model_params()
     vis_config = config.get_vis_config()
     weight_config = config.get_weight_scheduler_config()
-    colors_map = config.get_color_map(num_classes)
     t_plot = train_config['tsne_plot']
     r_plot = train_config['recon_plot']
 
@@ -185,7 +184,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             tensor_gpu_data, 
             labels, 
             epoch, 
-            colors_map,
             lr, 
             train_metrics, 
             t_plot, 

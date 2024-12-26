@@ -355,7 +355,8 @@ def sample_plot(
     unique_labels = np.unique(generated_labels)
     nrow = len(unique_labels)  # 行数等于类别数
     if colors_map is None:
-        colors_list = matplotlib.colormaps.get_cmap('tab10')
+        colors = sns.color_palette('husl', n_colors=num_classes)
+        colors_list = LinearSegmentedColormap.from_list('custom', colors)
         colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
     width = ncol*10
     height = nrow * 3
@@ -552,7 +553,8 @@ def plot_reconstruction(
     figure_height = 5 if num_classes <= 3 else 5 + 0.5 * num_classes
 
     if colors_map is None:
-        colors_list = matplotlib.colormaps.get_cmap('tab10')
+        colors = sns.color_palette('husl', n_colors=num_classes)
+        colors_list = LinearSegmentedColormap.from_list('custom', colors)
         colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
     # 设置波长范围
     if wavenumber is None:

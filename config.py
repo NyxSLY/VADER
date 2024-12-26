@@ -155,7 +155,7 @@ class ProjectConfig:
             print(f"成功复制配置文件到: {train_path}")
         
         return paths
-    
+
     
     def get_model_params(self) -> Dict[str, Any]:
         """获取模型参数"""

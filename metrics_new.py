@@ -140,7 +140,6 @@ class ModelEvaluator:
         tensor_gpu_data: torch.Tensor,
         labels: torch.Tensor,
         epoch: int,
-        colors_map: Dict[int, str],
         lr: float,
         train_metrics: Dict[str, float],
         t_plot: bool,
@@ -197,7 +196,6 @@ class ModelEvaluator:
                     lr,
                     z_cpu, 
                     recon_x_cpu, 
-                    colors_map, 
                     y_true,
                     gmm_labels,
                     z_leiden_labels,
@@ -258,7 +256,6 @@ class ModelEvaluator:
         lr: float,
         z_cpu: np.ndarray,
         recon_x_cpu: np.ndarray,
-        colors_map: Dict[int, str],
         labels:np.ndarray,
         gmm_labels: np.ndarray,
         leiden_labels: np.ndarray,
@@ -290,13 +287,13 @@ class ModelEvaluator:
         # self._save_to_tensorboard(epoch, metrics)
 
         # 保存t-SNE可视化
-        self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, colors_map,t_plot)
+        self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)
 
         # 保存模型
         # self._save_model(epoch, metrics)
 
         # 保存重构可视化
-        self._save_recon_plot(epoch, recon_x_cpu, labels, colors_map, wavenumber,r_plot)
+        self._save_recon_plot(epoch, recon_x_cpu, labels, wavenumber,r_plot)
 
     @staticmethod
     def _to_numpy(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
@@ -361,7 +358,6 @@ class ModelEvaluator:
         labels: np.ndarray,
         gmm_labels:np.ndarray,  
         leiden_labels:np.ndarray,
-        colors_map: Dict[int, str],
         plot: bool
     ) -> None:
         """
@@ -398,7 +394,6 @@ class ModelEvaluator:
         epoch: int,
         recon_x_cpu: np.ndarray,
         labels: np.ndarray,
-        colors_map: Dict[int, str],
         wavenumber: np.ndarray,
         plot: bool
     ) -> None:
@@ -414,6 +409,5 @@ class ModelEvaluator:
                 recon_data=recon_x_cpu,
                 labels=labels,
                 save_path=recon_plot_path,
-                wavenumber=wavenumber,
-                colors_map=colors_map
+                wavenumber=wavenumber
             )
