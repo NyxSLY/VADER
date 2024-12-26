@@ -186,10 +186,10 @@ class ModelEvaluator:
 
             self._save_log(epoch, metrics, lr)
             self._save_to_tensorboard(epoch, metrics)
+            self._print_metrics(epoch, lr, metrics)
 
             # 打印评估结果
             if epoch % 10 == 0:
-                self._print_metrics(epoch, lr, metrics)
                 self._save_results(
                     epoch, 
                     metrics, 

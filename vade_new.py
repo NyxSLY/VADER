@@ -969,7 +969,7 @@ class VaDE(nn.Module):
         batch_size = x.size(0)
         
         # 1. 重构损失
-        recon_loss = self.lamb1 * self.input_dim * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).sum()
+        recon_loss = self.lamb1 * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).sum()
 
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
@@ -1006,7 +1006,7 @@ class VaDE(nn.Module):
             raise e
         
         # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var - mean.pow(2) - torch.exp(log_var), dim=2).sum()
+        kl_standard = -0.5 * torch.sum(1 + log_var, dim=2).sum() # - mean.pow(2) - torch.exp(log_var)
         
         # 5. GMM熵项
         pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
