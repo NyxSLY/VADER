@@ -1,7 +1,7 @@
 # 基础路径配置
 base_paths:
   data_dir: './VADERdata'
-  tensorboard_dir: 'tensorboard_logs_new_VADER'
+  tensorboard_dir: 'tensorboard_logs_mnist'
   model_dir: 'models'
   result_dir: './results'
   pth_dir: 'pth'
@@ -61,7 +61,7 @@ train_config:
   min_loss_threshold:
     total: 0.5
     recon: 0.02
-  tsne_plot: True
+  tsne_plot: False
   recon_plot: False
 
 # 可视化配置

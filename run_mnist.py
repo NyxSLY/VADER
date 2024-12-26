@@ -44,7 +44,7 @@ def main():
     # 获取模型配置
     input_dim = 784
     num_classes = len(unique_label)
-    project_dir = create_project_folders("home_pc")
+    project_dir = create_project_folders("Modify_GMM")
     
     weight_scheduler_config = config.get_weight_scheduler_config()
     paths = config.get_project_paths(project_dir, num_classes,
