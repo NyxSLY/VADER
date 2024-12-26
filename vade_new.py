@@ -756,7 +756,7 @@ class VaDE(nn.Module):
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
 
-    def pretrain(self, dataloader, learning_rate=1e-3):
+    def pretrain(self, dataloader, learning_rate=1e-3, method='VAE'):
         """预训练自编码器部分
         
         Args:
@@ -771,22 +771,28 @@ class VaDE(nn.Module):
             lr=learning_rate
         )
         
-        self.train()
+        
         for epoch in range(self.pretrain_epochs):
             total_loss = 0
+
+            self.train()
             for batch_idx, (x, _) in enumerate(dataloader):
                 x = x.to(self.device)
-                
-                # 前向传播
-                mean, log_var = self.encoder(x)
-                # z, _= self.encoder(x)  # 模拟encoder
-                z = self.reparameterize(mean, log_var)
-                recon_x = self.decoder(z)
-                
-                # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
-                kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
-                loss = recon_loss  + kl_loss 
+
+                if method == 'VAE':
+                    mean, log_var = self.encoder(x)
+                    z = self.reparameterize(mean, log_var)
+                    recon_x = self.decoder(z)
+                    recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
+                    kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1).mean()
+                    
+                elif method == 'AE':
+                    mean, _ = self.encoder(x)
+                    recon_x = self.decoder(mean)
+                    recon_loss = F.mse_loss(recon_x, x, reduction='none').mean()
+                    kl_loss = torch.tensor(0.0, device=self.device)
+
+                loss = self.lamb1 * recon_loss  + kl_loss 
                 # 反向传播
                 optimizer.zero_grad()
                 loss.backward()
