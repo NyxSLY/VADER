@@ -73,7 +73,7 @@ def main():
         l_c_dim=l_c_dim,
         batch_size=batch_size,
         encoder_type='basic',
-        pretrain_epochs=10,
+        pretrain_epochs=100,
         num_classes=num_classes,
         clustering_method='kmeans',
         resolution_1=2.0,
