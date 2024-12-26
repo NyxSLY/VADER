@@ -156,20 +156,6 @@ class ProjectConfig:
         
         return paths
     
-    def get_color_map(self, num_classes: int) -> Dict[int, str]:
-        """获取指定类别数量的颜色映射
-        
-        Args:
-            num_classes: 类别数量
-            
-        Returns:
-            Dict[int, str]: 整数索引到颜色字符串的映射
-        """
-        str_num = str(num_classes)
-        if str_num not in self.COLOR_MAPS:
-            raise ValueError(f"不支持的类别数量: {num_classes}")
-        
-        return self.COLOR_MAPS[str_num]
     
     def get_model_params(self) -> Dict[str, Any]:
         """获取模型参数"""

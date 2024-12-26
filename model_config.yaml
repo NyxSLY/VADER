@@ -61,8 +61,8 @@ train_config:
   min_loss_threshold:
     total: 0.5
     recon: 0.02
-  tsne_plot: False
-  recon_plot: False
+  tsne_plot: True
+  recon_plot: True
 
 # 可视化配置
 vis_config:

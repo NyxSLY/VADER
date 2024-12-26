@@ -982,7 +982,7 @@ class VaDE(nn.Module):
         
         # 调整其他张量的维度
         mean = mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]compute_loss
         
         # 调整高斯分布参数的维度
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]

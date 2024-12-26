@@ -15,6 +15,8 @@ from scipy.optimize import linear_sum_assignment
 import datetime, pywt
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.sparse import spmatrix, csr_matrix
+import seaborn as sns
+from matplotlib.colors import LinearSegmentedColormap
 
 def set_random_seed(seed):
     random.seed(seed)       # 设置 Python 内置随机数生成器的种子
@@ -435,20 +437,26 @@ def visualize_clusters(
     # 绘图
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(22, 8))
     
-    # 绘制真实标签的散点图
-    scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=colors_map)
+        # 创建大调色板
+    colors = sns.color_palette('husl', n_colors=len(np.unique(labels)))
+    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=custom_cmap)
     ax1.set_title('True Labels')
     legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
     
     # 绘制GMM预测聚类结果的散点图
-    scatter2 = ax2.scatter(z_tsne[:, 0], z_tsne[:, 1], c=gmm_labels, cmap='tab20')
+    colors = sns.color_palette('husl', n_colors=len(np.unique(gmm_labels)))
+    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    scatter2 = ax2.scatter(z_tsne[:, 0], z_tsne[:, 1], c=gmm_labels, cmap=custom_cmap)
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
     legend2 = ax2.legend(*scatter2.legend_elements(num=len(np.unique(gmm_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
 
     # 绘制Leiden预测聚类结果的散点图
-    scatter3 = ax3.scatter(z_tsne[:, 0], z_tsne[:, 1], c=leiden_labels, cmap='tab20')
+    colors = sns.color_palette('husl', n_colors=len(np.unique(leiden_labels)))
+    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    scatter3 = ax3.scatter(z_tsne[:, 0], z_tsne[:, 1], c=leiden_labels, cmap=custom_cmap)
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
     legend3 = ax3.legend(*scatter3.legend_elements(num=len(np.unique(leiden_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax3.add_artist(legend3)
