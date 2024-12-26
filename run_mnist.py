@@ -9,6 +9,7 @@ from train import train_manager
 import torch
 from utility import wavelet_transform
 import sys
+import gzip
 set_random_seed(123)
 
 
@@ -20,45 +21,24 @@ except IndexError:
     memo = 'test'
 
 def main():
-    # 读取数据
-    # oc_train_data = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_data_fil_191.txt", delimiter=" ")
-    # oc_train_label = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_labels_to_confmatrix.txt", delimiter=" ").astype(int)
-    # # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9_label.npy").astype(int)
 
-    nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
-    nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
-    # home pc
-    # nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9.npy")
-    # nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9_label.npy").astype(int)
-    
-    # nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference.npy")
-    # nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
-
-    # path = '/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/VADERdata/'
-    #nc_data_org = np.load(path + '/processed_NC_9.npy')
-    #nc_labels_org = np.load(path + '/processed_NC_9_label.npy')
-
-    # nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference.npy")
-    # nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
-
-    # nc_data_org = np.load("/home/zym/DESC/Datasets/NC-30-species/X_reference.npy")
-    # nc_labels_org = np.load("/home/zym/DESC/Datasets/NC-30-species/y_reference.npy").astype(int)
-    
-    keep_indices = np.where((nc_labels_org == 2) | (
-                nc_labels_org == 9) |  # (nc_labels ==25) | (nc_labels ==26) | (nc_labels ==27) | (nc_labels ==29)|\n",
-                            (nc_labels_org == 18) | (nc_labels_org == 21) |
-                            (nc_labels_org == 1) | (nc_labels_org == 5) | (nc_labels_org == 13) | (
-                                        nc_labels_org == 20) | (nc_labels_org == 24))
-    oc_train_data = nc_data_org[keep_indices]
-    oc_train_label = nc_labels_org[keep_indices]
+    f = gzip.open(r"/mnt/sda/zhangym/VADER/VADE/dataset/mnist/mnist.pkl.gz", 'rb')
+    (x_train, y_train), (x_test, y_test) = cPickle.load(f, encoding="bytes")
+    f.close()
+    x_train = x_train.astype('float32') / 255.
+    x_test = x_test.astype('float32') / 255.
+    x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
+    x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
+    X = np.concatenate((x_train,x_test))
+    Y = np.concatenate((y_train,y_test))
 
 
     # 准备数据
+    
     model_params = config.get_model_params()
-    device = set_device(model_params['device'])
-    batch_size = model_params['batch_size']
-    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(oc_train_data, oc_train_label,batch_size,device)
+    device = torch.device('cuda:4')
+    batch_size = 100
+    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(X, Y,batch_size,device)
 
     # 获取模型配置
     input_dim = tensor_data.shape[1]
