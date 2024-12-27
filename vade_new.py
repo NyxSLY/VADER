@@ -988,16 +988,16 @@ class VaDE(nn.Module):
         
         # 调整高斯分布参数的维度
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
-        gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
+        gaussian_vars = self.gaussian.variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
         # 3. GMM先验的KL散度
         try:
             kl_gmm = torch.sum(
                 0.5 * gamma_t * (
                     self.latent_dim * math.log(2*math.pi) +
-                    torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
-                    torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                    torch.log(gaussian_vars + 1e-10) +
+                    torch.exp(log_var) / (gaussian_vars + 1e-10) +
+                    (mean - gaussian_means).pow(2) / (gaussian_vars + 1e-10)
                 ),
                 dim=(1,2)
             ).sum()
@@ -1007,7 +1007,7 @@ class VaDE(nn.Module):
             print(f"log_var shape: {log_var.shape}")
             print(f"mean shape: {mean.shape}")
             print(f"gaussian_means shape: {gaussian_means.shape}")
-            print(f"gaussian_log_vars shape: {gaussian_log_vars.shape}")
+            print(f"gaussian_log_vars shape: {gaussian_vars.shape}")
             raise e
         
         # 4. 标准正态分布的KL散度
