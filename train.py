@@ -55,17 +55,13 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
     total_metrics = defaultdict(float)
     
     for batch_idx, x in enumerate(data_loader):
-        # 数据准备
         x = x[0].to(model.device)
         
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = model(x)
+        recon_x, mean, log_var, z = model(x)
         
-        # 获取GMM的输出
-        _, y, gamma, pi = model.gaussian(z)
-        
-        # 损失计算
-        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
+        # 计算损失
+        loss_dict = model.compute_loss(x, recon_x, z, mean, log_var)
         
         # 反向传播
         optimizer.zero_grad()
@@ -78,21 +74,17 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
                 total_metrics[key] += value.item()
             else:
                 total_metrics[key] += value
-            
-        # 记录到tensorboard
+
+        # 记录到 TensorBoard
         if writer is not None and batch_idx % 10 == 0:
             step = epoch * len(data_loader) + batch_idx
             for key, value in total_metrics.items():
-                writer.add_scalar(
-                    f'Batch/{key}', 
-                    value / (batch_idx + 1), 
-                    step
-                )
-                
+                writer.add_scalar(f'Batch/{key}', value / (batch_idx + 1), step)
+
     # 计算平均指标
     for key in total_metrics:
         total_metrics[key] /= len(data_loader)
-        
+    
     return total_metrics
 
 
@@ -107,7 +99,12 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     r_plot = train_config['recon_plot']
 
     # 初始化优化器和其他组件
-    optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+    optimizer = optim.Adam(
+        list(model.encoder.parameters()) + 
+        list(model.decoder.parameters()) + 
+        list(model.gaussian.parameters()),
+        lr=model_params['learning_rate']
+    )
     
     if model_params.get('use_lr_scheduler', False):
         print("使用学习率调度器")

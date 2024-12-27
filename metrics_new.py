@@ -8,6 +8,8 @@ from utility import visualize_clusters, plot_reconstruction
 from config import config
 from torch.utils.tensorboard import SummaryWriter
 from utility import leiden_clustering,inverse_wavelet_transform
+import math
+
 class ModelEvaluator:
     """
     模型评估器,用于计算模型在验证集或测试集上的各种指标,并保存结果。
@@ -152,12 +154,32 @@ class ModelEvaluator:
         self.model.eval()
         with torch.no_grad():
             # 获取模型输出
-            recon_x, mean, log_var, z, gamma, pi = self.model(tensor_gpu_data)
+            recon_x, mean, log_var, z = self.model(tensor_gpu_data)
+            
+            # 计算 gamma
+            batch_size = z.size(0)
+            z_expanded = z.unsqueeze(2).repeat(1, 1, self.model.num_classes)  # [B, D, K]
+            u_tensor3 = self.model.gaussian.u_p.unsqueeze(0).repeat(batch_size, 1, 1)  # [B, D, K]
+            lambda_tensor3 = self.model.gaussian.lambda_p.unsqueeze(0).repeat(batch_size, 1, 1)  # [B, D, K]
+            theta_tensor3 = self.model.gaussian.theta_p.unsqueeze(0).unsqueeze(0).repeat(batch_size, self.model.latent_dim, 1)  # [B, D, K]
+            
+            # 计算未归一化的 log p(c|z)
+            log_p_c_z = torch.log(theta_tensor3 + 1e-10) - 0.5 * torch.log(2 * math.pi * lambda_tensor3 + 1e-10) \
+                        - ((z.unsqueeze(2) - u_tensor3) ** 2) / (2 * lambda_tensor3 + 1e-10)
+            
+            # 对潜在维度 D 求和，得到 [B, K]
+            log_p_c_z = log_p_c_z.sum(dim=1)  # [B, K]
+            
+            # 计算 gamma
+            p_c_z = torch.exp(log_p_c_z) + 1e-10  # [B, K]
+            gamma = p_c_z / p_c_z.sum(dim=1, keepdim=True)  # [B, K]
+            
+            # 获取 GMM 聚类标签
+            gmm_probs = gamma.detach().cpu().numpy()
+            gmm_labels = np.argmax(gmm_probs, axis=1)
             
             # 转换数据到CPU
             z_cpu = z.detach().cpu().numpy()
-            gmm_probs = gamma.detach().cpu().numpy()
-            gmm_labels = np.argmax(gmm_probs, axis=1)
             recon_x_cpu = recon_x.detach().cpu().numpy()
             y_true = labels.cpu().numpy()
 
@@ -289,7 +311,7 @@ class ModelEvaluator:
         # 保存t-SNE可视化
         self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)
 
-        # 保存模型
+        # ���存模型
         # self._save_model(epoch, metrics)
 
         # 保存重构可视化

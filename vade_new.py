@@ -205,7 +205,7 @@ class AdaptiveNormalization(nn.Module):
         super(AdaptiveNormalization, self).__init__()
         self.alpha = alpha
     def forward(self, x):
-        # 计算峰值区域
+        # ���算峰值区域
         peaks = self.find_peaks(x)
         # 计算权重
         weights = 1 + self.alpha * peaks
@@ -396,7 +396,7 @@ class PeakDetector(nn.Module):
 
         # 批量检测峰值
         for i in range(batch_size):
-            # 添加 detach() 来处理需要梯度的张量
+            # 添加 detach() ���处理需要梯度的张量
             spectrum = x_normalized[i].detach().cpu().numpy()
             peak_indices, _ = signal.find_peaks(
                 spectrum,
@@ -437,54 +437,16 @@ class Decoder(nn.Module):
 class Gaussian(nn.Module):
     def __init__(self, num_clusters, latent_dim):
         super(Gaussian, self).__init__()
-        self.num_clusters = num_clusters
-        self.latent_dim = latent_dim
-        
+        self.num_clusters = num_clusters  # K
+        self.latent_dim = latent_dim  # D
+
         # 初始化参数
-        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
-        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
-        self.variances = nn.Parameter(torch.ones(num_clusters, latent_dim))  # 改为直接存储方差
+        self.theta_p = nn.Parameter(torch.ones(num_clusters) / num_clusters)  # [K]
+        self.u_p = nn.Parameter(torch.zeros(latent_dim, num_clusters))  # [D, K]
+        self.lambda_p = nn.Parameter(torch.ones(latent_dim, num_clusters))  # [D, K]
 
-    def update_parameters(self, cluster_centers=None, variances=None, weights=None):
-        """更新GMM参数"""
-        with torch.no_grad():
-            if cluster_centers is not None:
-                self.means.data.copy_(cluster_centers)
-            if variances is not None:
-                self.variances.data.copy_(variances)
-            if weights is not None:
-                self.pi.data.copy_(weights)
-
-    def forward(self, z):
-        # 计算条件概率/可能性
-        y = self.gaussian_log_prob(z)  # log p(z|c)
-        
-        # 计算后验概率 - 注意这里需要exp
-        gamma = torch.exp(y)  # 对应原版的 temp_p_c_z
-        gamma = gamma / (gamma.sum(dim=1, keepdim=True) + 1e-10)  # 归一化
-        
-        # 计算条件均值
-        means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
-        
-        return means, y, gamma, self.pi
-
-    def gaussian_log_prob(self, z):
-        """计算log p(z|c)，对应原版的temp_p_c_z计算"""
-        z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        variances_expanded = self.variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
-    
-        # 对应原版的计算
-        log_p_c = (
-            torch.log(pi_expanded)  # K.log(temp_theta_tensor3)
-            - 0.5 * torch.log(2*math.pi*variances_expanded)  # -0.5*K.log(2*math.pi*temp_lambda_tensor3)
-            - torch.square(z_expanded - means_expanded)/(2*variances_expanded)  # -K.square(temp_Z-temp_u_tensor3)/(2*temp_lambda_tensor3)
-        )
-        
-        # 对应原版的K.sum(..., axis=1)
-        return torch.sum(log_p_c, dim=2)
-
+    def forward(self):
+        pass  # 不再需要实现
 
 class SpectralAnalyzer:
     def __init__(self, peak_detector, spectral_constraints):
@@ -760,13 +722,7 @@ class VaDE(nn.Module):
 
 
     def pretrain(self, dataloader, learning_rate=1e-3):
-        """预训练自编码器部分
-        
-        Args:
-            dataloader: 数据加载器
-            epochs: 预训练轮数
-            learning_rate: 学习率
-        """
+
         print("Starting pretraining...")
         optimizer = torch.optim.Adam(
             list(self.encoder.parameters()) + 
@@ -862,16 +818,29 @@ class VaDE(nn.Module):
         print(f"Using clustering method: {self.clustering_method}")
         labels, cluster_centers = self._apply_clustering(encoded_data)
         num_clusters = len(np.unique(labels))
-    
-        cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        
+        # 这里需要转置以匹配 [D, K]？-重要修改？
+        cluster_centers = torch.tensor(cluster_centers.T, device=self.device)  # 转置以匹配 [D, K]
+        
         # 如果聚类数量发生变化，需要重新初始化高斯分布
         if num_clusters != self.gaussian.num_clusters:
             print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
             self.num_clusters = num_clusters
             self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
 
-        # 直接用聚类中心更新高斯分布参数
-        self.gaussian.means.data.copy_(cluster_centers)
+        # 初始化 GMM 参数
+        self.gaussian.u_p.data.copy_(cluster_centers)  # 初始化均值参数 [D, K]
+        
+        # 初始化方差参数，可以设为单位方差
+        lambda_p = torch.ones(self.latent_dim, self.num_clusters, device=self.device)
+        self.gaussian.lambda_p.data.copy_(lambda_p)
+        
+        # 初始化混合系数 theta_p
+        counts = np.bincount(labels, minlength=self.num_clusters)
+        theta_p = counts / counts.sum()
+        theta_p = torch.tensor(theta_p, dtype=torch.float32, device=self.device)
+        self.gaussian.theta_p.data.copy_(theta_p)
+        
         self.cluster_centers = cluster_centers
 
 
@@ -908,30 +877,17 @@ class VaDE(nn.Module):
         eps = torch.randn_like(std)
         return mean + eps * std
 
-    def forward(self,x):
-        """模型前向传播"""
+    def forward(self, x):
         mean, log_var = self.encoder(x)
         z = self.reparameterize(mean, log_var)
-        
-        # 通过GMM获取所有需要的值
-        means, y, gamma, pi = self.gaussian(z)
-        
-        # 解码
         recon_x = self.decoder(z)
-        
-        return recon_x, mean, log_var, z, gamma, pi
+        return recon_x, mean, log_var, z
 
 
     def train_step(self, x):
-        """单步训练
-        Args:
-            x: 输入数据
-        """
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = self(x)
-        
-        # 计算损失
-        loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
+        recon_x, mean, log_var, z = self(x)
+        loss = self.compute_loss(x, recon_x, z, mean, log_var)
         
         return loss
 
@@ -969,70 +925,64 @@ class VaDE(nn.Module):
         
         return constraints
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
-        """计算所有损失，严格按照原始VaDE论文"""
+    def compute_loss(self, x, recon_x, z, z_mean, z_log_var):
         batch_size = x.size(0)
         
-        # 1. 重构损失
-        recon_loss = self.lamb1 * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).sum()
-
-        # 2. 从y计算gamma
-        gamma = torch.exp(y)
-        gamma = F.softmax(gamma, dim=-1)  # [batch_size, num_clusters]
+        # 1. 重构损失 per sample
+        recon_loss_per_sample = self.lamb1 * self.input_dim * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1)  # [B]
         
-        # 扩展gamma的维度用于广播
-        gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
+        # 2. 扩展 z、z_mean、z_log_var 到 [B, D, K]
+        z_expanded = z.unsqueeze(2).repeat(1, 1, self.num_classes)  # [B, D, K]
+        z_mean_t = z_mean.unsqueeze(2).repeat(1, 1, self.num_classes)  # [B, D, K]
+        z_log_var_t = z_log_var.unsqueeze(2).repeat(1, 1, self.num_classes)  # [B, D, K]
         
-        # 调整其他张量的维度
-        mean = mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]compute_loss
+        # 3. 展开 GMM 参数到 [B, D, K]
+        u_tensor3 = self.gaussian.u_p.unsqueeze(0).repeat(batch_size, 1, 1)  # [B, D, K]
+        lambda_tensor3 = self.gaussian.lambda_p.unsqueeze(0).repeat(batch_size, 1, 1)  # [B, D, K]
+        theta_tensor3 = self.gaussian.theta_p.unsqueeze(0).unsqueeze(0).repeat(batch_size, self.latent_dim, 1)  # [B, D, K]
         
-        # 调整高斯分布参数的维度
-        gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
-        gaussian_vars = self.gaussian.variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
+        # 4. 计算未归一化的 log p(c|z)
+        log_p_c_z = torch.log(theta_tensor3 + 1e-10) - 0.5 * torch.log(2 * math.pi * lambda_tensor3 + 1e-10) \
+                    - ( (z_expanded - u_tensor3) ** 2 ) / (2 * lambda_tensor3 + 1e-10)  # [B, D, K]
         
-        # 3. GMM先验的KL散度
-        try:
-            kl_gmm = torch.sum(
-                0.5 * gamma_t * (
-                    self.latent_dim * math.log(2*math.pi) +
-                    torch.log(gaussian_vars + 1e-10) +
-                    torch.exp(log_var) / (gaussian_vars + 1e-10) +
-                    (mean - gaussian_means).pow(2) / (gaussian_vars + 1e-10)
-                ),
-                dim=(1,2)
-            ).sum()
-        except RuntimeError as e:
-            print(f"Error in KL_GMM calculation:")
-            print(f"gamma_t shape: {gamma_t.shape}")
-            print(f"log_var shape: {log_var.shape}")
-            print(f"mean shape: {mean.shape}")
-            print(f"gaussian_means shape: {gaussian_means.shape}")
-            print(f"gaussian_log_vars shape: {gaussian_vars.shape}")
-            raise e
+        # 5. 对潜在维度 D 求和，得到 [B, K]
+        p_c_z = torch.exp(log_p_c_z.sum(dim=1)) + 1e-10  # [B, K]
         
-        # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var, dim=2).sum() # - mean.pow(2) - torch.exp(log_var)
+        # 6. 计算 gamma
+        gamma = p_c_z / p_c_z.sum(dim=1, keepdim=True)  # [B, K]
+        gamma_t = gamma.unsqueeze(1).repeat(1, self.latent_dim, 1)  # [B, D, K]
         
-        # 5. GMM熵项
-        pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
-        entropy = (
-            -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
-            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
-        ).sum()
-
-        # 6. 总损失
-        loss = recon_loss + kl_gmm + kl_standard + entropy
+        # 7. 计算 KL(q(z|x) || p(z|c))
+        kl_gmm = torch.sum(
+            0.5 * gamma_t * (
+                torch.log(2 * math.pi * lambda_tensor3 + 1e-10) +
+                torch.exp(z_log_var_t) / (lambda_tensor3 + 1e-10) +
+                (z_mean_t - u_tensor3) ** 2 / (lambda_tensor3 + 1e-10)
+            ),
+            dim=(1, 2)
+        )  # [B]
+        
+        # 8. 减去 0.5 * sum(z_log_var + 1)
+        kl_standard = -0.5 * torch.sum(z_log_var + 1, dim=1)  # [B]
+        
+        # 9. 计算熵项
+        entropy = - torch.sum(torch.log(self.gaussian.theta_p + 1e-10) * gamma, dim=1) \
+                  + torch.sum(torch.log(gamma + 1e-10) * gamma, dim=1)  # [B]
+        
+        # 10. 计算总损失 per sample
+        loss_per_sample = recon_loss_per_sample + kl_gmm + kl_standard + entropy  # [B]
+        
+        # 11. 总损失
+        total_loss = loss_per_sample.sum()
         
         # 返回损失字典
         loss_dict = {
-            'total_loss': loss,
-            'recon_loss': recon_loss.item(),
-            'kl_gmm': kl_gmm.item(),
-            'kl_standard': kl_standard.item(),
-            'entropy': entropy.item()
+            'total_loss': total_loss,
+            'recon_loss': recon_loss_per_sample.sum().item(),
+            'kl_gmm': kl_gmm.sum().item(),
+            'kl_standard': kl_standard.sum().item(),
+            'entropy': entropy.sum().item()
         }
-        
         return loss_dict
 
     def _compute_cluster_separation(self, latent_vectors, cluster_assignments, method='cosine'):
