@@ -73,7 +73,7 @@ def main():
         l_c_dim=l_c_dim,
         batch_size=batch_size,
         encoder_type='basic',
-        pretrain_epochs=100,
+        pretrain_epochs=3000,
         num_classes=num_classes,
         clustering_method='kmeans',
         resolution_1=2.0,
@@ -86,11 +86,12 @@ def main():
     #model.kmeans_init = choose_kmeans_method
     model.kmeans_init = 'random'
     # 训练模型
-    print("\n开始预训练...  ")
-    model.pretrain(
-        dataloader=dataloader,
-        learning_rate=1e-3
-    )
+    model.load_state_dict(torch.load('/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_120.pth'))
+    # print("\n开始预训练...  ")
+    # model.pretrain(
+    #     dataloader=dataloader,
+    #     learning_rate=1e-5
+    # )
 
     
 

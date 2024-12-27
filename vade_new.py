@@ -770,7 +770,9 @@ class VaDE(nn.Module):
             list(self.decoder.parameters()), 
             lr=learning_rate
         )
-        
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
+        min_loss = float('inf')
+
         self.train()
         for epoch in range(self.pretrain_epochs):
             total_loss = 0
@@ -793,8 +795,17 @@ class VaDE(nn.Module):
             
             # 打印训练进度
             avg_loss = total_loss / len(dataloader)
+            scheduler.step()
+            current_lr =  optimizer.param_groups[0]['lr']
+            print(f'Current learning rate: {current_lr:.6f}')
+
+            if avg_loss < min_loss and epoch > 100 and (epoch+1) % 10 == 0:
+                min_loss = avg_loss
+                torch.save(self.state_dict(), f'/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_{epoch+1}.pth')
+            
             if (epoch + 1) % 10 == 0:
                 print(f'Pretrain Epoch [{epoch+1}/{self.pretrain_epochs}], Average Loss: {avg_loss:.4f}')
+            
         
         print("Pretraining finished!")
         
