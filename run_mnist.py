@@ -87,14 +87,15 @@ def main():
     model.kmeans_init = 'random'
     # 训练模型
     print("\n开始预训练...  ")
-    model.pretrain(
-        dataloader=dataloader,
-        learning_rate=1e-3
-    )
+    # model.pretrain(
+    #     dataloader=dataloader,
+    #     learning_rate=1e-3
+    # )
 
     
 
     print("\n开始模型训练...")
+    model.load_state_dict(torch.load('/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_120.pth'))
     # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))
     model = train_manager(
         model=model,

@@ -977,7 +977,8 @@ class VaDE(nn.Module):
         recon_loss = self.lamb1 * F.binary_cross_entropy(recon_x, x, reduction='none').sum(dim=1).sum()
 
         # 2. 从y计算gamma
-        gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
+        gamma = torch.exp(y)
+        gamma = F.softmax(gamma, dim=-1)  # [batch_size, num_clusters]
         
         # 扩展gamma的维度用于广播
         gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
