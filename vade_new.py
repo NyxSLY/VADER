@@ -443,15 +443,15 @@ class Gaussian(nn.Module):
         # 初始化参数
         self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
         self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
-        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
-        
+        self.variances = nn.Parameter(torch.ones(num_clusters, latent_dim))  # 改为直接存储方差
+
     def update_parameters(self, cluster_centers=None, variances=None, weights=None):
         """更新GMM参数"""
         with torch.no_grad():
             if cluster_centers is not None:
                 self.means.data.copy_(cluster_centers)
             if variances is not None:
-                self.log_variances.data.copy_(torch.log(variances + 1e-10))
+                self.variances.data.copy_(variances)
             if weights is not None:
                 self.pi.data.copy_(weights)
 
@@ -459,28 +459,31 @@ class Gaussian(nn.Module):
         # 计算条件概率/可能性
         y = self.gaussian_log_prob(z)  # log p(z|c)
         
-        # 计算后验概率
-        gamma = F.softmax(y, dim=1)  # p(c|z)
+        # 计算后验概率 - 注意这里需要exp
+        gamma = torch.exp(y)  # 对应原版的 temp_p_c_z
+        gamma = gamma / (gamma.sum(dim=1, keepdim=True) + 1e-10)  # 归一化
         
         # 计算条件均值
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
         
-        # 返回所有需要的值
-        return means, y, gamma, self.pi  # 输出PI
+        return means, y, gamma, self.pi
 
     def gaussian_log_prob(self, z):
-        """计算log p(z|c)"""
+        """计算log p(z|c)，对应原版的temp_p_c_z计算"""
         z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
         means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        log_vars_expanded = self.log_variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
+        variances_expanded = self.variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
         pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
     
+        # 对应原版的计算
         log_p_c = (
-            torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
-            - 0.5 * torch.sum(torch.log(2*math.pi*torch.exp(log_vars_expanded)), dim=2)  # 常数项和方差项
-            - torch.sum((z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
+            torch.log(pi_expanded)  # K.log(temp_theta_tensor3)
+            - 0.5 * torch.log(2*math.pi*variances_expanded)  # -0.5*K.log(2*math.pi*temp_lambda_tensor3)
+            - torch.square(z_expanded - means_expanded)/(2*variances_expanded)  # -K.square(temp_Z-temp_u_tensor3)/(2*temp_lambda_tensor3)
         )
-        return log_p_c
+        
+        # 对应原版的K.sum(..., axis=1)
+        return torch.sum(log_p_c, dim=2)
 
 
 class SpectralAnalyzer:
@@ -818,9 +821,11 @@ class VaDE(nn.Module):
             nn = NearestNeighbors(n_neighbors=10)
             nn.fit(encoded_data)
             adj_matrix = nn.kneighbors_graph(encoded_data, mode='distance')
+            adj_matrix = sparse.csr_matrix(adj_matrix)  # 确保是CSR格式
+            adj_matrix.data = np.reciprocal(adj_matrix.data + 1e-10)  # 使用numpy的reciprocal计算倒数
             
             G = nx.from_scipy_sparse_matrix(adj_matrix)
-            partition = community_louvain.best_partition(G, resolution=self.resolution_1)
+            partition = community_louvain.best_partition(G, resolution=self.resolution_1, random_state=0)
             labels = np.array(list(partition.values()))
             
             # 计算聚类中心
