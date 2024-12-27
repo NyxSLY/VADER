@@ -205,7 +205,7 @@ class AdaptiveNormalization(nn.Module):
         super(AdaptiveNormalization, self).__init__()
         self.alpha = alpha
     def forward(self, x):
-        # ���算峰值区域
+        # 计算峰值区域
         peaks = self.find_peaks(x)
         # 计算权重
         weights = 1 + self.alpha * peaks
@@ -396,7 +396,7 @@ class PeakDetector(nn.Module):
 
         # 批量检测峰值
         for i in range(batch_size):
-            # 添加 detach() ���处理需要梯度的张量
+            # 添加 detach() 来处理需要梯度的张量
             spectrum = x_normalized[i].detach().cpu().numpy()
             peak_indices, _ = signal.find_peaks(
                 spectrum,
@@ -832,7 +832,7 @@ class VaDE(nn.Module):
         self.gaussian.u_p.data.copy_(cluster_centers)  # 初始化均值参数 [D, K]
         
         # 初始化方差参数，可以设为单位方差
-        lambda_p = torch.ones(self.latent_dim, self.num_clusters, device=self.device)
+        lambda_p = torch.ones(self.latent_dim, self.gaussian.num_clusters, device=self.device)
         self.gaussian.lambda_p.data.copy_(lambda_p)
         
         # 初始化混合系数 theta_p
