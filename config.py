@@ -22,6 +22,7 @@ class ProjectConfig:
             'latent_dim': int(config['model_params']['basic_parameters']['latent_dim']),
             'intermediate_dim': config['model_params']['basic_parameters']['intermediate_dim'],
             'learning_rate': float(config['model_params']['learning_rate']),
+            'use_lr_scheduler': bool(config['model_params']['use_lr_scheduler']),
             'batch_size': int(config['model_params']['batch_size']),
             'epochs': int(config['model_params']['epochs']),
             'device':str(config['model_params']['device']),
