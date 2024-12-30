@@ -63,7 +63,7 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
         recon_x, mean, log_var, z, gamma, pi = model(x)
         
         # 获取GMM的输出
-        _, y, gamma, pi = model.gaussian(z)
+        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         
         # 损失计算
         loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
@@ -91,6 +91,7 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
                     value / (batch_idx + 1), 
                     step
                 )
+            
                 
     # 计算平均指标
     for key in total_metrics:
@@ -195,9 +196,23 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             scheduler_gmm.step()
 
         # 记录学习率
+        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
             writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
+            for i in range(10):
+                writer.add_scalar(
+                    f'GMM/cluster_{i}_log_variance_mean', 
+                    gmm_log_variances[i].mean().item(),  # 每个类别的平均log方差
+                    epoch
+                )
+            for i in range(10):
+                writer.add_scalar(
+                    f'VADE/cluster_{i}_log_variance_mean', 
+                    log_var[i].mean().item(),  # 每个类别的平均log方差
+                    epoch
+                )
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(

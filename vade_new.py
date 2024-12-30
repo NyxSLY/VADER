@@ -444,6 +444,7 @@ class Gaussian(nn.Module):
         self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
         self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
         self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
+
         
     def update_parameters(self, cluster_centers=None, variances=None, weights=None):
         """更新GMM参数"""
@@ -466,7 +467,7 @@ class Gaussian(nn.Module):
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
         
         # 返回所有需要的值
-        return means, y, gamma, self.pi  # 输出PI
+        return self.means,self.log_variances, y, gamma, self.pi  # 输出PI
 
     def gaussian_log_prob(self, z):
         """计算log p(z|c)"""
@@ -920,7 +921,7 @@ class VaDE(nn.Module):
         z = self.reparameterize(mean, log_var)
         
         # 通过GMM获取所有需要的值
-        means, y, gamma, pi = self.gaussian(z)
+        means, log_variances, y, gamma, pi = self.gaussian(z)
         
         # 解码
         recon_x = self.decoder(z)
