@@ -10,6 +10,7 @@ from torch.multiprocessing import Process, Queue
 from contextlib import contextmanager
 import time
 import os
+from itertools import chain
 
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
@@ -49,7 +50,7 @@ class WeightScheduler:
         return weights 
     
 
-def train_epoch(model, data_loader, optimizer, epoch, writer):
+def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
     """训练一个epoch"""
     model.train()
     total_metrics = defaultdict(float)
@@ -68,9 +69,11 @@ def train_epoch(model, data_loader, optimizer, epoch, writer):
         loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
         
         # 反向传播
-        optimizer.zero_grad()
+        optimizer_nn.zero_grad()
+        optimizer_gmm.zero_grad()
         loss_dict['total_loss'].backward()
-        optimizer.step()
+        optimizer_nn.step()
+        optimizer_gmm.step()
         
         # 更新总指标
         for key, value in loss_dict.items():
@@ -107,12 +110,24 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     r_plot = train_config['recon_plot']
 
     # 初始化优化器和其他组件
-    optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+    # optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+    optimizer_nn = optim.Adam(chain(model.encoder.parameters(), model.decoder.parameters()), lr=model_params['learning_rate'])
+    optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model_params['learning_rate'])
     
     if model_params.get('use_lr_scheduler', False):
         print("使用学习率调度器")
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
+        # scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        #     optimizer,
+        #     T_max=model_params['epochs'],
+        #     eta_min=model_params['learning_rate'] * 0.01
+        # )
+        scheduler_nn = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer_nn,
+            T_max=model_params['epochs'],
+            eta_min=model_params['learning_rate'] * 0.01
+        )
+        scheduler_gmm = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer_gmm,
             T_max=model_params['epochs'],
             eta_min=model_params['learning_rate'] * 0.01
         )
@@ -158,7 +173,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         train_metrics = train_epoch(
             model=model,
             data_loader=dataloader,
-            optimizer=optimizer,
+            optimizer_nn=optimizer_nn,
+            optimizer_gmm=optimizer_gmm,
             epoch=epoch,
             writer=writer,
         )
@@ -171,20 +187,24 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         #    model.update_kmeans_centers(dataloader)
             
         # 更新学习率
-        lr = model_params['learning_rate'] if scheduler is None else scheduler.get_last_lr()[0]
-        if scheduler is not None:
-            scheduler.step()
+        lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
+        lr_gmm = model_params['learning_rate'] if scheduler_gmm is None else scheduler_gmm.get_last_lr()[0]
+        if scheduler_nn is not None:
+            scheduler_nn.step()
+        if scheduler_gmm is not None:
+            scheduler_gmm.step()
 
         # 记录学习率
         if writer is not None:
-            writer.add_scalar('Learning_rate', lr, epoch)
+            writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
+            writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(
             tensor_gpu_data, 
             labels, 
             epoch, 
-            lr, 
+            lr_nn, 
             train_metrics, 
             t_plot, 
             r_plot
