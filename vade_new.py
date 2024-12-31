@@ -35,7 +35,7 @@ class Encoder(nn.Module):
         for dim in intermediate_dim:
             layers.extend([
                 nn.Linear(prev_dim, dim),
-                nn.BatchNorm1d(dim),
+                # nn.BatchNorm1d(dim),
                 nn.ReLU(),
             ])
             prev_dim = dim
@@ -422,13 +422,13 @@ class Decoder(nn.Module):
         for dim in decoder_dims:
             layers.extend([
                 nn.Linear(prev_dim, dim),   
-                nn.BatchNorm1d(dim),
+                # nn.BatchNorm1d(dim),
                 nn.ReLU()
             ])
             prev_dim = dim
         layers.extend([
             nn.Linear(prev_dim, input_dim),
-            nn.BatchNorm1d(input_dim),
+            # nn.BatchNorm1d(input_dim),
             nn.Sigmoid()
         ])
         self.net = nn.Sequential(*layers)
@@ -818,7 +818,7 @@ class VaDE(nn.Module):
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
-        if  not os.path.exists('./pretrain_model.pk'):
+        if  not os.path.exists('./pretrain_model_none_bn.pk'):
 
             Loss=nn.MSELoss()
             opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
@@ -842,7 +842,7 @@ class VaDE(nn.Module):
 
                 epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
 
-            self.encoder.to_logvar.load_state_dict(self.encoder.to_mean.state_dict())
+            # self.encoder.to_logvar.load_state_dict(self.encoder.to_mean.state_dict())
 
             # Z = []
             # Y = []
@@ -868,12 +868,11 @@ class VaDE(nn.Module):
             # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
             # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
 
-            torch.save(self.state_dict(), './pretrain_model.pk')
+            torch.save(self.state_dict(), './pretrain_model_none_bn.pk')
 
         else:
-
-
-            self.load_state_dict(torch.load('./pretrain_model.pk'))
+            self.load_state_dict(torch.load('./pretrain_model_none_bn.pk'))
+            
 
 
     def _apply_clustering(self, encoded_data):
@@ -1042,16 +1041,11 @@ class VaDE(nn.Module):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
-        try:
-            print(f"recon_x: {recon_x}")
-            sys.exit()
-        except RuntimeError as e:
-            pass
+        
         # 1. 重构损失
+      
         recon_loss = self.lamb1 * F.binary_cross_entropy(recon_x, x, reduction='none').sum(-1)
-        
-        
-
+       
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
         
@@ -1095,27 +1089,20 @@ class VaDE(nn.Module):
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
         )
-        # try:
-        #     print(f"y: {y}")
-        #     print(f"mean: {mean}")
-        #     print(f"log_var: {log_var}")
-        #     print(f"z: {z}")
-        #     print(f"gamma: {gamma}")
-        #     print(f"pi: {pi}")
-        #     sys.exit()
-        # except RuntimeError as e:
-        #     pass
+        
         # 6. 总损失
-        loss = recon_loss + kl_standard + kl_gmm +  entropy
+        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean()
         
         # 返回损失字典
+        
         loss_dict = {
-            'total_loss': loss.sum(),
-            'recon_loss': recon_loss.sum().item(),
-            'kl_gmm': kl_gmm.sum().item(),
-            'kl_standard': kl_standard.sum().item(),
-            'entropy': entropy.sum().item()
+            'total_loss': loss,
+            'recon_loss': recon_loss.mean().item(),
+            'kl_gmm': kl_gmm.mean().item(),
+            'kl_standard': kl_standard.mean().item(),
+            'entropy': entropy.mean().item()
         }
+
         
         return loss_dict
 
