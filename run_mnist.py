@@ -11,6 +11,7 @@ from utility import wavelet_transform
 import sys
 import gzip
 import pickle
+from torchsummary import summary
 set_random_seed(123)
 
 
@@ -37,7 +38,7 @@ def main():
     # 准备数据
     
     model_params = config.get_model_params()
-    device = torch.device('cuda:4')
+    device = torch.device('cuda:2')
     batch_size = 100
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(X, Y,batch_size,device)
 
@@ -73,12 +74,15 @@ def main():
         l_c_dim=l_c_dim,
         batch_size=batch_size,
         encoder_type='basic',
-        pretrain_epochs=3000,
+        pretrain_epochs=50,
         num_classes=num_classes,
         clustering_method='kmeans',
         resolution_1=2.0,
         resolution_2=0.9
     ).to(device)
+
+    # summary(model, input_size=(1, 784))
+    # print(model)
 
     # model.eval()
     #choose_kmeans_method = choose_kmeans(model,dataloader,num_classes)
@@ -86,12 +90,14 @@ def main():
     #model.kmeans_init = choose_kmeans_method
     model.kmeans_init = 'random'
     # 训练模型
-    model.load_state_dict(torch.load('/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_120.pth'))
-    # print("\n开始预训练...  ")
-    # model.pretrain(
-    #     dataloader=dataloader,
-    #     learning_rate=1e-5
-    # )
+    # model.load_state_dict(torch.load('/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_120.pth'))
+    # model.load_state_dict(torch.load('/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_120.pth'))
+    # model.load_state_dict(torch.load('/mnt/sda/zhangym/VADER/VaDE-pytorch/pretrain_model.pk'), strict=False)
+    print("\n开始预训练...  ")
+    model.pretrain(
+        dataloader=dataloader,
+        learning_rate=1e-5
+    )
 
     
 

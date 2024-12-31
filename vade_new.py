@@ -14,6 +14,8 @@ from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
 from utility import leiden_clustering
 import math
+from tqdm import tqdm
+import itertools
 
 
 class Encoder(nn.Module):
@@ -34,7 +36,7 @@ class Encoder(nn.Module):
             layers.extend([
                 nn.Linear(prev_dim, dim),
                 nn.BatchNorm1d(dim),
-                nn.LeakyReLU(),
+                nn.ReLU(),
             ])
             prev_dim = dim
 
@@ -421,7 +423,7 @@ class Decoder(nn.Module):
             layers.extend([
                 nn.Linear(prev_dim, dim),   
                 nn.BatchNorm1d(dim),
-                nn.LeakyReLU()
+                nn.ReLU()
             ])
             prev_dim = dim
         layers.extend([
@@ -563,7 +565,7 @@ class SpectralConvBlock(nn.Module):
         self.conv_large = nn.Conv1d(in_channels, out_channels//3, kernel_size=11, padding=5)
         
         self.bn = nn.BatchNorm1d(out_channels)
-        self.relu = nn.LeakyReLU()
+        self.relu = nn.ReLU()
         
     def forward(self, x):
         # 多尺度特征融合
@@ -757,62 +759,122 @@ class VaDE(nn.Module):
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
 
-    def pretrain(self, dataloader, learning_rate=1e-3):
-        """预训练自编码器部分
+    # def pretrain(self, dataloader, learning_rate=1e-3):
+    #     """预训练自编码器部分
         
-        Args:
-            dataloader: 数据加载器
-            epochs: 预训练轮数
-            learning_rate: 学习率
-        """
-        print("Starting pretraining...")
-        optimizer = torch.optim.Adam(
-            list(self.encoder.parameters()) + 
-            list(self.decoder.parameters()), 
-            lr=learning_rate
-        )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
-        min_loss = float('inf')
+    #     Args:
+    #         dataloader: 数据加载器
+    #         epochs: 预训练轮数
+    #         learning_rate: 学习率
+    #     """
+    #     print("Starting pretraining...")
+    #     optimizer = torch.optim.Adam(
+    #         list(self.encoder.parameters()) + 
+    #         list(self.decoder.parameters()), 
+    #         lr=learning_rate
+    #     )
+    #     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
+    #     min_loss = float('inf')
 
-        self.train()
-        for epoch in range(self.pretrain_epochs):
-            total_loss = 0
-            for batch_idx, (x, _) in enumerate(dataloader):
-                x = x.to(self.device)
+    #     self.train()
+    #     for epoch in range(self.pretrain_epochs):
+    #         total_loss = 0
+    #         for batch_idx, (x, _) in enumerate(dataloader):
+    #             x = x.to(self.device)
                 
-                # 前向传播
-                mean, log_var = self.encoder(x)
-                recon_x = self.decoder(mean)
+    #             # 前向传播
+    #             mean, log_var = self.encoder(x)
+    #             recon_x = self.decoder(mean)
                 
-                # 计算预训练损失（仅包含重构损失和KL散度）
-                recon_loss = F.binary_cross_entropy(recon_x, x, reduction='none').sum()
-                loss = recon_loss
-                # 反向传播
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+    #             # 计算预训练损失（仅包含重构损失和KL散度）
+    #             recon_loss = F.binary_cross_entropy(recon_x, x, reduction='none').sum()
+    #             loss = recon_loss
+    #             # 反向传播
+    #             optimizer.zero_grad()
+    #             loss.backward()
+    #             optimizer.step()
                 
-                total_loss += loss.item()
+    #             total_loss += loss.item()
             
-            # 打印训练进度
-            avg_loss = total_loss / len(dataloader)
-            scheduler.step()
-            current_lr =  optimizer.param_groups[0]['lr']
-            print(f'Current learning rate: {current_lr:.6f}')
+    #         # 打印训练进度
+    #         avg_loss = total_loss / len(dataloader)
+    #         scheduler.step()
+    #         current_lr =  optimizer.param_groups[0]['lr']
+    #         print(f'Current learning rate: {current_lr:.6f}')
 
-            if avg_loss < min_loss and epoch > 100 and (epoch+1) % 10 == 0:
-                min_loss = avg_loss
-                torch.save(self.state_dict(), f'/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_{epoch+1}.pth')
+    #         if avg_loss < min_loss and epoch > 100 and (epoch+1) % 10 == 0:
+    #             min_loss = avg_loss
+    #             torch.save(self.state_dict(), f'/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_{epoch+1}.pth')
             
-            if (epoch + 1) % 10 == 0:
-                print(f'Pretrain Epoch [{epoch+1}/{self.pretrain_epochs}], Average Loss: {avg_loss:.4f}')
+    #         if (epoch + 1) % 10 == 0:
+    #             print(f'Pretrain Epoch [{epoch+1}/{self.pretrain_epochs}], Average Loss: {avg_loss:.4f}')
             
         
-        print("Pretraining finished!")
+    #     print("Pretraining finished!")
         
-        # 预训练后初始化聚类中心
-        print("Initializing cluster centers...")
-        self.init_kmeans_centers(dataloader)
+    #     # 预训练后初始化聚类中心
+    #     print("Initializing cluster centers...")
+    #     self.init_kmeans_centers(dataloader)
+
+    def pretrain(self, dataloader,learning_rate=1e-3):
+        pre_epoch=self.pretrain_epochs
+        if  not os.path.exists('./pretrain_model.pk'):
+
+            Loss=nn.MSELoss()
+            opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
+
+            print('Pretraining......')
+            epoch_bar=tqdm(range(pre_epoch))
+            for _ in epoch_bar:
+                L=0
+                for x,y in dataloader:
+                    x=x.to(self.device)
+
+                    z,_=self.encoder(x)
+                    x_=self.decoder(z)
+                    loss=Loss(x,x_)
+
+                    L+=loss.detach().cpu().numpy()
+
+                    opti.zero_grad()
+                    loss.backward()
+                    opti.step()
+
+                epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
+
+            self.encoder.to_logvar.load_state_dict(self.encoder.to_mean.state_dict())
+
+            # Z = []
+            # Y = []
+            # with torch.no_grad():
+            #     for x, y in dataloader:
+            #         if self.args.cuda:
+            #             x = x.cuda()
+
+            #         z1, z2 = self.encoder(x)
+            #         assert F.mse_loss(z1, z2) == 0
+            #         Z.append(z1)
+            #         Y.append(y)
+
+            # Z = torch.cat(Z, 0).detach().cpu().numpy()
+            # Y = torch.cat([yy.cpu() for yy in Y], 0).detach().numpy()
+
+            # gmm = GaussianMixture(n_components=self.args.nClusters, covariance_type='diag')
+
+            # pre = gmm.fit_predict(Z)
+            # print('Acc={:.4f}%'.format(cluster_acc(pre, Y)[0] * 100))
+
+            # self.pi_.data = torch.from_numpy(gmm.weights_).cuda().float()
+            # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
+            # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
+
+            torch.save(self.state_dict(), './pretrain_model.pk')
+
+        else:
+
+
+            self.load_state_dict(torch.load('./pretrain_model.pk'))
+
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
@@ -977,11 +1039,18 @@ class VaDE(nn.Module):
         return constraints
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
+
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
-        
+        try:
+            print(f"recon_x: {recon_x}")
+            sys.exit()
+        except RuntimeError as e:
+            pass
         # 1. 重构损失
         recon_loss = self.lamb1 * F.binary_cross_entropy(recon_x, x, reduction='none').sum(-1)
+        
+        
 
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
@@ -1026,9 +1095,18 @@ class VaDE(nn.Module):
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
         )
-
+        # try:
+        #     print(f"y: {y}")
+        #     print(f"mean: {mean}")
+        #     print(f"log_var: {log_var}")
+        #     print(f"z: {z}")
+        #     print(f"gamma: {gamma}")
+        #     print(f"pi: {pi}")
+        #     sys.exit()
+        # except RuntimeError as e:
+        #     pass
         # 6. 总损失
-        loss = recon_loss + kl_gmm + kl_standard + entropy
+        loss = recon_loss + kl_standard + kl_gmm +  entropy
         
         # 返回损失字典
         loss_dict = {

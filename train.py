@@ -11,7 +11,7 @@ from contextlib import contextmanager
 import time
 import os
 from itertools import chain
-
+import sys
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
 
@@ -67,6 +67,7 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
         
         # 损失计算
         loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
+
         
         # 反向传播
         optimizer_nn.zero_grad()
@@ -198,6 +199,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # 记录学习率
         recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
         gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
+
+        min_y = torch.min(y, axis=1)
+        max_y = torch.max(y, axis=1)
+        
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
             writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
@@ -207,10 +212,23 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
                     gmm_log_variances[i].mean().item(),  # 每个类别的平均log方差
                     epoch
                 )
+            
+            writer.add_scalar(
+                f'gaussian/cluster_log_pcz_min', 
+                min_y.values.float().mean().item(),  # 每个类别的平均log方差
+                epoch
+            )
+            
+            writer.add_scalar(
+                f'gaussian/cluster_log_pcz_max', 
+                max_y.values.float().mean().item(),  # 每个类别的平均log方差
+                epoch
+            )
+            
             for i in range(10):
                 writer.add_scalar(
-                    f'VADE/cluster_{i}_log_variance_mean', 
-                    log_var[i].mean().item(),  # 每个类别的平均log方差
+                    f'VADE/dim_{i}_log_var_mean', 
+                    log_var[:,i].mean().item(),  # 每个类别的平均log方差
                     epoch
                 )
         
