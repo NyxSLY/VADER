@@ -6,6 +6,14 @@ baseline/
 home_pc/
 **/
 model_config.yaml
+nohup.out
+none_pretrain_50.out
+none_pretrain_100.out
+none_pretrain_500.out
+none_pretrain_other.out
+batch_size=512.out
+batch_size=512_normal_pi.out
+
 # run.py
 !.gitignore
 

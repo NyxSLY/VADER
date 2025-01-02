@@ -206,31 +206,31 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
             writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
-            for i in range(10):
-                writer.add_scalar(
-                    f'GMM/cluster_{i}_log_variance_mean', 
-                    gmm_log_variances[i].mean().item(),  # 每个类别的平均log方差
-                    epoch
-                )
+            # for i in range(10):
+            #     writer.add_scalar(
+            #         f'GMM/cluster_{i}_log_variance_mean', 
+            #         gmm_log_variances[i].mean().item(),  # 每个类别的平均log方差
+            #         epoch
+            #     )
             
-            writer.add_scalar(
-                f'gaussian/cluster_log_pcz_min', 
-                min_y.values.float().mean().item(),  # 每个类别的平均log方差
-                epoch
-            )
+            # writer.add_scalar(
+            #     f'gaussian/cluster_log_pcz_min', 
+            #     min_y.values.float().mean().item(),  # 每个类别的平均log方差
+            #     epoch
+            # )
             
-            writer.add_scalar(
-                f'gaussian/cluster_log_pcz_max', 
-                max_y.values.float().mean().item(),  # 每个类别的平均log方差
-                epoch
-            )
+            # writer.add_scalar(
+            #     f'gaussian/cluster_log_pcz_max', 
+            #     max_y.values.float().mean().item(),  # 每个类别的平均log方差
+            #     epoch
+            # )
             
-            for i in range(10):
-                writer.add_scalar(
-                    f'VADE/dim_{i}_log_var_mean', 
-                    log_var[:,i].mean().item(),  # 每个类别的平均log方差
-                    epoch
-                )
+            # for i in range(10):
+            #     writer.add_scalar(
+            #         f'VADE/dim_{i}_log_var_mean', 
+            #         log_var[:,i].mean().item(),  # 每个类别的平均log方差
+            #         epoch
+            #     )
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(

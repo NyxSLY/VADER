@@ -459,9 +459,8 @@ class Gaussian(nn.Module):
                 self.pi.data.copy_(weights)
 
     def forward(self, z):
-        pi_norm = self.pi / torch.sum(self.pi)
         # 计算条件概率/可能性
-        y = self.gaussian_log_prob(z, pi_norm)  # log p(z|c)
+        y = self.gaussian_log_prob(z)  # log p(z|c)
         
         # 计算后验概率
         gamma = F.softmax(y, dim=1)  # p(c|z)
@@ -472,12 +471,12 @@ class Gaussian(nn.Module):
         # 返回所有需要的值
         return self.means,self.log_variances, y, gamma, self.pi  # 输出PI
 
-    def gaussian_log_prob(self, z, pi_norm):
+    def gaussian_log_prob(self, z):
         """计算log p(z|c)"""
         z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
         means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
         log_vars_expanded = self.log_variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = pi_norm.unsqueeze(0)  # [1, num_clusters]
+        pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
     
         log_p_c = (
             torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
@@ -759,67 +758,9 @@ class VaDE(nn.Module):
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
-
-    # def pretrain(self, dataloader, learning_rate=1e-3):
-    #     """预训练自编码器部分
-        
-    #     Args:
-    #         dataloader: 数据加载器
-    #         epochs: 预训练轮数
-    #         learning_rate: 学习率
-    #     """
-    #     print("Starting pretraining...")
-    #     optimizer = torch.optim.Adam(
-    #         list(self.encoder.parameters()) + 
-    #         list(self.decoder.parameters()), 
-    #         lr=learning_rate
-    #     )
-    #     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
-    #     min_loss = float('inf')
-
-    #     self.train()
-    #     for epoch in range(self.pretrain_epochs):
-    #         total_loss = 0
-    #         for batch_idx, (x, _) in enumerate(dataloader):
-    #             x = x.to(self.device)
-                
-    #             # 前向传播
-    #             mean, log_var = self.encoder(x)
-    #             recon_x = self.decoder(mean)
-                
-    #             # 计算预训练损失（仅包含重构损失和KL散度）
-    #             recon_loss = F.binary_cross_entropy(recon_x, x, reduction='none').sum()
-    #             loss = recon_loss
-    #             # 反向传播
-    #             optimizer.zero_grad()
-    #             loss.backward()
-    #             optimizer.step()
-                
-    #             total_loss += loss.item()
-            
-    #         # 打印训练进度
-    #         avg_loss = total_loss / len(dataloader)
-    #         scheduler.step()
-    #         current_lr =  optimizer.param_groups[0]['lr']
-    #         print(f'Current learning rate: {current_lr:.6f}')
-
-    #         if avg_loss < min_loss and epoch > 100 and (epoch+1) % 10 == 0:
-    #             min_loss = avg_loss
-    #             torch.save(self.state_dict(), f'/mnt/sda/zhangym/VADER/VADER/Modify_GMM/pretrain_model/pretrain_model_{epoch+1}.pth')
-            
-    #         if (epoch + 1) % 10 == 0:
-    #             print(f'Pretrain Epoch [{epoch+1}/{self.pretrain_epochs}], Average Loss: {avg_loss:.4f}')
-            
-        
-    #     print("Pretraining finished!")
-        
-    #     # 预训练后初始化聚类中心
-    #     print("Initializing cluster centers...")
-    #     self.init_kmeans_centers(dataloader)
-
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
-        if  not os.path.exists('./pretrain_model_none_bn.pk'):
+        if  not os.path.exists('./pretrain_model.pk'):
 
             Loss=nn.MSELoss()
             opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
@@ -869,10 +810,10 @@ class VaDE(nn.Module):
             # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
             # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
 
-            torch.save(self.state_dict(), './pretrain_model_xx_bn.pk')
+            torch.save(self.state_dict(), './pretrain_model_50.pk')
 
         else:
-            self.load_state_dict(torch.load('./pretrain_model_none_bn.pk'))
+            self.load_state_dict(torch.load('./pretrain_model_50.pk'))
             
 
 

@@ -1,0 +1,913 @@
+nohup: ignoring input
+2025-01-02 16:06:03.894574: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE4.1 SSE4.2 AVX AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+配置文件路径: /mnt/sda/zhangym/VADER/VADER/model_config.yaml
+成功复制配置文件到: /mnt/sda/zhangym/VADER/VADER/Modify_GMM/test_20250102-160606
+
+开始预训练...  
+Pretraining......
+  0%|          | 0/50 [00:00<?, ?it/s]                                        0%|          | 0/50 [00:01<?, ?it/s]  2%|▏         | 1/50 [00:01<01:02,  1.28s/it]                                                2%|▏         | 1/50 [00:02<01:02,  1.28s/it]  4%|▍         | 2/50 [00:02<00:46,  1.03it/s]                                                4%|▍         | 2/50 [00:02<00:46,  1.03it/s]  6%|▌         | 3/50 [00:02<00:40,  1.17it/s]                                                6%|▌         | 3/50 [00:03<00:40,  1.17it/s]  8%|▊         | 4/50 [00:03<00:36,  1.25it/s]                                                8%|▊         | 4/50 [00:04<00:36,  1.25it/s] 10%|█         | 5/50 [00:04<00:34,  1.30it/s]                                               10%|█         | 5/50 [00:04<00:34,  1.30it/s] 12%|█▏        | 6/50 [00:04<00:33,  1.33it/s]                                               12%|█▏        | 6/50 [00:05<00:33,  1.33it/s] 14%|█▍        | 7/50 [00:05<00:31,  1.35it/s]                                               14%|█▍        | 7/50 [00:06<00:31,  1.35it/s] 16%|█▌        | 8/50 [00:06<00:30,  1.37it/s]                                               16%|█▌        | 8/50 [00:07<00:30,  1.37it/s] 18%|█▊        | 9/50 [00:07<00:33,  1.24it/s]                                               18%|█▊        | 9/50 [00:08<00:33,  1.24it/s] 20%|██        | 10/50 [00:08<00:31,  1.28it/s]                                                20%|██        | 10/50 [00:08<00:31,  1.28it/s] 22%|██▏       | 11/50 [00:08<00:29,  1.30it/s]                                                22%|██▏       | 11/50 [00:09<00:29,  1.30it/s] 24%|██▍       | 12/50 [00:09<00:29,  1.30it/s]                                                24%|██▍       | 12/50 [00:10<00:29,  1.30it/s] 26%|██▌       | 13/50 [00:10<00:27,  1.32it/s]                                                26%|██▌       | 13/50 [00:10<00:27,  1.32it/s] 28%|██▊       | 14/50 [00:10<00:26,  1.35it/s]                                                28%|██▊       | 14/50 [00:11<00:26,  1.35it/s] 30%|███       | 15/50 [00:11<00:26,  1.34it/s]                                                30%|███       | 15/50 [00:12<00:26,  1.34it/s] 32%|███▏      | 16/50 [00:12<00:26,  1.31it/s]                                                32%|███▏      | 16/50 [00:13<00:26,  1.31it/s] 34%|███▍      | 17/50 [00:13<00:26,  1.25it/s]                                                34%|███▍      | 17/50 [00:14<00:26,  1.25it/s] 36%|███▌      | 18/50 [00:14<00:24,  1.30it/s]                                                36%|███▌      | 18/50 [00:14<00:24,  1.30it/s] 38%|███▊      | 19/50 [00:14<00:23,  1.33it/s]                                                38%|███▊      | 19/50 [00:15<00:23,  1.33it/s] 40%|████      | 20/50 [00:15<00:21,  1.39it/s]                                                40%|████      | 20/50 [00:16<00:21,  1.39it/s] 42%|████▏     | 21/50 [00:16<00:20,  1.44it/s]                                                42%|████▏     | 21/50 [00:16<00:20,  1.44it/s] 44%|████▍     | 22/50 [00:16<00:19,  1.41it/s]                                                44%|████▍     | 22/50 [00:17<00:19,  1.41it/s] 46%|████▌     | 23/50 [00:17<00:18,  1.42it/s]                                                46%|████▌     | 23/50 [00:18<00:18,  1.42it/s] 48%|████▊     | 24/50 [00:18<00:18,  1.43it/s]                                                48%|████▊     | 24/50 [00:19<00:18,  1.43it/s] 50%|█████     | 25/50 [00:19<00:18,  1.37it/s]                                                50%|█████     | 25/50 [00:19<00:18,  1.37it/s] 52%|█████▏    | 26/50 [00:19<00:17,  1.39it/s]                                                52%|█████▏    | 26/50 [00:20<00:17,  1.39it/s] 54%|█████▍    | 27/50 [00:20<00:16,  1.40it/s]                                                54%|█████▍    | 27/50 [00:21<00:16,  1.40it/s] 56%|█████▌    | 28/50 [00:21<00:15,  1.40it/s]                                                56%|█████▌    | 28/50 [00:21<00:15,  1.40it/s] 58%|█████▊    | 29/50 [00:21<00:14,  1.41it/s]                                                58%|█████▊    | 29/50 [00:22<00:14,  1.41it/s] 60%|██████    | 30/50 [00:22<00:14,  1.42it/s]                                                60%|██████    | 30/50 [00:23<00:14,  1.42it/s] 62%|██████▏   | 31/50 [00:23<00:13,  1.43it/s]                                                62%|██████▏   | 31/50 [00:23<00:13,  1.43it/s] 64%|██████▍   | 32/50 [00:23<00:12,  1.43it/s]                                                64%|██████▍   | 32/50 [00:24<00:12,  1.43it/s] 66%|██████▌   | 33/50 [00:24<00:12,  1.38it/s]                                                66%|██████▌   | 33/50 [00:25<00:12,  1.38it/s] 68%|██████▊   | 34/50 [00:25<00:11,  1.40it/s]                                                68%|██████▊   | 34/50 [00:26<00:11,  1.40it/s] 70%|███████   | 35/50 [00:26<00:10,  1.41it/s]                                                70%|███████   | 35/50 [00:26<00:10,  1.41it/s] 72%|███████▏  | 36/50 [00:26<00:09,  1.42it/s]                                                72%|███████▏  | 36/50 [00:27<00:09,  1.42it/s] 74%|███████▍  | 37/50 [00:27<00:09,  1.42it/s]                                                74%|███████▍  | 37/50 [00:28<00:09,  1.42it/s] 76%|███████▌  | 38/50 [00:28<00:08,  1.43it/s]                                                76%|███████▌  | 38/50 [00:28<00:08,  1.43it/s] 78%|███████▊  | 39/50 [00:28<00:07,  1.43it/s]                                                78%|███████▊  | 39/50 [00:29<00:07,  1.43it/s] 80%|████████  | 40/50 [00:29<00:06,  1.43it/s]                                                80%|████████  | 40/50 [00:30<00:06,  1.43it/s] 82%|████████▏ | 41/50 [00:30<00:06,  1.38it/s]                                                82%|████████▏ | 41/50 [00:31<00:06,  1.38it/s] 84%|████████▍ | 42/50 [00:31<00:05,  1.40it/s]                                                84%|████████▍ | 42/50 [00:31<00:05,  1.40it/s] 86%|████████▌ | 43/50 [00:31<00:05,  1.39it/s]                                                86%|████████▌ | 43/50 [00:32<00:05,  1.39it/s] 88%|████████▊ | 44/50 [00:32<00:04,  1.40it/s]                                                88%|████████▊ | 44/50 [00:33<00:04,  1.40it/s] 90%|█████████ | 45/50 [00:33<00:03,  1.31it/s]                                                90%|█████████ | 45/50 [00:34<00:03,  1.31it/s] 92%|█████████▏| 46/50 [00:34<00:03,  1.29it/s]                                                92%|█████████▏| 46/50 [00:34<00:03,  1.29it/s] 94%|█████████▍| 47/50 [00:34<00:02,  1.35it/s]                                                94%|█████████▍| 47/50 [00:35<00:02,  1.35it/s] 96%|█████████▌| 48/50 [00:35<00:01,  1.33it/s]                                                96%|█████████▌| 48/50 [00:36<00:01,  1.33it/s] 98%|█████████▊| 49/50 [00:36<00:00,  1.34it/s]                                                98%|█████████▊| 49/50 [00:37<00:00,  1.34it/s]100%|██████████| 50/50 [00:37<00:00,  1.38it/s]100%|██████████| 50/50 [00:37<00:00,  1.35it/s]
+L2=0.0669
+L2=0.0399
+L2=0.0273
+L2=0.0226
+L2=0.0195
+L2=0.0175
+L2=0.0161
+L2=0.0149
+L2=0.0141
+L2=0.0135
+L2=0.0128
+L2=0.0122
+L2=0.0117
+L2=0.0114
+L2=0.0110
+L2=0.0107
+L2=0.0105
+L2=0.0103
+L2=0.0101
+L2=0.0099
+L2=0.0097
+L2=0.0096
+L2=0.0094
+L2=0.0093
+L2=0.0092
+L2=0.0091
+L2=0.0089
+L2=0.0089
+L2=0.0088
+L2=0.0087
+L2=0.0086
+L2=0.0085
+L2=0.0084
+L2=0.0083
+L2=0.0082
+L2=0.0082
+L2=0.0081
+L2=0.0080
+L2=0.0080
+L2=0.0079
+L2=0.0079
+L2=0.0078
+L2=0.0078
+L2=0.0077
+L2=0.0076
+L2=0.0076
+L2=0.0075
+L2=0.0075
+L2=0.0074
+L2=0.0074
+
+开始模型训练...
+使用学习率调度器
+Using clustering method: kmeans
+
+Clustering method: kmeans
+正在分析数据集特征...
+开始分析数据集...
+正在收集光谱数据...
+共收集到 70000 个光谱样本
+正在分峰位置...
+正在分析基线特征...
+数据集分析完成!
+分析结果已保存到: ./spectral_analysis/spectral_analysis.pt
+
+Epoch [1/300]
+LR: 0.0010, Total Loss: 185.36, Recon Loss: 72.83, KL GMM: 101.04, KL Standard: 9.66, Entropy: 1.83, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7448, GMM NMI: 0.7332, GMM ARI: 0.6407
+Z_Leiden ACC: 0.9153, Z_Leiden NMI: 0.9049, Z_Leiden ARI: 0.8933
+
+Epoch [2/300]
+LR: 0.0010, Total Loss: 178.95, Recon Loss: 67.76, KL GMM: 99.07, KL Standard: 10.80, Entropy: 1.33, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7473, GMM NMI: 0.7455, GMM ARI: 0.6501
+Z_Leiden ACC: 0.9176, Z_Leiden NMI: 0.9038, Z_Leiden ARI: 0.8932
+
+Epoch [3/300]
+LR: 0.0010, Total Loss: 178.05, Recon Loss: 67.55, KL GMM: 98.71, KL Standard: 10.75, Entropy: 1.04, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7497, GMM NMI: 0.7543, GMM ARI: 0.6574
+Z_Leiden ACC: 0.9180, Z_Leiden NMI: 0.9038, Z_Leiden ARI: 0.8930
+
+Epoch [4/300]
+LR: 0.0010, Total Loss: 177.43, Recon Loss: 67.34, KL GMM: 98.58, KL Standard: 10.69, Entropy: 0.83, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7515, GMM NMI: 0.7569, GMM ARI: 0.6604
+Z_Leiden ACC: 0.9146, Z_Leiden NMI: 0.9056, Z_Leiden ARI: 0.8941
+
+Epoch [5/300]
+LR: 0.0010, Total Loss: 176.97, Recon Loss: 67.19, KL GMM: 98.49, KL Standard: 10.63, Entropy: 0.66, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7537, GMM NMI: 0.7619, GMM ARI: 0.6637
+Z_Leiden ACC: 0.9156, Z_Leiden NMI: 0.9041, Z_Leiden ARI: 0.8930
+
+Epoch [6/300]
+LR: 0.0010, Total Loss: 176.54, Recon Loss: 66.99, KL GMM: 98.45, KL Standard: 10.58, Entropy: 0.52, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7549, GMM NMI: 0.7645, GMM ARI: 0.6675
+Z_Leiden ACC: 0.9121, Z_Leiden NMI: 0.9044, Z_Leiden ARI: 0.8925
+
+Epoch [7/300]
+LR: 0.0010, Total Loss: 176.33, Recon Loss: 66.98, KL GMM: 98.42, KL Standard: 10.52, Entropy: 0.40, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7555, GMM NMI: 0.7661, GMM ARI: 0.6694
+Z_Leiden ACC: 0.9280, Z_Leiden NMI: 0.9123, Z_Leiden ARI: 0.9060
+
+Epoch [8/300]
+LR: 0.0010, Total Loss: 175.97, Recon Loss: 66.78, KL GMM: 98.42, KL Standard: 10.47, Entropy: 0.30, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7597, GMM NMI: 0.7701, GMM ARI: 0.6730
+Z_Leiden ACC: 0.9157, Z_Leiden NMI: 0.9068, Z_Leiden ARI: 0.8953
+
+Epoch [9/300]
+LR: 0.0010, Total Loss: 175.72, Recon Loss: 66.70, KL GMM: 98.41, KL Standard: 10.40, Entropy: 0.21, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7600, GMM NMI: 0.7709, GMM ARI: 0.6753
+Z_Leiden ACC: 0.9133, Z_Leiden NMI: 0.9020, Z_Leiden ARI: 0.8901
+
+Epoch [10/300]
+LR: 0.0010, Total Loss: 175.46, Recon Loss: 66.57, KL GMM: 98.40, KL Standard: 10.37, Entropy: 0.12, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7614, GMM NMI: 0.7712, GMM ARI: 0.6767
+Z_Leiden ACC: 0.9122, Z_Leiden NMI: 0.9043, Z_Leiden ARI: 0.8923
+
+Epoch [11/300]
+LR: 0.0010, Total Loss: 175.32, Recon Loss: 66.50, KL GMM: 98.39, KL Standard: 10.39, Entropy: 0.04, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7615, GMM NMI: 0.7729, GMM ARI: 0.6775
+Z_Leiden ACC: 0.9158, Z_Leiden NMI: 0.9067, Z_Leiden ARI: 0.8954
+
+Epoch [12/300]
+LR: 0.0010, Total Loss: 175.09, Recon Loss: 66.41, KL GMM: 98.40, KL Standard: 10.30, Entropy: -0.03, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7640, GMM NMI: 0.7734, GMM ARI: 0.6792
+Z_Leiden ACC: 0.9279, Z_Leiden NMI: 0.9138, Z_Leiden ARI: 0.9073
+
+Epoch [13/300]
+LR: 0.0010, Total Loss: 174.97, Recon Loss: 66.35, KL GMM: 98.42, KL Standard: 10.30, Entropy: -0.10, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7631, GMM NMI: 0.7768, GMM ARI: 0.6809
+Z_Leiden ACC: 0.9150, Z_Leiden NMI: 0.9066, Z_Leiden ARI: 0.8949
+
+Epoch [14/300]
+LR: 0.0010, Total Loss: 174.68, Recon Loss: 66.17, KL GMM: 98.41, KL Standard: 10.27, Entropy: -0.16, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7658, GMM NMI: 0.7759, GMM ARI: 0.6823
+Z_Leiden ACC: 0.9164, Z_Leiden NMI: 0.9065, Z_Leiden ARI: 0.8952
+
+Epoch [15/300]
+LR: 0.0010, Total Loss: 174.63, Recon Loss: 66.21, KL GMM: 98.40, KL Standard: 10.23, Entropy: -0.22, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7633, GMM NMI: 0.7747, GMM ARI: 0.6790
+Z_Leiden ACC: 0.9157, Z_Leiden NMI: 0.9039, Z_Leiden ARI: 0.8925
+
+Epoch [16/300]
+LR: 0.0010, Total Loss: 174.40, Recon Loss: 66.05, KL GMM: 98.41, KL Standard: 10.22, Entropy: -0.27, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7656, GMM NMI: 0.7774, GMM ARI: 0.6827
+Z_Leiden ACC: 0.9157, Z_Leiden NMI: 0.9042, Z_Leiden ARI: 0.8929
+
+Epoch [17/300]
+LR: 0.0010, Total Loss: 174.32, Recon Loss: 66.02, KL GMM: 98.41, KL Standard: 10.22, Entropy: -0.33, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7663, GMM NMI: 0.7780, GMM ARI: 0.6863
+Z_Leiden ACC: 0.9143, Z_Leiden NMI: 0.9036, Z_Leiden ARI: 0.8916
+
+Epoch [18/300]
+LR: 0.0010, Total Loss: 174.11, Recon Loss: 65.90, KL GMM: 98.41, KL Standard: 10.19, Entropy: -0.38, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7668, GMM NMI: 0.7789, GMM ARI: 0.6855
+Z_Leiden ACC: 0.9157, Z_Leiden NMI: 0.9045, Z_Leiden ARI: 0.8924
+
+Epoch [19/300]
+LR: 0.0010, Total Loss: 174.02, Recon Loss: 65.83, KL GMM: 98.41, KL Standard: 10.21, Entropy: -0.43, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7683, GMM NMI: 0.7803, GMM ARI: 0.6881
+Z_Leiden ACC: 0.9182, Z_Leiden NMI: 0.9086, Z_Leiden ARI: 0.8968
+
+Epoch [20/300]
+LR: 0.0010, Total Loss: 173.91, Recon Loss: 65.77, KL GMM: 98.41, KL Standard: 10.21, Entropy: -0.47, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7695, GMM NMI: 0.7815, GMM ARI: 0.6900
+Z_Leiden ACC: 0.9162, Z_Leiden NMI: 0.9052, Z_Leiden ARI: 0.8934
+
+Epoch [21/300]
+LR: 0.0010, Total Loss: 173.77, Recon Loss: 65.71, KL GMM: 98.41, KL Standard: 10.16, Entropy: -0.52, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7690, GMM NMI: 0.7800, GMM ARI: 0.6884
+Z_Leiden ACC: 0.9174, Z_Leiden NMI: 0.9072, Z_Leiden ARI: 0.8956
+
+Epoch [22/300]
+LR: 0.0010, Total Loss: 173.67, Recon Loss: 65.64, KL GMM: 98.40, KL Standard: 10.19, Entropy: -0.56, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7710, GMM NMI: 0.7831, GMM ARI: 0.6920
+Z_Leiden ACC: 0.9167, Z_Leiden NMI: 0.9076, Z_Leiden ARI: 0.8954
+
+Epoch [23/300]
+LR: 0.0010, Total Loss: 173.59, Recon Loss: 65.61, KL GMM: 98.41, KL Standard: 10.17, Entropy: -0.60, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7703, GMM NMI: 0.7829, GMM ARI: 0.6919
+Z_Leiden ACC: 0.9168, Z_Leiden NMI: 0.9063, Z_Leiden ARI: 0.8947
+
+Epoch [24/300]
+LR: 0.0010, Total Loss: 173.50, Recon Loss: 65.56, KL GMM: 98.41, KL Standard: 10.18, Entropy: -0.64, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7703, GMM NMI: 0.7820, GMM ARI: 0.6906
+Z_Leiden ACC: 0.9153, Z_Leiden NMI: 0.9048, Z_Leiden ARI: 0.8930
+
+Epoch [25/300]
+LR: 0.0010, Total Loss: 173.36, Recon Loss: 65.48, KL GMM: 98.40, KL Standard: 10.16, Entropy: -0.68, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7718, GMM NMI: 0.7836, GMM ARI: 0.6939
+Z_Leiden ACC: 0.9166, Z_Leiden NMI: 0.9043, Z_Leiden ARI: 0.8932
+
+Epoch [26/300]
+LR: 0.0010, Total Loss: 173.23, Recon Loss: 65.38, KL GMM: 98.42, KL Standard: 10.15, Entropy: -0.72, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7720, GMM NMI: 0.7865, GMM ARI: 0.6961
+Z_Leiden ACC: 0.9279, Z_Leiden NMI: 0.9134, Z_Leiden ARI: 0.9067
+
+Epoch [27/300]
+LR: 0.0010, Total Loss: 173.20, Recon Loss: 65.41, KL GMM: 98.40, KL Standard: 10.14, Entropy: -0.76, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7725, GMM NMI: 0.7840, GMM ARI: 0.6948
+Z_Leiden ACC: 0.9172, Z_Leiden NMI: 0.9064, Z_Leiden ARI: 0.8949
+
+Epoch [28/300]
+LR: 0.0010, Total Loss: 173.04, Recon Loss: 65.27, KL GMM: 98.39, KL Standard: 10.17, Entropy: -0.80, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7734, GMM NMI: 0.7864, GMM ARI: 0.6983
+Z_Leiden ACC: 0.9176, Z_Leiden NMI: 0.9073, Z_Leiden ARI: 0.8954
+
+Epoch [29/300]
+LR: 0.0010, Total Loss: 173.04, Recon Loss: 65.32, KL GMM: 98.39, KL Standard: 10.16, Entropy: -0.83, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7745, GMM NMI: 0.7877, GMM ARI: 0.6989
+Z_Leiden ACC: 0.9175, Z_Leiden NMI: 0.9065, Z_Leiden ARI: 0.8945
+
+Epoch [30/300]
+LR: 0.0010, Total Loss: 172.92, Recon Loss: 65.24, KL GMM: 98.39, KL Standard: 10.15, Entropy: -0.87, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7726, GMM NMI: 0.7868, GMM ARI: 0.6977
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9145, Z_Leiden ARI: 0.9081
+
+Epoch [31/300]
+LR: 0.0010, Total Loss: 172.79, Recon Loss: 65.13, KL GMM: 98.38, KL Standard: 10.17, Entropy: -0.90, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7744, GMM NMI: 0.7865, GMM ARI: 0.6981
+Z_Leiden ACC: 0.9153, Z_Leiden NMI: 0.9049, Z_Leiden ARI: 0.8932
+
+Epoch [32/300]
+LR: 0.0010, Total Loss: 172.63, Recon Loss: 65.02, KL GMM: 98.37, KL Standard: 10.17, Entropy: -0.93, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7744, GMM NMI: 0.7866, GMM ARI: 0.6977
+Z_Leiden ACC: 0.9180, Z_Leiden NMI: 0.9064, Z_Leiden ARI: 0.8956
+
+Epoch [33/300]
+LR: 0.0010, Total Loss: 172.59, Recon Loss: 65.03, KL GMM: 98.37, KL Standard: 10.16, Entropy: -0.97, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7746, GMM NMI: 0.7882, GMM ARI: 0.7013
+Z_Leiden ACC: 0.9167, Z_Leiden NMI: 0.9056, Z_Leiden ARI: 0.8939
+
+Epoch [34/300]
+LR: 0.0010, Total Loss: 172.46, Recon Loss: 64.91, KL GMM: 98.36, KL Standard: 10.18, Entropy: -1.00, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7743, GMM NMI: 0.7880, GMM ARI: 0.6998
+Z_Leiden ACC: 0.9179, Z_Leiden NMI: 0.9070, Z_Leiden ARI: 0.8953
+
+Epoch [35/300]
+LR: 0.0010, Total Loss: 172.41, Recon Loss: 64.89, KL GMM: 98.36, KL Standard: 10.19, Entropy: -1.03, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7758, GMM NMI: 0.7893, GMM ARI: 0.7020
+Z_Leiden ACC: 0.9179, Z_Leiden NMI: 0.9066, Z_Leiden ARI: 0.8953
+
+Epoch [36/300]
+LR: 0.0010, Total Loss: 172.35, Recon Loss: 64.86, KL GMM: 98.36, KL Standard: 10.19, Entropy: -1.06, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7762, GMM NMI: 0.7890, GMM ARI: 0.7021
+Z_Leiden ACC: 0.9160, Z_Leiden NMI: 0.9042, Z_Leiden ARI: 0.8928
+
+Epoch [37/300]
+LR: 0.0010, Total Loss: 172.26, Recon Loss: 64.81, KL GMM: 98.36, KL Standard: 10.18, Entropy: -1.09, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7767, GMM NMI: 0.7900, GMM ARI: 0.7041
+Z_Leiden ACC: 0.9152, Z_Leiden NMI: 0.9047, Z_Leiden ARI: 0.8929
+
+Epoch [38/300]
+LR: 0.0010, Total Loss: 172.24, Recon Loss: 64.82, KL GMM: 98.35, KL Standard: 10.19, Entropy: -1.12, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7771, GMM NMI: 0.7898, GMM ARI: 0.7046
+Z_Leiden ACC: 0.9160, Z_Leiden NMI: 0.9054, Z_Leiden ARI: 0.8937
+
+Epoch [39/300]
+LR: 0.0010, Total Loss: 172.11, Recon Loss: 64.72, KL GMM: 98.35, KL Standard: 10.19, Entropy: -1.15, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7780, GMM NMI: 0.7916, GMM ARI: 0.7056
+Z_Leiden ACC: 0.9164, Z_Leiden NMI: 0.9056, Z_Leiden ARI: 0.8936
+
+Epoch [40/300]
+LR: 0.0010, Total Loss: 171.97, Recon Loss: 64.61, KL GMM: 98.35, KL Standard: 10.19, Entropy: -1.18, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7768, GMM NMI: 0.7909, GMM ARI: 0.7054
+Z_Leiden ACC: 0.9164, Z_Leiden NMI: 0.9061, Z_Leiden ARI: 0.8946
+
+Epoch [41/300]
+LR: 0.0010, Total Loss: 171.94, Recon Loss: 64.60, KL GMM: 98.34, KL Standard: 10.21, Entropy: -1.20, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7781, GMM NMI: 0.7905, GMM ARI: 0.7049
+Z_Leiden ACC: 0.9180, Z_Leiden NMI: 0.9076, Z_Leiden ARI: 0.8959
+
+Epoch [42/300]
+LR: 0.0010, Total Loss: 171.90, Recon Loss: 64.58, KL GMM: 98.33, KL Standard: 10.22, Entropy: -1.23, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7800, GMM NMI: 0.7933, GMM ARI: 0.7086
+Z_Leiden ACC: 0.9167, Z_Leiden NMI: 0.9051, Z_Leiden ARI: 0.8933
+
+Epoch [43/300]
+LR: 0.0010, Total Loss: 171.83, Recon Loss: 64.54, KL GMM: 98.34, KL Standard: 10.22, Entropy: -1.26, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7789, GMM NMI: 0.7951, GMM ARI: 0.7093
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9162, Z_Leiden ARI: 0.9095
+
+Epoch [44/300]
+LR: 0.0010, Total Loss: 171.74, Recon Loss: 64.48, KL GMM: 98.33, KL Standard: 10.22, Entropy: -1.29, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7787, GMM NMI: 0.7923, GMM ARI: 0.7078
+Z_Leiden ACC: 0.9161, Z_Leiden NMI: 0.9060, Z_Leiden ARI: 0.8942
+
+Epoch [45/300]
+LR: 0.0009, Total Loss: 171.62, Recon Loss: 64.40, KL GMM: 98.31, KL Standard: 10.22, Entropy: -1.31, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7797, GMM NMI: 0.7924, GMM ARI: 0.7088
+Z_Leiden ACC: 0.9176, Z_Leiden NMI: 0.9056, Z_Leiden ARI: 0.8943
+
+Epoch [46/300]
+LR: 0.0009, Total Loss: 171.61, Recon Loss: 64.39, KL GMM: 98.32, KL Standard: 10.23, Entropy: -1.34, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7793, GMM NMI: 0.7948, GMM ARI: 0.7096
+Z_Leiden ACC: 0.9172, Z_Leiden NMI: 0.9074, Z_Leiden ARI: 0.8958
+
+Epoch [47/300]
+LR: 0.0009, Total Loss: 171.49, Recon Loss: 64.28, KL GMM: 98.32, KL Standard: 10.25, Entropy: -1.36, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7798, GMM NMI: 0.7953, GMM ARI: 0.7112
+Z_Leiden ACC: 0.9176, Z_Leiden NMI: 0.9086, Z_Leiden ARI: 0.8968
+
+Epoch [48/300]
+LR: 0.0009, Total Loss: 171.46, Recon Loss: 64.30, KL GMM: 98.31, KL Standard: 10.24, Entropy: -1.39, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7798, GMM NMI: 0.7952, GMM ARI: 0.7107
+Z_Leiden ACC: 0.9176, Z_Leiden NMI: 0.9083, Z_Leiden ARI: 0.8967
+
+Epoch [49/300]
+LR: 0.0009, Total Loss: 171.40, Recon Loss: 64.23, KL GMM: 98.29, KL Standard: 10.29, Entropy: -1.41, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7804, GMM NMI: 0.7959, GMM ARI: 0.7121
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9133, Z_Leiden ARI: 0.9068
+
+Epoch [50/300]
+LR: 0.0009, Total Loss: 171.33, Recon Loss: 64.19, KL GMM: 98.30, KL Standard: 10.28, Entropy: -1.43, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7820, GMM NMI: 0.7965, GMM ARI: 0.7130
+Z_Leiden ACC: 0.9165, Z_Leiden NMI: 0.9063, Z_Leiden ARI: 0.8948
+
+Epoch [51/300]
+LR: 0.0009, Total Loss: 171.21, Recon Loss: 64.11, KL GMM: 98.28, KL Standard: 10.27, Entropy: -1.46, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7816, GMM NMI: 0.7975, GMM ARI: 0.7138
+Z_Leiden ACC: 0.9176, Z_Leiden NMI: 0.9077, Z_Leiden ARI: 0.8959
+
+Epoch [52/300]
+LR: 0.0009, Total Loss: 171.20, Recon Loss: 64.12, KL GMM: 98.28, KL Standard: 10.28, Entropy: -1.48, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7813, GMM NMI: 0.7982, GMM ARI: 0.7145
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9165, Z_Leiden ARI: 0.9097
+
+Epoch [53/300]
+LR: 0.0009, Total Loss: 171.16, Recon Loss: 64.09, KL GMM: 98.27, KL Standard: 10.30, Entropy: -1.50, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7822, GMM NMI: 0.7988, GMM ARI: 0.7155
+Z_Leiden ACC: 0.9284, Z_Leiden NMI: 0.9143, Z_Leiden ARI: 0.9075
+
+Epoch [54/300]
+LR: 0.0009, Total Loss: 171.03, Recon Loss: 63.97, KL GMM: 98.26, KL Standard: 10.32, Entropy: -1.53, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7806, GMM NMI: 0.7960, GMM ARI: 0.7115
+Z_Leiden ACC: 0.9281, Z_Leiden NMI: 0.9152, Z_Leiden ARI: 0.9085
+
+Epoch [55/300]
+LR: 0.0009, Total Loss: 171.02, Recon Loss: 64.00, KL GMM: 98.26, KL Standard: 10.31, Entropy: -1.55, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7828, GMM NMI: 0.7994, GMM ARI: 0.7163
+Z_Leiden ACC: 0.9157, Z_Leiden NMI: 0.9051, Z_Leiden ARI: 0.8930
+
+Epoch [56/300]
+LR: 0.0009, Total Loss: 170.96, Recon Loss: 63.96, KL GMM: 98.27, KL Standard: 10.30, Entropy: -1.57, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7823, GMM NMI: 0.7995, GMM ARI: 0.7156
+Z_Leiden ACC: 0.9295, Z_Leiden NMI: 0.9165, Z_Leiden ARI: 0.9098
+
+Epoch [57/300]
+LR: 0.0009, Total Loss: 170.90, Recon Loss: 63.92, KL GMM: 98.26, KL Standard: 10.31, Entropy: -1.59, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7812, GMM NMI: 0.7965, GMM ARI: 0.7134
+Z_Leiden ACC: 0.9162, Z_Leiden NMI: 0.9061, Z_Leiden ARI: 0.8940
+
+Epoch [58/300]
+LR: 0.0009, Total Loss: 170.84, Recon Loss: 63.86, KL GMM: 98.25, KL Standard: 10.34, Entropy: -1.61, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7827, GMM NMI: 0.7995, GMM ARI: 0.7166
+Z_Leiden ACC: 0.9170, Z_Leiden NMI: 0.9081, Z_Leiden ARI: 0.8962
+
+Epoch [59/300]
+LR: 0.0009, Total Loss: 170.79, Recon Loss: 63.83, KL GMM: 98.26, KL Standard: 10.34, Entropy: -1.63, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7846, GMM NMI: 0.8013, GMM ARI: 0.7191
+Z_Leiden ACC: 0.9247, Z_Leiden NMI: 0.9079, Z_Leiden ARI: 0.8989
+
+Epoch [60/300]
+LR: 0.0009, Total Loss: 170.67, Recon Loss: 63.72, KL GMM: 98.25, KL Standard: 10.35, Entropy: -1.65, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7843, GMM NMI: 0.8025, GMM ARI: 0.7196
+Z_Leiden ACC: 0.9303, Z_Leiden NMI: 0.9159, Z_Leiden ARI: 0.9092
+
+Epoch [61/300]
+LR: 0.0009, Total Loss: 170.63, Recon Loss: 63.70, KL GMM: 98.25, KL Standard: 10.35, Entropy: -1.67, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7813, GMM NMI: 0.7991, GMM ARI: 0.7152
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9142, Z_Leiden ARI: 0.9075
+
+Epoch [62/300]
+LR: 0.0009, Total Loss: 170.64, Recon Loss: 63.75, KL GMM: 98.24, KL Standard: 10.34, Entropy: -1.69, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7825, GMM NMI: 0.7999, GMM ARI: 0.7165
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9155, Z_Leiden ARI: 0.9090
+
+Epoch [63/300]
+LR: 0.0009, Total Loss: 170.53, Recon Loss: 63.64, KL GMM: 98.23, KL Standard: 10.37, Entropy: -1.71, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7844, GMM NMI: 0.8017, GMM ARI: 0.7196
+Z_Leiden ACC: 0.9163, Z_Leiden NMI: 0.9063, Z_Leiden ARI: 0.8940
+
+Epoch [64/300]
+LR: 0.0009, Total Loss: 170.46, Recon Loss: 63.59, KL GMM: 98.22, KL Standard: 10.38, Entropy: -1.73, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7858, GMM NMI: 0.8024, GMM ARI: 0.7218
+Z_Leiden ACC: 0.9157, Z_Leiden NMI: 0.9052, Z_Leiden ARI: 0.8927
+
+Epoch [65/300]
+LR: 0.0009, Total Loss: 170.36, Recon Loss: 63.52, KL GMM: 98.23, KL Standard: 10.36, Entropy: -1.75, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7852, GMM NMI: 0.8035, GMM ARI: 0.7204
+Z_Leiden ACC: 0.9288, Z_Leiden NMI: 0.9141, Z_Leiden ARI: 0.9075
+
+Epoch [66/300]
+LR: 0.0009, Total Loss: 170.34, Recon Loss: 63.49, KL GMM: 98.22, KL Standard: 10.39, Entropy: -1.76, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7858, GMM NMI: 0.8033, GMM ARI: 0.7220
+Z_Leiden ACC: 0.9298, Z_Leiden NMI: 0.9160, Z_Leiden ARI: 0.9094
+
+Epoch [67/300]
+LR: 0.0009, Total Loss: 170.31, Recon Loss: 63.50, KL GMM: 98.23, KL Standard: 10.36, Entropy: -1.78, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7851, GMM NMI: 0.8038, GMM ARI: 0.7220
+Z_Leiden ACC: 0.9277, Z_Leiden NMI: 0.9120, Z_Leiden ARI: 0.9052
+
+Epoch [68/300]
+LR: 0.0009, Total Loss: 170.27, Recon Loss: 63.44, KL GMM: 98.21, KL Standard: 10.41, Entropy: -1.80, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7842, GMM NMI: 0.8018, GMM ARI: 0.7197
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9149, Z_Leiden ARI: 0.9084
+
+Epoch [69/300]
+LR: 0.0009, Total Loss: 170.23, Recon Loss: 63.42, KL GMM: 98.21, KL Standard: 10.41, Entropy: -1.82, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7874, GMM NMI: 0.8044, GMM ARI: 0.7244
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9137, Z_Leiden ARI: 0.9071
+
+Epoch [70/300]
+LR: 0.0009, Total Loss: 170.18, Recon Loss: 63.38, KL GMM: 98.21, KL Standard: 10.42, Entropy: -1.84, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7865, GMM NMI: 0.8044, GMM ARI: 0.7239
+Z_Leiden ACC: 0.9298, Z_Leiden NMI: 0.9159, Z_Leiden ARI: 0.9093
+
+Epoch [71/300]
+LR: 0.0009, Total Loss: 170.11, Recon Loss: 63.35, KL GMM: 98.21, KL Standard: 10.41, Entropy: -1.85, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7855, GMM NMI: 0.8033, GMM ARI: 0.7219
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9158, Z_Leiden ARI: 0.9086
+
+Epoch [72/300]
+LR: 0.0009, Total Loss: 170.03, Recon Loss: 63.28, KL GMM: 98.20, KL Standard: 10.41, Entropy: -1.87, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7862, GMM NMI: 0.8041, GMM ARI: 0.7238
+Z_Leiden ACC: 0.9278, Z_Leiden NMI: 0.9122, Z_Leiden ARI: 0.9055
+
+Epoch [73/300]
+LR: 0.0009, Total Loss: 170.01, Recon Loss: 63.28, KL GMM: 98.20, KL Standard: 10.42, Entropy: -1.88, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7862, GMM NMI: 0.8040, GMM ARI: 0.7239
+Z_Leiden ACC: 0.9276, Z_Leiden NMI: 0.9130, Z_Leiden ARI: 0.9064
+
+Epoch [74/300]
+LR: 0.0009, Total Loss: 169.96, Recon Loss: 63.23, KL GMM: 98.20, KL Standard: 10.43, Entropy: -1.90, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7865, GMM NMI: 0.8047, GMM ARI: 0.7238
+Z_Leiden ACC: 0.9253, Z_Leiden NMI: 0.9091, Z_Leiden ARI: 0.9001
+
+Epoch [75/300]
+LR: 0.0009, Total Loss: 169.89, Recon Loss: 63.20, KL GMM: 98.20, KL Standard: 10.41, Entropy: -1.92, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7857, GMM NMI: 0.8047, GMM ARI: 0.7228
+Z_Leiden ACC: 0.9280, Z_Leiden NMI: 0.9125, Z_Leiden ARI: 0.9057
+
+Epoch [76/300]
+LR: 0.0009, Total Loss: 169.83, Recon Loss: 63.12, KL GMM: 98.20, KL Standard: 10.44, Entropy: -1.93, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7868, GMM NMI: 0.8059, GMM ARI: 0.7248
+Z_Leiden ACC: 0.9278, Z_Leiden NMI: 0.9134, Z_Leiden ARI: 0.9063
+
+Epoch [77/300]
+LR: 0.0009, Total Loss: 169.87, Recon Loss: 63.18, KL GMM: 98.19, KL Standard: 10.45, Entropy: -1.95, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7864, GMM NMI: 0.8058, GMM ARI: 0.7242
+Z_Leiden ACC: 0.9288, Z_Leiden NMI: 0.9145, Z_Leiden ARI: 0.9078
+
+Epoch [78/300]
+LR: 0.0008, Total Loss: 169.80, Recon Loss: 63.13, KL GMM: 98.19, KL Standard: 10.45, Entropy: -1.96, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7882, GMM NMI: 0.8061, GMM ARI: 0.7262
+Z_Leiden ACC: 0.9281, Z_Leiden NMI: 0.9130, Z_Leiden ARI: 0.9063
+
+Epoch [79/300]
+LR: 0.0008, Total Loss: 169.67, Recon Loss: 63.01, KL GMM: 98.19, KL Standard: 10.45, Entropy: -1.98, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7867, GMM NMI: 0.8048, GMM ARI: 0.7236
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9147, Z_Leiden ARI: 0.9074
+
+Epoch [80/300]
+LR: 0.0008, Total Loss: 169.67, Recon Loss: 63.01, KL GMM: 98.19, KL Standard: 10.46, Entropy: -1.99, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7859, GMM NMI: 0.8060, GMM ARI: 0.7242
+Z_Leiden ACC: 0.9281, Z_Leiden NMI: 0.9136, Z_Leiden ARI: 0.9070
+
+Epoch [81/300]
+LR: 0.0008, Total Loss: 169.59, Recon Loss: 62.94, KL GMM: 98.18, KL Standard: 10.47, Entropy: -2.01, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7870, GMM NMI: 0.8059, GMM ARI: 0.7246
+Z_Leiden ACC: 0.9274, Z_Leiden NMI: 0.9123, Z_Leiden ARI: 0.9053
+
+Epoch [82/300]
+LR: 0.0008, Total Loss: 169.56, Recon Loss: 62.94, KL GMM: 98.18, KL Standard: 10.46, Entropy: -2.02, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7883, GMM NMI: 0.8084, GMM ARI: 0.7287
+Z_Leiden ACC: 0.9289, Z_Leiden NMI: 0.9144, Z_Leiden ARI: 0.9079
+
+Epoch [83/300]
+LR: 0.0008, Total Loss: 169.51, Recon Loss: 62.90, KL GMM: 98.18, KL Standard: 10.47, Entropy: -2.03, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7868, GMM NMI: 0.8061, GMM ARI: 0.7256
+Z_Leiden ACC: 0.9278, Z_Leiden NMI: 0.9130, Z_Leiden ARI: 0.9063
+
+Epoch [84/300]
+LR: 0.0008, Total Loss: 169.51, Recon Loss: 62.91, KL GMM: 98.17, KL Standard: 10.48, Entropy: -2.05, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7879, GMM NMI: 0.8072, GMM ARI: 0.7277
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9145, Z_Leiden ARI: 0.9084
+
+Epoch [85/300]
+LR: 0.0008, Total Loss: 169.41, Recon Loss: 62.81, KL GMM: 98.18, KL Standard: 10.49, Entropy: -2.06, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7873, GMM NMI: 0.8065, GMM ARI: 0.7255
+Z_Leiden ACC: 0.9110, Z_Leiden NMI: 0.8975, Z_Leiden ARI: 0.8752
+
+Epoch [86/300]
+LR: 0.0008, Total Loss: 169.36, Recon Loss: 62.78, KL GMM: 98.17, KL Standard: 10.48, Entropy: -2.07, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7886, GMM NMI: 0.8087, GMM ARI: 0.7287
+Z_Leiden ACC: 0.9284, Z_Leiden NMI: 0.9141, Z_Leiden ARI: 0.9070
+
+Epoch [87/300]
+LR: 0.0008, Total Loss: 169.32, Recon Loss: 62.73, KL GMM: 98.17, KL Standard: 10.51, Entropy: -2.09, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7887, GMM NMI: 0.8080, GMM ARI: 0.7279
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9151, Z_Leiden ARI: 0.9085
+
+Epoch [88/300]
+LR: 0.0008, Total Loss: 169.31, Recon Loss: 62.74, KL GMM: 98.17, KL Standard: 10.50, Entropy: -2.10, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7883, GMM NMI: 0.8085, GMM ARI: 0.7280
+Z_Leiden ACC: 0.9288, Z_Leiden NMI: 0.9164, Z_Leiden ARI: 0.9095
+
+Epoch [89/300]
+LR: 0.0008, Total Loss: 169.29, Recon Loss: 62.72, KL GMM: 98.17, KL Standard: 10.52, Entropy: -2.11, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7873, GMM NMI: 0.8085, GMM ARI: 0.7273
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9161, Z_Leiden ARI: 0.9094
+
+Epoch [90/300]
+LR: 0.0008, Total Loss: 169.18, Recon Loss: 62.64, KL GMM: 98.17, KL Standard: 10.50, Entropy: -2.12, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7894, GMM NMI: 0.8098, GMM ARI: 0.7302
+Z_Leiden ACC: 0.9289, Z_Leiden NMI: 0.9150, Z_Leiden ARI: 0.9082
+
+Epoch [91/300]
+LR: 0.0008, Total Loss: 169.22, Recon Loss: 62.67, KL GMM: 98.17, KL Standard: 10.51, Entropy: -2.14, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7900, GMM NMI: 0.8087, GMM ARI: 0.7300
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9146, Z_Leiden ARI: 0.9080
+
+Epoch [92/300]
+LR: 0.0008, Total Loss: 169.12, Recon Loss: 62.58, KL GMM: 98.16, KL Standard: 10.53, Entropy: -2.15, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7891, GMM NMI: 0.8102, GMM ARI: 0.7299
+Z_Leiden ACC: 0.9297, Z_Leiden NMI: 0.9161, Z_Leiden ARI: 0.9095
+
+Epoch [93/300]
+LR: 0.0008, Total Loss: 169.07, Recon Loss: 62.55, KL GMM: 98.16, KL Standard: 10.51, Entropy: -2.16, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7886, GMM NMI: 0.8079, GMM ARI: 0.7278
+Z_Leiden ACC: 0.9288, Z_Leiden NMI: 0.9139, Z_Leiden ARI: 0.9070
+
+Epoch [94/300]
+LR: 0.0008, Total Loss: 169.00, Recon Loss: 62.49, KL GMM: 98.16, KL Standard: 10.52, Entropy: -2.17, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7891, GMM NMI: 0.8095, GMM ARI: 0.7294
+Z_Leiden ACC: 0.9285, Z_Leiden NMI: 0.9133, Z_Leiden ARI: 0.9066
+
+Epoch [95/300]
+LR: 0.0008, Total Loss: 168.94, Recon Loss: 62.44, KL GMM: 98.16, KL Standard: 10.53, Entropy: -2.18, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7902, GMM NMI: 0.8104, GMM ARI: 0.7313
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9129, Z_Leiden ARI: 0.9065
+
+Epoch [96/300]
+LR: 0.0008, Total Loss: 168.95, Recon Loss: 62.46, KL GMM: 98.16, KL Standard: 10.53, Entropy: -2.19, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7892, GMM NMI: 0.8092, GMM ARI: 0.7291
+Z_Leiden ACC: 0.9288, Z_Leiden NMI: 0.9151, Z_Leiden ARI: 0.9081
+
+Epoch [97/300]
+LR: 0.0008, Total Loss: 168.94, Recon Loss: 62.45, KL GMM: 98.16, KL Standard: 10.54, Entropy: -2.21, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7896, GMM NMI: 0.8109, GMM ARI: 0.7312
+Z_Leiden ACC: 0.8362, Z_Leiden NMI: 0.8882, Z_Leiden ARI: 0.8212
+
+Epoch [98/300]
+LR: 0.0008, Total Loss: 168.83, Recon Loss: 62.38, KL GMM: 98.15, KL Standard: 10.52, Entropy: -2.22, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7898, GMM NMI: 0.8110, GMM ARI: 0.7313
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9162, Z_Leiden ARI: 0.9096
+
+Epoch [99/300]
+LR: 0.0008, Total Loss: 168.86, Recon Loss: 62.38, KL GMM: 98.16, KL Standard: 10.55, Entropy: -2.23, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7909, GMM NMI: 0.8112, GMM ARI: 0.7328
+Z_Leiden ACC: 0.9244, Z_Leiden NMI: 0.9085, Z_Leiden ARI: 0.8990
+
+Epoch [100/300]
+LR: 0.0008, Total Loss: 168.81, Recon Loss: 62.34, KL GMM: 98.15, KL Standard: 10.55, Entropy: -2.24, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7904, GMM NMI: 0.8110, GMM ARI: 0.7320
+Z_Leiden ACC: 0.9279, Z_Leiden NMI: 0.9134, Z_Leiden ARI: 0.9067
+
+Epoch [101/300]
+LR: 0.0008, Total Loss: 168.76, Recon Loss: 62.29, KL GMM: 98.16, KL Standard: 10.56, Entropy: -2.25, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7911, GMM NMI: 0.8120, GMM ARI: 0.7332
+Z_Leiden ACC: 0.9253, Z_Leiden NMI: 0.9095, Z_Leiden ARI: 0.9009
+
+Epoch [102/300]
+LR: 0.0007, Total Loss: 168.70, Recon Loss: 62.23, KL GMM: 98.15, KL Standard: 10.58, Entropy: -2.26, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7901, GMM NMI: 0.8100, GMM ARI: 0.7312
+Z_Leiden ACC: 0.9296, Z_Leiden NMI: 0.9163, Z_Leiden ARI: 0.9098
+
+Epoch [103/300]
+LR: 0.0007, Total Loss: 168.65, Recon Loss: 62.21, KL GMM: 98.16, KL Standard: 10.54, Entropy: -2.27, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7915, GMM NMI: 0.8119, GMM ARI: 0.7334
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9152, Z_Leiden ARI: 0.9083
+
+Epoch [104/300]
+LR: 0.0007, Total Loss: 168.62, Recon Loss: 62.18, KL GMM: 98.16, KL Standard: 10.56, Entropy: -2.28, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7907, GMM NMI: 0.8105, GMM ARI: 0.7321
+Z_Leiden ACC: 0.9287, Z_Leiden NMI: 0.9149, Z_Leiden ARI: 0.9081
+
+Epoch [105/300]
+LR: 0.0007, Total Loss: 168.58, Recon Loss: 62.15, KL GMM: 98.16, KL Standard: 10.56, Entropy: -2.29, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7916, GMM NMI: 0.8125, GMM ARI: 0.7339
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9149, Z_Leiden ARI: 0.9081
+
+Epoch [106/300]
+LR: 0.0007, Total Loss: 168.52, Recon Loss: 62.11, KL GMM: 98.15, KL Standard: 10.57, Entropy: -2.30, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7914, GMM NMI: 0.8125, GMM ARI: 0.7336
+Z_Leiden ACC: 0.9280, Z_Leiden NMI: 0.9130, Z_Leiden ARI: 0.9059
+
+Epoch [107/300]
+LR: 0.0007, Total Loss: 168.54, Recon Loss: 62.14, KL GMM: 98.15, KL Standard: 10.55, Entropy: -2.31, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7905, GMM NMI: 0.8122, GMM ARI: 0.7327
+Z_Leiden ACC: 0.9309, Z_Leiden NMI: 0.9189, Z_Leiden ARI: 0.9121
+
+Epoch [108/300]
+LR: 0.0007, Total Loss: 168.45, Recon Loss: 62.03, KL GMM: 98.15, KL Standard: 10.58, Entropy: -2.32, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7912, GMM NMI: 0.8128, GMM ARI: 0.7337
+Z_Leiden ACC: 0.9288, Z_Leiden NMI: 0.9151, Z_Leiden ARI: 0.9082
+
+Epoch [109/300]
+LR: 0.0007, Total Loss: 168.46, Recon Loss: 62.05, KL GMM: 98.15, KL Standard: 10.60, Entropy: -2.33, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7900, GMM NMI: 0.8113, GMM ARI: 0.7317
+Z_Leiden ACC: 0.9282, Z_Leiden NMI: 0.9133, Z_Leiden ARI: 0.9066
+
+Epoch [110/300]
+LR: 0.0007, Total Loss: 168.40, Recon Loss: 62.01, KL GMM: 98.16, KL Standard: 10.57, Entropy: -2.34, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7911, GMM NMI: 0.8129, GMM ARI: 0.7338
+Z_Leiden ACC: 0.9296, Z_Leiden NMI: 0.9161, Z_Leiden ARI: 0.9093
+
+Epoch [111/300]
+LR: 0.0007, Total Loss: 168.39, Recon Loss: 61.99, KL GMM: 98.16, KL Standard: 10.58, Entropy: -2.35, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7927, GMM NMI: 0.8150, GMM ARI: 0.7364
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9144, Z_Leiden ARI: 0.9071
+
+Epoch [112/300]
+LR: 0.0007, Total Loss: 168.33, Recon Loss: 61.95, KL GMM: 98.16, KL Standard: 10.57, Entropy: -2.35, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7914, GMM NMI: 0.8134, GMM ARI: 0.7344
+Z_Leiden ACC: 0.9273, Z_Leiden NMI: 0.9113, Z_Leiden ARI: 0.9042
+
+Epoch [113/300]
+LR: 0.0007, Total Loss: 168.30, Recon Loss: 61.91, KL GMM: 98.16, KL Standard: 10.59, Entropy: -2.36, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7919, GMM NMI: 0.8133, GMM ARI: 0.7345
+Z_Leiden ACC: 0.9286, Z_Leiden NMI: 0.9141, Z_Leiden ARI: 0.9072
+
+Epoch [114/300]
+LR: 0.0007, Total Loss: 168.25, Recon Loss: 61.88, KL GMM: 98.15, KL Standard: 10.59, Entropy: -2.37, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7919, GMM NMI: 0.8133, GMM ARI: 0.7348
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9154, Z_Leiden ARI: 0.9087
+
+Epoch [115/300]
+LR: 0.0007, Total Loss: 168.23, Recon Loss: 61.86, KL GMM: 98.16, KL Standard: 10.60, Entropy: -2.38, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7915, GMM NMI: 0.8146, GMM ARI: 0.7354
+Z_Leiden ACC: 0.9295, Z_Leiden NMI: 0.9159, Z_Leiden ARI: 0.9094
+
+Epoch [116/300]
+LR: 0.0007, Total Loss: 168.20, Recon Loss: 61.83, KL GMM: 98.16, KL Standard: 10.59, Entropy: -2.39, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7914, GMM NMI: 0.8132, GMM ARI: 0.7344
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9156, Z_Leiden ARI: 0.9086
+
+Epoch [117/300]
+LR: 0.0007, Total Loss: 168.14, Recon Loss: 61.77, KL GMM: 98.16, KL Standard: 10.61, Entropy: -2.40, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7921, GMM NMI: 0.8142, GMM ARI: 0.7360
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9152, Z_Leiden ARI: 0.9085
+
+Epoch [118/300]
+LR: 0.0007, Total Loss: 168.10, Recon Loss: 61.78, KL GMM: 98.16, KL Standard: 10.56, Entropy: -2.40, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7922, GMM NMI: 0.8145, GMM ARI: 0.7358
+Z_Leiden ACC: 0.9289, Z_Leiden NMI: 0.9149, Z_Leiden ARI: 0.9080
+
+Epoch [119/300]
+LR: 0.0007, Total Loss: 168.10, Recon Loss: 61.72, KL GMM: 98.16, KL Standard: 10.62, Entropy: -2.41, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7924, GMM NMI: 0.8139, GMM ARI: 0.7354
+Z_Leiden ACC: 0.9197, Z_Leiden NMI: 0.9017, Z_Leiden ARI: 0.8890
+
+Epoch [120/300]
+LR: 0.0007, Total Loss: 168.05, Recon Loss: 61.69, KL GMM: 98.16, KL Standard: 10.61, Entropy: -2.42, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7918, GMM NMI: 0.8137, GMM ARI: 0.7345
+Z_Leiden ACC: 0.9300, Z_Leiden NMI: 0.9160, Z_Leiden ARI: 0.9097
+
+Epoch [121/300]
+LR: 0.0007, Total Loss: 167.96, Recon Loss: 61.62, KL GMM: 98.16, KL Standard: 10.61, Entropy: -2.43, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7929, GMM NMI: 0.8163, GMM ARI: 0.7378
+Z_Leiden ACC: 0.9277, Z_Leiden NMI: 0.9126, Z_Leiden ARI: 0.9058
+
+Epoch [122/300]
+LR: 0.0007, Total Loss: 167.97, Recon Loss: 61.66, KL GMM: 98.17, KL Standard: 10.58, Entropy: -2.44, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7922, GMM NMI: 0.8139, GMM ARI: 0.7356
+Z_Leiden ACC: 0.9289, Z_Leiden NMI: 0.9153, Z_Leiden ARI: 0.9084
+
+Epoch [123/300]
+LR: 0.0006, Total Loss: 167.98, Recon Loss: 61.63, KL GMM: 98.16, KL Standard: 10.63, Entropy: -2.44, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7931, GMM NMI: 0.8153, GMM ARI: 0.7377
+Z_Leiden ACC: 0.9287, Z_Leiden NMI: 0.9144, Z_Leiden ARI: 0.9077
+
+Epoch [124/300]
+LR: 0.0006, Total Loss: 167.93, Recon Loss: 61.60, KL GMM: 98.16, KL Standard: 10.63, Entropy: -2.45, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7938, GMM NMI: 0.8164, GMM ARI: 0.7380
+Z_Leiden ACC: 0.9296, Z_Leiden NMI: 0.9157, Z_Leiden ARI: 0.9090
+
+Epoch [125/300]
+LR: 0.0006, Total Loss: 167.88, Recon Loss: 61.55, KL GMM: 98.17, KL Standard: 10.62, Entropy: -2.46, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7929, GMM NMI: 0.8161, GMM ARI: 0.7379
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9148, Z_Leiden ARI: 0.9077
+
+Epoch [126/300]
+LR: 0.0006, Total Loss: 167.86, Recon Loss: 61.54, KL GMM: 98.16, KL Standard: 10.62, Entropy: -2.47, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7920, GMM NMI: 0.8145, GMM ARI: 0.7355
+Z_Leiden ACC: 0.9295, Z_Leiden NMI: 0.9158, Z_Leiden ARI: 0.9094
+
+Epoch [127/300]
+LR: 0.0006, Total Loss: 167.82, Recon Loss: 61.52, KL GMM: 98.17, KL Standard: 10.61, Entropy: -2.47, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7927, GMM NMI: 0.8148, GMM ARI: 0.7364
+Z_Leiden ACC: 0.9297, Z_Leiden NMI: 0.9163, Z_Leiden ARI: 0.9096
+
+Epoch [128/300]
+LR: 0.0006, Total Loss: 167.74, Recon Loss: 61.44, KL GMM: 98.17, KL Standard: 10.61, Entropy: -2.48, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7933, GMM NMI: 0.8158, GMM ARI: 0.7381
+Z_Leiden ACC: 0.9287, Z_Leiden NMI: 0.9146, Z_Leiden ARI: 0.9077
+
+Epoch [129/300]
+LR: 0.0006, Total Loss: 167.76, Recon Loss: 61.44, KL GMM: 98.17, KL Standard: 10.63, Entropy: -2.49, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7933, GMM NMI: 0.8162, GMM ARI: 0.7382
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9157, Z_Leiden ARI: 0.9086
+
+Epoch [130/300]
+LR: 0.0006, Total Loss: 167.71, Recon Loss: 61.40, KL GMM: 98.17, KL Standard: 10.63, Entropy: -2.49, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7945, GMM NMI: 0.8175, GMM ARI: 0.7399
+Z_Leiden ACC: 0.9290, Z_Leiden NMI: 0.9149, Z_Leiden ARI: 0.9080
+
+Epoch [131/300]
+LR: 0.0006, Total Loss: 167.71, Recon Loss: 61.39, KL GMM: 98.18, KL Standard: 10.64, Entropy: -2.50, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7930, GMM NMI: 0.8155, GMM ARI: 0.7370
+Z_Leiden ACC: 0.9297, Z_Leiden NMI: 0.9161, Z_Leiden ARI: 0.9098
+
+Epoch [132/300]
+LR: 0.0006, Total Loss: 167.63, Recon Loss: 61.35, KL GMM: 98.18, KL Standard: 10.61, Entropy: -2.51, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7934, GMM NMI: 0.8162, GMM ARI: 0.7377
+Z_Leiden ACC: 0.9298, Z_Leiden NMI: 0.9166, Z_Leiden ARI: 0.9098
+
+Epoch [133/300]
+LR: 0.0006, Total Loss: 167.60, Recon Loss: 61.30, KL GMM: 98.18, KL Standard: 10.64, Entropy: -2.51, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7950, GMM NMI: 0.8183, GMM ARI: 0.7408
+Z_Leiden ACC: 0.9295, Z_Leiden NMI: 0.9161, Z_Leiden ARI: 0.9093
+
+Epoch [134/300]
+LR: 0.0006, Total Loss: 167.58, Recon Loss: 61.30, KL GMM: 98.19, KL Standard: 10.62, Entropy: -2.52, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7937, GMM NMI: 0.8166, GMM ARI: 0.7388
+Z_Leiden ACC: 0.9239, Z_Leiden NMI: 0.9080, Z_Leiden ARI: 0.8979
+
+Epoch [135/300]
+LR: 0.0006, Total Loss: 167.54, Recon Loss: 61.25, KL GMM: 98.18, KL Standard: 10.63, Entropy: -2.53, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7936, GMM NMI: 0.8175, GMM ARI: 0.7387
+Z_Leiden ACC: 0.9269, Z_Leiden NMI: 0.9118, Z_Leiden ARI: 0.9041
+
+Epoch [136/300]
+LR: 0.0006, Total Loss: 167.52, Recon Loss: 61.24, KL GMM: 98.19, KL Standard: 10.63, Entropy: -2.53, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7938, GMM NMI: 0.8164, GMM ARI: 0.7387
+Z_Leiden ACC: 0.9290, Z_Leiden NMI: 0.9146, Z_Leiden ARI: 0.9081
+
+Epoch [137/300]
+LR: 0.0006, Total Loss: 167.49, Recon Loss: 61.22, KL GMM: 98.19, KL Standard: 10.62, Entropy: -2.54, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7929, GMM NMI: 0.8156, GMM ARI: 0.7375
+Z_Leiden ACC: 0.9284, Z_Leiden NMI: 0.9134, Z_Leiden ARI: 0.9067
+
+Epoch [138/300]
+LR: 0.0006, Total Loss: 167.47, Recon Loss: 61.18, KL GMM: 98.19, KL Standard: 10.65, Entropy: -2.54, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7937, GMM NMI: 0.8163, GMM ARI: 0.7383
+Z_Leiden ACC: 0.9284, Z_Leiden NMI: 0.9139, Z_Leiden ARI: 0.9070
+
+Epoch [139/300]
+LR: 0.0006, Total Loss: 167.42, Recon Loss: 61.13, KL GMM: 98.19, KL Standard: 10.65, Entropy: -2.55, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7944, GMM NMI: 0.8179, GMM ARI: 0.7402
+Z_Leiden ACC: 0.9283, Z_Leiden NMI: 0.9136, Z_Leiden ARI: 0.9068
+
+Epoch [140/300]
+LR: 0.0006, Total Loss: 167.43, Recon Loss: 61.14, KL GMM: 98.20, KL Standard: 10.65, Entropy: -2.56, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7931, GMM NMI: 0.8160, GMM ARI: 0.7378
+Z_Leiden ACC: 0.9296, Z_Leiden NMI: 0.9166, Z_Leiden ARI: 0.9096
+
+Epoch [141/300]
+LR: 0.0006, Total Loss: 167.37, Recon Loss: 61.11, KL GMM: 98.20, KL Standard: 10.63, Entropy: -2.56, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7946, GMM NMI: 0.8177, GMM ARI: 0.7406
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9156, Z_Leiden ARI: 0.9088
+
+Epoch [142/300]
+LR: 0.0006, Total Loss: 167.30, Recon Loss: 61.05, KL GMM: 98.20, KL Standard: 10.62, Entropy: -2.57, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7935, GMM NMI: 0.8171, GMM ARI: 0.7386
+Z_Leiden ACC: 0.9274, Z_Leiden NMI: 0.9126, Z_Leiden ARI: 0.9051
+
+Epoch [143/300]
+LR: 0.0005, Total Loss: 167.32, Recon Loss: 61.06, KL GMM: 98.19, KL Standard: 10.65, Entropy: -2.57, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7944, GMM NMI: 0.8183, GMM ARI: 0.7403
+Z_Leiden ACC: 0.9213, Z_Leiden NMI: 0.9057, Z_Leiden ARI: 0.8926
+
+Epoch [144/300]
+LR: 0.0005, Total Loss: 167.28, Recon Loss: 61.00, KL GMM: 98.20, KL Standard: 10.66, Entropy: -2.58, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7929, GMM NMI: 0.8174, GMM ARI: 0.7385
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9159, Z_Leiden ARI: 0.9089
+
+Epoch [145/300]
+LR: 0.0005, Total Loss: 167.26, Recon Loss: 60.98, KL GMM: 98.20, KL Standard: 10.66, Entropy: -2.59, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7947, GMM NMI: 0.8189, GMM ARI: 0.7409
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9162, Z_Leiden ARI: 0.9092
+
+Epoch [146/300]
+LR: 0.0005, Total Loss: 167.22, Recon Loss: 60.95, KL GMM: 98.21, KL Standard: 10.64, Entropy: -2.59, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7944, GMM NMI: 0.8173, GMM ARI: 0.7396
+Z_Leiden ACC: 0.9287, Z_Leiden NMI: 0.9146, Z_Leiden ARI: 0.9077
+
+Epoch [147/300]
+LR: 0.0005, Total Loss: 167.17, Recon Loss: 60.93, KL GMM: 98.20, KL Standard: 10.63, Entropy: -2.60, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7938, GMM NMI: 0.8173, GMM ARI: 0.7391
+Z_Leiden ACC: 0.9272, Z_Leiden NMI: 0.9119, Z_Leiden ARI: 0.9046
+
+Epoch [148/300]
+LR: 0.0005, Total Loss: 167.14, Recon Loss: 60.90, KL GMM: 98.21, KL Standard: 10.63, Entropy: -2.60, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7937, GMM NMI: 0.8176, GMM ARI: 0.7393
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9157, Z_Leiden ARI: 0.9091
+
+Epoch [149/300]
+LR: 0.0005, Total Loss: 167.08, Recon Loss: 60.84, KL GMM: 98.21, KL Standard: 10.63, Entropy: -2.61, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7938, GMM NMI: 0.8171, GMM ARI: 0.7388
+Z_Leiden ACC: 0.9285, Z_Leiden NMI: 0.9144, Z_Leiden ARI: 0.9074
+
+Epoch [150/300]
+LR: 0.0005, Total Loss: 167.08, Recon Loss: 60.86, KL GMM: 98.21, KL Standard: 10.63, Entropy: -2.61, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7938, GMM NMI: 0.8161, GMM ARI: 0.7383
+Z_Leiden ACC: 0.9306, Z_Leiden NMI: 0.9179, Z_Leiden ARI: 0.9113
+
+Epoch [151/300]
+LR: 0.0005, Total Loss: 167.08, Recon Loss: 60.83, KL GMM: 98.22, KL Standard: 10.64, Entropy: -2.62, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7944, GMM NMI: 0.8184, GMM ARI: 0.7407
+Z_Leiden ACC: 0.9256, Z_Leiden NMI: 0.9099, Z_Leiden ARI: 0.9014
+
+Epoch [152/300]
+LR: 0.0005, Total Loss: 167.07, Recon Loss: 60.82, KL GMM: 98.22, KL Standard: 10.65, Entropy: -2.62, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7949, GMM NMI: 0.8188, GMM ARI: 0.7411
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9161, Z_Leiden ARI: 0.9091
+
+Epoch [153/300]
+LR: 0.0005, Total Loss: 167.01, Recon Loss: 60.77, KL GMM: 98.22, KL Standard: 10.63, Entropy: -2.63, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7952, GMM NMI: 0.8192, GMM ARI: 0.7415
+Z_Leiden ACC: 0.9293, Z_Leiden NMI: 0.9159, Z_Leiden ARI: 0.9090
+
+Epoch [154/300]
+LR: 0.0005, Total Loss: 166.98, Recon Loss: 60.75, KL GMM: 98.23, KL Standard: 10.64, Entropy: -2.63, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7956, GMM NMI: 0.8199, GMM ARI: 0.7423
+Z_Leiden ACC: 0.9307, Z_Leiden NMI: 0.9179, Z_Leiden ARI: 0.9115
+
+Epoch [155/300]
+LR: 0.0005, Total Loss: 166.95, Recon Loss: 60.71, KL GMM: 98.24, KL Standard: 10.64, Entropy: -2.64, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7944, GMM NMI: 0.8183, GMM ARI: 0.7404
+Z_Leiden ACC: 0.9289, Z_Leiden NMI: 0.9147, Z_Leiden ARI: 0.9081
+
+Epoch [156/300]
+LR: 0.0005, Total Loss: 166.93, Recon Loss: 60.69, KL GMM: 98.24, KL Standard: 10.64, Entropy: -2.64, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7947, GMM NMI: 0.8181, GMM ARI: 0.7408
+Z_Leiden ACC: 0.9268, Z_Leiden NMI: 0.9116, Z_Leiden ARI: 0.9035
+
+Epoch [157/300]
+LR: 0.0005, Total Loss: 166.89, Recon Loss: 60.66, KL GMM: 98.24, KL Standard: 10.64, Entropy: -2.65, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7953, GMM NMI: 0.8185, GMM ARI: 0.7414
+Z_Leiden ACC: 0.9298, Z_Leiden NMI: 0.9168, Z_Leiden ARI: 0.9101
+
+Epoch [158/300]
+LR: 0.0005, Total Loss: 166.86, Recon Loss: 60.63, KL GMM: 98.24, KL Standard: 10.64, Entropy: -2.65, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7955, GMM NMI: 0.8187, GMM ARI: 0.7415
+Z_Leiden ACC: 0.9285, Z_Leiden NMI: 0.9142, Z_Leiden ARI: 0.9071
+
+Epoch [159/300]
+LR: 0.0005, Total Loss: 166.84, Recon Loss: 60.61, KL GMM: 98.24, KL Standard: 10.65, Entropy: -2.65, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7949, GMM NMI: 0.8190, GMM ARI: 0.7415
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9160, Z_Leiden ARI: 0.9089
+
+Epoch [160/300]
+LR: 0.0005, Total Loss: 166.82, Recon Loss: 60.61, KL GMM: 98.24, KL Standard: 10.64, Entropy: -2.66, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7946, GMM NMI: 0.8180, GMM ARI: 0.7406
+Z_Leiden ACC: 0.9218, Z_Leiden NMI: 0.9060, Z_Leiden ARI: 0.8938
+
+Epoch [161/300]
+LR: 0.0005, Total Loss: 166.81, Recon Loss: 60.58, KL GMM: 98.25, KL Standard: 10.64, Entropy: -2.66, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7951, GMM NMI: 0.8185, GMM ARI: 0.7414
+Z_Leiden ACC: 0.9292, Z_Leiden NMI: 0.9157, Z_Leiden ARI: 0.9086
+
+Epoch [162/300]
+LR: 0.0004, Total Loss: 166.77, Recon Loss: 60.54, KL GMM: 98.25, KL Standard: 10.64, Entropy: -2.67, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7955, GMM NMI: 0.8196, GMM ARI: 0.7422
+Z_Leiden ACC: 0.9276, Z_Leiden NMI: 0.9123, Z_Leiden ARI: 0.9051
+
+Epoch [163/300]
+LR: 0.0004, Total Loss: 166.74, Recon Loss: 60.51, KL GMM: 98.25, KL Standard: 10.65, Entropy: -2.67, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7954, GMM NMI: 0.8188, GMM ARI: 0.7418
+Z_Leiden ACC: 0.9291, Z_Leiden NMI: 0.9151, Z_Leiden ARI: 0.9083
+
+Epoch [164/300]
+LR: 0.0004, Total Loss: 166.72, Recon Loss: 60.49, KL GMM: 98.25, KL Standard: 10.65, Entropy: -2.68, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7950, GMM NMI: 0.8189, GMM ARI: 0.7413
+Z_Leiden ACC: 0.8365, Z_Leiden NMI: 0.8883, Z_Leiden ARI: 0.8210
+
+Epoch [165/300]
+LR: 0.0004, Total Loss: 166.70, Recon Loss: 60.48, KL GMM: 98.25, KL Standard: 10.65, Entropy: -2.68, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7954, GMM NMI: 0.8196, GMM ARI: 0.7421
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9162, Z_Leiden ARI: 0.9093
+
+Epoch [166/300]
+LR: 0.0004, Total Loss: 166.72, Recon Loss: 60.48, KL GMM: 98.26, KL Standard: 10.66, Entropy: -2.68, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7950, GMM NMI: 0.8194, GMM ARI: 0.7417
+Z_Leiden ACC: 0.9294, Z_Leiden NMI: 0.9159, Z_Leiden ARI: 0.9091
+
+Epoch [167/300]
+LR: 0.0004, Total Loss: 166.66, Recon Loss: 60.42, KL GMM: 98.26, KL Standard: 10.66, Entropy: -2.69, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7953, GMM NMI: 0.8192, GMM ARI: 0.7416
+Z_Leiden ACC: 0.9303, Z_Leiden NMI: 0.9179, Z_Leiden ARI: 0.9111
+
+Epoch [168/300]
+LR: 0.0004, Total Loss: 166.62, Recon Loss: 60.39, KL GMM: 98.27, KL Standard: 10.65, Entropy: -2.69, Peak Loss: 0.00, Spectral Loss: 0.000000, Clustering Confidence Loss: 0.00, Cluster Separation Loss: 0.00
+GMM ACC: 0.7962, GMM NMI: 0.8204, GMM ARI: 0.7433
+Z_Leiden ACC: 0.9251, Z_Leiden NMI: 0.9086, Z_Leiden ARI: 0.8999

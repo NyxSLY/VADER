@@ -19,7 +19,7 @@ model_params:
   device: "cuda:3"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 50
-  clustering_method: 'kmeans'
+  clustering_method: 'leiden'
   resolution_1: 2.0
   resolution_2: 0.9
 
@@ -38,19 +38,19 @@ model_params:
 # 权重调度器配置
 weight_scheduler:
   init_weights:
-    lamb1: 0.9    # 重构损失权重 - 控制重建质量
+    lamb1: 1    # 重构损失权重 - 控制重建质量
     lamb2: 1     # KL散度损失权重 - 控制潜在空间分布
     lamb3: 0      # 峰保持损失权重 - 保持光谱峰的形状
     lamb4: 0      # 光谱物理约束损失权重 - 包括非负约束和基线一致性
     lamb5: 0    # 聚类置信度损失权重 - 鼓励明确的类别归属
     lamb6: 0    # 类间分离损失权重 - 最大化类内相似度,最小化类间相似度
   max_weights:
-    lamb1: 0.9    # 重构损失最大权重
+    lamb1: 1    # 重构损失最大权重
     lamb2: 1      # KL散度损失最大权重  
     lamb3: 0      # 峰保持损失最大权重
-    lamb4: 1      # 光谱物理约束损失最大权重
-    lamb5: 0.5    # 聚类置信度损失最大权重
-    lamb6: 0.5    # 类间分离损失最大权重
+    lamb4: 0      # 光谱物理约束损失最大权重
+    lamb5: 0    # 聚类置信度损失最大权重
+    lamb6: 0    # 类间分离损失最大权重
 
 
 # 训练配置
@@ -61,7 +61,7 @@ train_config:
   min_loss_threshold:
     total: 0.5
     recon: 0.02
-  tsne_plot: False
+  tsne_plot: T
   recon_plot: False
 
 # 可视化配置
