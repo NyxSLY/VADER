@@ -38,8 +38,8 @@ def main():
     # 准备数据
     
     model_params = config.get_model_params()
-    device = torch.device('cuda:2')
-    batch_size = 100
+    device = set_device(model_params['device'])
+    batch_size = model_params['batch_size']
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(X, Y,batch_size,device)
 
     # 获取模型配置
@@ -74,7 +74,7 @@ def main():
         l_c_dim=l_c_dim,
         batch_size=batch_size,
         encoder_type='basic',
-        pretrain_epochs=50,
+        pretrain_epochs=model_params['pretrain_epochs'],
         num_classes=num_classes,
         clustering_method='kmeans',
         resolution_1=2.0,

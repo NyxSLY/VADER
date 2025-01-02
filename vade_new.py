@@ -459,8 +459,9 @@ class Gaussian(nn.Module):
                 self.pi.data.copy_(weights)
 
     def forward(self, z):
+        pi_norm = self.pi / torch.sum(self.pi)
         # 计算条件概率/可能性
-        y = self.gaussian_log_prob(z)  # log p(z|c)
+        y = self.gaussian_log_prob(z, pi_norm)  # log p(z|c)
         
         # 计算后验概率
         gamma = F.softmax(y, dim=1)  # p(c|z)
@@ -471,12 +472,12 @@ class Gaussian(nn.Module):
         # 返回所有需要的值
         return self.means,self.log_variances, y, gamma, self.pi  # 输出PI
 
-    def gaussian_log_prob(self, z):
+    def gaussian_log_prob(self, z, pi_norm):
         """计算log p(z|c)"""
         z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
         means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
         log_vars_expanded = self.log_variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
+        pi_expanded = pi_norm.unsqueeze(0)  # [1, num_clusters]
     
         log_p_c = (
             torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
@@ -868,7 +869,7 @@ class VaDE(nn.Module):
             # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
             # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
 
-            torch.save(self.state_dict(), './pretrain_model_none_bn.pk')
+            torch.save(self.state_dict(), './pretrain_model_xx_bn.pk')
 
         else:
             self.load_state_dict(torch.load('./pretrain_model_none_bn.pk'))

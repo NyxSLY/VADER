@@ -14,11 +14,11 @@ model_params:
   intermediate_dim: [2048,1024,512]
   learning_rate: 1.0e-3
   use_lr_scheduler: True
-  batch_size: 128
-  epochs: 3000
+  batch_size: 512
+  epochs: 300
   device: "cuda:3"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
-  pretrain_epochs: 100
+  pretrain_epochs: 50
   clustering_method: 'kmeans'
   resolution_1: 2.0
   resolution_2: 0.9
