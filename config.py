@@ -5,6 +5,7 @@ import os
 import yaml
 from typing import Dict, Any
 import datetime
+import random
 
 class ProjectConfig:
     """项目全局配置类"""
@@ -25,7 +26,7 @@ class ProjectConfig:
             'use_lr_scheduler': bool(config['model_params']['use_lr_scheduler']),
             'batch_size': int(config['model_params']['batch_size']),
             'epochs': int(config['model_params']['epochs']),
-            'device':str(config['model_params']['device']),
+            'device':f'cuda:{random.randint(0, 4)}',
             'encoder_type': str(config['model_params']['encoder_type']),
             'pretrain_epochs': int(config['model_params']['pretrain_epochs']),
             'clustering_method': str(config['model_params']['clustering_method']),
