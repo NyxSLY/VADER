@@ -986,7 +986,7 @@ class VaDE(nn.Module):
         
         # 1. 重构损失
       
-        recon_loss = self.lamb1 * F.binary_cross_entropy(recon_x, x, reduction='none').sum(-1)
+        recon_loss = self.lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
        
         # 2. 从y计算gamma
         gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
@@ -996,7 +996,7 @@ class VaDE(nn.Module):
         
         # 调整其他张量的维度
         mean = mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]compute_loss
+        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
         
         # 调整高斯分布参数的维度
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
@@ -1031,9 +1031,12 @@ class VaDE(nn.Module):
             -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
         )
-        
-        # 6. 总损失
-        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean()
+
+        # 6. spectral constraints
+        spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values()))
+
+        # 7. 总损失
+        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
         
         # 返回损失字典
         
@@ -1042,7 +1045,8 @@ class VaDE(nn.Module):
             'recon_loss': recon_loss.mean().item(),
             'kl_gmm': kl_gmm.mean().item(),
             'kl_standard': kl_standard.mean().item(),
-            'entropy': entropy.mean().item()
+            'entropy': entropy.mean().item(),
+            'spectral_loss': spectral_constraints.mean().item()
         }
 
         
