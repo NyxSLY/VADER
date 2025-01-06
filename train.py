@@ -206,6 +206,16 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
             writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
+
+            gmm_probs = gamma.detach().cpu().numpy()
+            gmm_labels = np.argmax(gmm_probs, axis=1)
+            unique_labels, counts = np.unique(gmm_labels, return_counts=True)
+            proportions = counts / len(gmm_labels)
+            writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
+            for i, (label, proportion) in enumerate(zip(unique_labels, proportions)):
+                writer.add_scalar(f'GMM/cluster_{label}_proportion', proportion, epoch)
+
+
             # for i in range(10):
             #     writer.add_scalar(
             #         f'GMM/cluster_{i}_log_variance_mean', 

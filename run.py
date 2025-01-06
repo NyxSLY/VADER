@@ -62,7 +62,7 @@ def main():
 
     # 获取模型配置
     input_dim = tensor_data.shape[1]
-    num_classes = len(unique_label)
+    num_classes = 9 # len(unique_label)
     project_dir = create_project_folders("home_pc")
     
     weight_scheduler_config = config.get_weight_scheduler_config()
