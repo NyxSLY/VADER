@@ -212,8 +212,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             proportions = counts / len(gmm_labels)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
-            for i, (label, proportion) in enumerate(zip(unique_labels, proportions)):
-                writer.add_scalar(f'GMM/cluster_{label}_proportion', proportion, epoch)
+            # for i, (label, proportion) in enumerate(zip(unique_labels, proportions)):
+            #     writer.add_scalar(f'GMM/cluster_{label}_proportion', proportion, epoch)
 
 
             # for i in range(10):

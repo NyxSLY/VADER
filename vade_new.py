@@ -918,6 +918,7 @@ class VaDE(nn.Module):
     def reparameterize(self, mean, log_var):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
+        # eps = torch.distributions.Cauchy(0, 1).sample(mean.shape).to(self.device)
         return mean + eps * std
 
     def forward(self,x):
@@ -954,32 +955,48 @@ class VaDE(nn.Module):
         
         # 1. 使用统计信息中的峰位置
         peak_positions = stats['peak_positions']
-        if peak_positions is not None:
-            peak_positions = peak_positions.to(x.device)
-            constraints['peak'] = F.mse_loss(
-                recon_x[:, peak_positions], 
-                x[:, peak_positions], reduction='none'
-            ).sum(-1)
+        distance = torch.diff(peak_positions, prepend=peak_positions[:1], append=peak_positions[-1:])
+        variances = torch.max(distance[:-1], distance[1:])
+
+        weights = torch.zeros_like(x)
+        # plt.plot(self.tensor_gpu_data.mean(0).cpu().numpy(),linestyle='-')
+        for i, peak in enumerate(peak_positions):
+            gamma = variances[i]  # 洛伦兹分布的半宽
+            lorentzian = (1 / (math.pi * gamma)) * (gamma**2 / ((torch.arange(x.shape[1], device=x.device) - peak)**2 + gamma**2))
+            # plt.plot( lorentzian.cpu().numpy(),  color=random_color(), linestyle='-')
+            weights += lorentzian
+
+        weightd_mse = F.mse_loss(recon_x, x, reduction='none') * weights
+
+        return weightd_mse
+
+        # ----------------- Before -----------------
+        # if peak_positions is not None:
+        #     peak_positions = peak_positions.to(x.device)
+        #     constraints['peak'] = F.mse_loss(
+        #         recon_x[:, peak_positions], 
+        #         x[:, peak_positions], reduction='none'
+        #     ).sum(-1)
         
-        # 2. 基线损失计算保持不变
-        mean_baseline = stats['baseline_params']['mean_baseline'].to(x.device)
-        baseline_std = stats['baseline_params']['std_baseline'].to(x.device)
-        x_baseline = self.spectral_constraints.batch_als_baseline(x)
-        recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
-        baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
-        constraints['baseline'] = (baseline_diff ** 2).mean(-1)
+        # # 2. 基线损失计算保持不变
+        # mean_baseline = stats['baseline_params']['mean_baseline'].to(x.device)
+        # baseline_std = stats['baseline_params']['std_baseline'].to(x.device)
+        # x_baseline = self.spectral_constraints.batch_als_baseline(x)
+        # recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
+        # baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
+        # constraints['baseline'] = (baseline_diff ** 2).mean(-1)
         
-        # 3. 强度范围约束
-        intensity_range = stats['intensity_range']
-        min_val = torch.tensor(intensity_range['min'], device=x.device)
-        max_val = torch.tensor(intensity_range['max'], device=x.device)
-        range_loss = (
-            F.relu(min_val - recon_x).sum(-1) + 
-            F.relu(recon_x - max_val).sum(-1)
-        )
-        constraints['range'] = range_loss
+        # # 3. 强度范围约束
+        # intensity_range = stats['intensity_range']
+        # min_val = torch.tensor(intensity_range['min'], device=x.device)
+        # max_val = torch.tensor(intensity_range['max'], device=x.device)
+        # range_loss = (
+        #     F.relu(min_val - recon_x).sum(-1) + 
+        #     F.relu(recon_x - max_val).sum(-1)
+        # )
+        # constraints['range'] = range_loss
         
-        return constraints
+        # return constraints
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
 
@@ -1035,7 +1052,8 @@ class VaDE(nn.Module):
         )
 
         # 6. spectral constraints
-        spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
+        # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
+        spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1)
 
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
