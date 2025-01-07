@@ -967,7 +967,7 @@ class VaDE(nn.Module):
         x_baseline = self.spectral_constraints.batch_als_baseline(x)
         recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
         baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
-        constraints['baseline'] = (baseline_diff ** 2).sum(-1)
+        constraints['baseline'] = (baseline_diff ** 2).mean(-1)
         
         # 3. 强度范围约束
         intensity_range = stats['intensity_range']
