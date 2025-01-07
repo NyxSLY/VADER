@@ -959,7 +959,7 @@ class VaDE(nn.Module):
             constraints['peak'] = F.mse_loss(
                 recon_x[:, peak_positions], 
                 x[:, peak_positions], reduction='none'
-            )
+            ).sum(-1)
         
         # 2. 基线损失计算保持不变
         mean_baseline = stats['baseline_params']['mean_baseline'].to(x.device)
@@ -967,15 +967,15 @@ class VaDE(nn.Module):
         x_baseline = self.spectral_constraints.batch_als_baseline(x)
         recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
         baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
-        constraints['baseline'] = torch.mean((baseline_diff ** 2))
+        constraints['baseline'] = (baseline_diff ** 2).sum(-1)
         
         # 3. 强度范围约束
         intensity_range = stats['intensity_range']
         min_val = torch.tensor(intensity_range['min'], device=x.device)
         max_val = torch.tensor(intensity_range['max'], device=x.device)
         range_loss = (
-            F.relu(min_val - recon_x).mean() + 
-            F.relu(recon_x - max_val).mean()
+            F.relu(min_val - recon_x).sum(-1) + 
+            F.relu(recon_x - max_val).sum(-1)
         )
         constraints['range'] = range_loss
         
@@ -1035,7 +1035,7 @@ class VaDE(nn.Module):
         )
 
         # 6. spectral constraints
-        spectral_constraints = self.lamb4 * sum(self.compute_spectral_constraints(x, recon_x).values()).sum(-1)
+        spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
 
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
