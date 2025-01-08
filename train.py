@@ -185,8 +185,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
         # skip update kmeans centers
-        #if (epoch + 1) % 10 == 0:
-        #    model.update_kmeans_centers(dataloader)
+        if (epoch + 1) % 10 == 0:
+            model.update_kmeans_centers(dataloader)
             
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
