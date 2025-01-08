@@ -13,7 +13,11 @@ none_pretrain_500.out
 none_pretrain_other.out
 batch_size=512.out
 batch_size=512_normal_pi.out
-
+pretrain_model_50.pk
+nc9_pretrain_model_none_bn.pk
+lorentzian_peaks_random_colors.png
+tensor_baseline_plot.png
+tensor_line_plot.png
 # run.py
 !.gitignore
 

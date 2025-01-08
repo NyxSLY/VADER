@@ -761,7 +761,7 @@ class VaDE(nn.Module):
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
-        if  not os.path.exists('./nc9_pretrain_model_none_bn.pk'):
+        if  not os.path.exists('./nc9_pretrain_model_none_bn_.pk'):
 
             Loss=nn.MSELoss()
             opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
