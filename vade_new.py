@@ -963,7 +963,7 @@ class VaDE(nn.Module):
         # plt.plot(self.tensor_gpu_data.mean(0).cpu().numpy(),linestyle='-')
         for i, peak in enumerate(peak_positions):
             gamma = variances[i]  # 洛伦兹分布的半宽
-            lorentzian = (1 / (math.pi * gamma)) * (gamma**2 / ((torch.arange(x.shape[1], device=x.device) - peak)**2 + gamma**2))
+            lorentzian = gamma**2 / ((torch.arange(x.shape[1], device=x.device) - peak)**2 + gamma**2)
             # plt.plot( lorentzian.cpu().numpy(),  color=random_color(), linestyle='-')
             weights += lorentzian
 
@@ -1054,7 +1054,7 @@ class VaDE(nn.Module):
 
         # 6. spectral constraints
         # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
-        spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1)
+        spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
 
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
