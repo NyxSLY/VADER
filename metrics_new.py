@@ -189,7 +189,7 @@ class ModelEvaluator:
             self._print_metrics(epoch, lr, metrics)
 
             # 打印评估结果
-            if epoch % 10 == 0:
+            if (epoch+1) % 10 == 0:
                 self._save_results(
                     epoch, 
                     metrics, 

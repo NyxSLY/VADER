@@ -773,7 +773,8 @@ class VaDE(nn.Module):
                 for x,y in dataloader:
                     x=x.to(self.device)
 
-                    z,_=self.encoder(x)
+                    mean,var=self.encoder(x)
+                    z = self.reparameterize(mean, var)
                     x_=self.decoder(z)
                     loss=Loss(x,x_)
 

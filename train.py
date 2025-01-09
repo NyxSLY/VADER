@@ -168,6 +168,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
                       train_config['start_epoch'] + model_params['epochs']):
         # 更新权重
         weights = weight_scheduler.get_weights(epoch)
+        print(weights)
         for key, value in weights.items():
             setattr(model, key, value)
         
