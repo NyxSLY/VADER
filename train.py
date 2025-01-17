@@ -135,7 +135,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         )
     else:
         print("使用固定学习率")
-        scheduler = None
+        scheduler_nn = None
+        scheduler_gmm = None
         
     device = model.device
     model_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
@@ -187,7 +188,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:
-            model.update_kmeans_centers(dataloader)
+            model.update_kmeans_centers()
             
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]

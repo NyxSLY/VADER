@@ -16,6 +16,7 @@ from utility import leiden_clustering
 import math
 from tqdm import tqdm
 import itertools
+from scipy.optimize import linear_sum_assignment
 
 
 class Encoder(nn.Module):
@@ -886,35 +887,98 @@ class VaDE(nn.Module):
         # 直接用聚类中心更新高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
         self.cluster_centers = cluster_centers
+    
+    def optimal_transport(self,A, B, alpha):
+        n, d = A.shape
+        m, _ = B.shape
+
+        # 计算成本矩阵
+        cost_matrix = np.linalg.norm(A[:, None, :] - B[None, :, :], axis=2)
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)  # 解指派问题
+        # print("row_ind:", row_ind) #A [0,1]
+        # print("col_ind:", col_ind) #B [2,1]
+
+        # 用匹配的值替换对应位置
+        if n>= m:
+            aligned_B = np.zeros_like(A)
+            B_new = np.zeros((n,d))
+            B_new[:m,:]=B
+            for i, j in zip(row_ind, col_ind):
+                aligned_B[j] = A[i]  # Match B[j] to A[i]
+            
+            unmatched_A_indices = set(range(n)) - set(row_ind)
+            for idx in unmatched_A_indices:
+                r = aligned_B.shape[0]
+                aligned_B[r-1] = A[idx]  # Use unmatched A directly
+                B_new[r-1] = A[idx]
+            aligned_B = alpha * aligned_B + (1 - alpha) * B_new
+        # Handle unmatched B (truncate if needed)
+        elif n < m:
+            aligned_B = np.zeros_like(B)
+            for i, j in zip(row_ind, col_ind):
+                aligned_B[j] = A[i]  # Match B[j] to A[i]
+
+            unmatched_B_indices = set(range(m)) - set(col_ind)
+            aligned_B = np.delete(aligned_B, list(unmatched_B_indices), axis=0)
+            B = np.delete(B, list(unmatched_B_indices), axis=0)
+            aligned_B = alpha * aligned_B + (1 - alpha) * B
+
+        return aligned_B
+    
+    def change_var(self,array,n,w=1):
+        if array.shape[0]>=n:
+            array = array[:n]
+        else:
+            mean_value = np.mean(array, axis=0)*w
+            padding = np.tile(mean_value, (n - array.shape[0], 1))
+            array = np.vstack((array, padding))
+        return array
+
+    def  change_pi(self,array,n,w=1):
+
+        if array.shape[0]>=n:
+            array = array[:n]
+        else:
+            mean_value = np.mean(array)*w
+            padding = np.full(n - array.shape[0], mean_value)
+            array = np.concatenate((array, padding))
+        return array
+
 
 
     @torch.no_grad()
-    def update_kmeans_centers(self, dataloader):
-        """更新聚类中心"""
+    def update_kmeans_centers(self):
         print(f'Update clustering centers..........')
-        encoded_data = []
-        for x, _ in dataloader:
-            x = x.to(self.device)
-            mean, _ = self.encoder(x)
-            encoded_data.append(mean.cpu())
-        encoded_data = torch.cat(encoded_data, dim=0).numpy()
+        encoded_data, _ = self.encoder(self.tensor_gpu_data)
+        encoded_data_cpu = encoded_data.cpu().numpy()
 
-        # 使用选定的方法更新聚类中心
-        labels, cluster_centers = self._apply_clustering(encoded_data)
-        num_clusters = len(np.unique(labels))
-        cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        # update the clustering centers
+        ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
+        # leiden_centers = torch.tensor(leiden_centers, device=self.device).to(dtype=self.gaussian.means.data.dtype)
+        # gaussian_centers = updated_centers = self.gaussian.means.data
+        # gaussian_vars = updated_vars = self.gaussian.log_variances.data
+        # gaussian_pi = updated_pi = self.gaussian.pi.data
+        
+        num_ml_centers = len(np.unique(ml_labels))
 
-        # 如果聚类数量发生变化，需要重新初始化高斯分布
-        if num_clusters != self.gaussian.num_clusters:
-            print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
-            self.num_clusters = num_clusters
-            self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
-
-
-        # 更新高斯分布参数
-        self.gaussian.means.data.copy_(cluster_centers)
-        self.cluster_centers = cluster_centers
-
+        """align"""
+        if num_ml_centers != self.gaussian.num_clusters:
+            print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
+            gaussian_means = self.gaussian.means.cpu().numpy()
+            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 0.1)
+            self.num_clusters = num_ml_centers
+            array_var = self.gaussian.log_variances.cpu().numpy()
+            array_pi = self.gaussian.pi.cpu().numpy()
+            aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
+            aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
+            self.gaussian = Gaussian(num_ml_centers, self.latent_dim).to(self.device)
+            cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
+            cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
+            self.gaussian.log_variances.data.copy_(cluster_var)
+            self.gaussian.pi.data.copy_(cluster_pi)
+        cluster_centers_t = torch.tensor(cluster_centers,device = self.device)
+        self.gaussian.means.data.copy_(cluster_centers_t)
+ 
 
     def reparameterize(self, mean, log_var):
         std = torch.exp(0.5 * log_var)
