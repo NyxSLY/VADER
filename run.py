@@ -42,14 +42,16 @@ def main():
     # oc_train_data = nc_data_org[keep_indices]
     # oc_train_label = nc_labels_org[keep_indices]
 
-    oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
-    oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
-
+    #oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
+    #oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
+    oc_train_data = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference_processed_qc.npy")
+    oc_train_label = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference_processed_qc.npy").astype(int)
 
     # 准备数据
     model_params = config.get_model_params()
     device = set_device(model_params['device'])
     batch_size = model_params['batch_size']
+
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(oc_train_data, oc_train_label,batch_size,device)
 
     # 获取模型配置
@@ -90,7 +92,7 @@ def main():
         resolution_1=model_params['resolution_1'],
         resolution_2=model_params['resolution_2']
     ).to(device)
-
+    print(device)
     # model.eval()
     #choose_kmeans_method = choose_kmeans(model,dataloader,num_classes)
     # 更新模型的kmeans初始化方法

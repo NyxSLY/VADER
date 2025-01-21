@@ -19,14 +19,68 @@ import itertools
 from scipy.optimize import linear_sum_assignment
 
 
+class SelfAttention(nn.Module):
+    def __init__(self, dim):
+        super(SelfAttention, self).__init__()
+        self.query = nn.Linear(dim, dim)
+        self.key = nn.Linear(dim, dim)
+        self.value = nn.Linear(dim, dim)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        Q = self.query(x)
+        K = self.key(x)
+        V = self.value(x)
+
+        # 计算注意力分数
+        attention_scores = torch.matmul(Q, K.transpose(-2, -1)) / (x.size(-1) ** 0.5)
+        attention_weights = self.softmax(attention_scores)
+
+        # 应用注意力权重
+        output = torch.matmul(attention_weights, V)
+        return output
+    
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, dim, num_heads=8):
+        super(MultiHeadSelfAttention, self).__init__()
+        self.dim = dim
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+
+        self.query = nn.Linear(dim, dim)
+        self.key = nn.Linear(dim, dim)
+        self.value = nn.Linear(dim, dim)
+        self.out = nn.Linear(dim, dim)
+
+        self.layer_norm = nn.LayerNorm(dim)
+
+    def forward(self, x):
+        batch_size, seq_len, dim = x.size()
+
+        # 线性变换生成 Q, K, V
+        Q = self.query(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        K = self.key(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        V = self.value(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # 计算注意力分数
+        attention_scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.head_dim ** 0.5)
+        attention_weights = F.softmax(attention_scores, dim=-1)
+
+        # 加权求和
+        attention_output = torch.matmul(attention_weights, V)
+        attention_output = attention_output.transpose(1, 2).contiguous().view(batch_size, seq_len, dim)
+
+        # 输出线性变换
+        output = self.out(attention_output)
+
+        # 残差连接和层归一化
+        output = self.layer_norm(x + output)
+        return output
+    
+
 class Encoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim,latent_dim):
-        """
-        Args:
-            input_dim: 输入维度
-            intermediate_dim: 中间维度
-            latent_dim: 潜在空间
-        """
+    def __init__(self, input_dim, intermediate_dim, latent_dim, num_heads=8):
         super(Encoder, self).__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
@@ -36,216 +90,28 @@ class Encoder(nn.Module):
         for dim in intermediate_dim:
             layers.extend([
                 nn.Linear(prev_dim, dim),
-                # nn.BatchNorm1d(dim),
                 nn.ReLU(),
             ])
             prev_dim = dim
 
         self.net = nn.Sequential(*layers)
+        self.attention = MultiHeadSelfAttention(intermediate_dim[-1], num_heads=num_heads)
 
         self.to_mean = nn.Linear(intermediate_dim[-1], latent_dim)
         self.to_logvar = nn.Linear(intermediate_dim[-1], latent_dim)
 
     def forward(self, x):
         x = self.net(x)
+        # 添加序列维度
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)  # [batch_size, 1, feature_dim]
+        x = self.attention(x)
+        # 去掉序列维度
+        x = x.squeeze(1)  # [batch_size, feature_dim]
         mean = self.to_mean(x)
         log_var = self.to_logvar(x)
         return mean, log_var
 
-#CNN
-class CNNEncoder(nn.Module):
-    def __init__(self, input_dim, cnn1,cnn2,cnn3,latent_dim):
-        super(CNNEncoder, self).__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-
-        # 残差块
-        self.conv_layers = nn.ModuleList([
-            self.make_res_block(1, cnn1, kernel_size=5),
-            self.make_res_block(cnn1, cnn2, kernel_size=15),
-            self.make_res_block(cnn2, cnn3, kernel_size=25),
-        ])
-
-        # 自适应归一化
-        self.adaptive_norm = AdaptiveNormalization(alpha=0.1)
-
-        # 输出层
-        self.to_mean = nn.Linear(cnn3, latent_dim)
-        self.to_logvar = nn.Linear(cnn3, latent_dim)
-
-    def make_res_block(self, in_channels, out_channels, kernel_size):
-        return nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-            nn.Conv1d(out_channels, out_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x):
-        # 调整输入形状为 [batch_size, channels=1, sequence_length]
-        x = x.unsqueeze(1)
-
-        # 适应归一化
-        x = self.adaptive_norm(x)
-
-        # 遍历残差块
-        for res_block in self.conv_layers:
-            identity = x
-            x = res_block(x)
-
-            # 确保形状一致后再残差连接
-            if x.shape == identity.shape:
-                x = x + identity
-            x = F.relu(x)
-
-        # 展平为向量
-        x = x.mean(dim=-1)  # 取序列均值作为特征向量
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-
-        return mean, log_var
-
-# 多尺度
-class AdvancedEncoder(nn.Module):
-    def __init__(self, input_dim,cnn1,cnn2,cnn3, latent_dim):
-        super(AdvancedEncoder, self).__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-
-        # 多尺度空洞卷积块
-        self.dilated_blocks = nn.ModuleList([
-            self.make_dilated_block(1, cnn1, kernel_size=21, dilation=1),
-            self.make_dilated_block(cnn1, cnn2, kernel_size=21, dilation=2),
-            self.make_dilated_block(cnn2, cnn3, kernel_size=21, dilation=4),
-        ])
-
-        # 多尺度池化层
-        self.multi_scale_pool = MultiScalePooling(cnn3)
-
-        # 输出层
-        self.to_mean = nn.Linear(cnn3*len(self.multi_scale_pool.scales), latent_dim)
-        self.to_logvar = nn.Linear(cnn3*len(self.multi_scale_pool.scales), latent_dim)
-
-    def forward(self, x):
-        # 调整输入形状
-        x = x.unsqueeze(1)
-
-        # 空洞卷积块
-        for dilated_block in self.dilated_blocks:
-            identity = x
-            x = dilated_block(x)
-
-            # 确保形状一致后再残差连接
-            if x.shape == identity.shape:
-                x = x + identity
-            x = F.relu(x)
-
-        # 多尺度池化
-        x = self.multi_scale_pool(x)
-
-        # 展平为向量
-        x = x.mean(dim=-1)
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-
-        return mean, log_var
-
-    @staticmethod
-    def make_dilated_block(in_channels, out_channels, kernel_size, dilation):
-        padding = ((kernel_size - 1) * dilation) // 2
-        return nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, padding=padding, dilation=dilation,stride=2),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-            nn.Conv1d(out_channels, out_channels, kernel_size, padding=padding, dilation=dilation,stride=1),
-            nn.BatchNorm1d(out_channels),
-        )
-
-class MultiScalePooling(nn.Module):
-    def __init__(self, in_channels):
-        super().__init__()
-        self.scales = [5, 10, 20, 40]  # 不同池化尺度
-
-        self.pools = nn.ModuleList([
-            nn.Sequential(
-                nn.AvgPool1d(scale),
-                nn.Conv1d(in_channels, in_channels, 1),  # 1x1卷积保持通道数
-                nn.BatchNorm1d(in_channels),
-                nn.ReLU()
-            ) for scale in self.scales
-        ])
-
-    def forward(self, x):
-        """对输入进行多尺度池化处理
-
-        Args:
-            x: 输入张量 [batch, channels, length]
-
-        Returns:
-            多尺度池化后的特征张量
-        """
-        original_size = x.size(-1)
-        outputs = []
-
-        # 对每个尺度进行池化
-        for pool in self.pools:
-            pooled = pool(x)
-            # 上采样回原始大小
-            pooled = F.interpolate(
-                pooled,
-                size=original_size,
-                mode='linear',
-                align_corners=True
-            )
-            outputs.append(pooled)
-        concatenated = torch.cat(outputs, dim=1)
-        # 合并所有尺度的特征
-        return concatenated
-
-class AdaptiveNormalization(nn.Module):
-    def __init__(self, alpha=0.1):
-        super(AdaptiveNormalization, self).__init__()
-        self.alpha = alpha
-    def forward(self, x):
-        # 计算峰值区域
-        peaks = self.find_peaks(x)
-        # 计算权重
-        weights = 1 + self.alpha * peaks
-        # 归一化
-        mean = x.mean(dim=2, keepdim=True)
-        std = x.std(dim=2, keepdim=True)
-        return weights * (x - mean) / (std + 1e-5)
-
-    def find_peaks(self, x):
-        """使用scipy.signal.find_peaks进行峰值检测
-
-        Args:
-            x: 输入光谱张量 [batch, 1, spectrum_length]
-
-        Returns:
-            peaks: 峰值位置的二值张量 [batch, 1, spectrum_length]
-        """
-        # 将tensor转为numpy进行处理
-        x_np = x.detach().cpu().numpy()
-        batch_size = x_np.shape[0]
-        spec_len = x_np.shape[2]
-        peaks = torch.zeros_like(x)
-
-        for i in range(batch_size):
-            # 对每个光谱进行峰值检测
-            spectrum = x_np[i, 0]
-            max_intensity = np.max(spectrum)
-            peak_indices, _ = signal.find_peaks(
-                spectrum,
-                height=0.1 * max_intensity,  # 最小峰高
-                distance=10,  # 峰间最小距
-                prominence=0.05 * max_intensity  # 小突出度
-            )
-            # 将峰值位置标记为1
-            peaks[i, 0, peak_indices] = 1.0
-
-        return peaks.to(x.device)
 
 class SpectralConstraints(nn.Module):
     def __init__(self, method='poly', poly_degree=3, window_size=50):
@@ -413,29 +279,48 @@ class PeakDetector(nn.Module):
         return peaks  # peaks已经在正确的设备上
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim,intermediate_dim, input_dim):
+    def __init__(self, latent_dim, intermediate_dim, input_dim, num_heads=8):
         super(Decoder, self).__init__()
 
-        decoder_dims = intermediate_dim[::-1]
+        decoder_dims = intermediate_dim[::-1]  # 反转维度列表
 
+        # 从潜在空间开始的第一层
+        self.first_linear = nn.Linear(latent_dim, decoder_dims[0])
+        self.first_activation = nn.ReLU()
+        self.attention = MultiHeadSelfAttention(decoder_dims[0], num_heads=num_heads)
+        
+        # 后续层
         layers = []
-        prev_dim = latent_dim
-        for dim in decoder_dims:
+        prev_dim = decoder_dims[0]
+        for dim in decoder_dims[1:]:
             layers.extend([
-                nn.Linear(prev_dim, dim),   
-                # nn.BatchNorm1d(dim),
+                nn.Linear(prev_dim, dim),
                 nn.ReLU()
             ])
             prev_dim = dim
+        
+        # 最后一层
         layers.extend([
             nn.Linear(prev_dim, input_dim),
-            # nn.BatchNorm1d(input_dim),
             nn.Sigmoid()
         ])
-        self.net = nn.Sequential(*layers)
+
+        self.remaining_layers = nn.Sequential(*layers)
 
     def forward(self, z):
-        return self.net(z)
+        # 第一层变换
+        x = self.first_linear(z)
+        x = self.first_activation(x)
+        
+        # 添加序列维度用于注意力层
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)  # [batch_size, 1, feature_dim]
+        x = self.attention(x)
+        x = x.squeeze(1)  # [batch_size, feature_dim]
+        
+        # 剩余层
+        x = self.remaining_layers(x)
+        return x
 
 class Gaussian(nn.Module):
     def __init__(self, num_clusters, latent_dim):
@@ -762,7 +647,7 @@ class VaDE(nn.Module):
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
-        if  not os.path.exists('./nc9_pretrain_model_none_bn_.pk'):
+        if  not os.path.exists('./pretrain_model_50.pk'):
 
             Loss=nn.MSELoss()
             opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
@@ -816,7 +701,7 @@ class VaDE(nn.Module):
             torch.save(self.state_dict(), './pretrain_model_50.pk')
 
         else:
-            self.load_state_dict(torch.load('./nc9_pretrain_model_none_bn.pk'))
+            self.load_state_dict(torch.load('./pretrain_model_50.pk'))
             
 
 
