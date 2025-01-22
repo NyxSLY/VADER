@@ -42,10 +42,10 @@ def main():
     # oc_train_data = nc_data_org[keep_indices]
     # oc_train_label = nc_labels_org[keep_indices]
 
-    #oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
-    #oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
-    oc_train_data = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference_processed_qc.npy")
-    oc_train_label = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference_processed_qc.npy").astype(int)
+    oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
+    oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
+    #oc_train_data = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference_processed_qc.npy")
+    #oc_train_label = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference_processed_qc.npy").astype(int)
 
     # 准备数据
     model_params = config.get_model_params()

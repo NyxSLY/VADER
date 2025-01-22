@@ -187,9 +187,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
         # skip update kmeans centers
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 100 == 0:
             model.update_kmeans_centers()
-            
+
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
         lr_gmm = model_params['learning_rate'] if scheduler_gmm is None else scheduler_gmm.get_last_lr()[0]
@@ -214,35 +214,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             proportions = counts / len(gmm_labels)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
-            # for i, (label, proportion) in enumerate(zip(unique_labels, proportions)):
-            #     writer.add_scalar(f'GMM/cluster_{label}_proportion', proportion, epoch)
 
-
-            # for i in range(10):
-            #     writer.add_scalar(
-            #         f'GMM/cluster_{i}_log_variance_mean', 
-            #         gmm_log_variances[i].mean().item(),  # 每个类别的平均log方差
-            #         epoch
-            #     )
-            
-            # writer.add_scalar(
-            #     f'gaussian/cluster_log_pcz_min', 
-            #     min_y.values.float().mean().item(),  # 每个类别的平均log方差
-            #     epoch
-            # )
-            
-            # writer.add_scalar(
-            #     f'gaussian/cluster_log_pcz_max', 
-            #     max_y.values.float().mean().item(),  # 每个类别的平均log方差
-            #     epoch
-            # )
-            
-            # for i in range(10):
-            #     writer.add_scalar(
-            #         f'VADE/dim_{i}_log_var_mean', 
-            #         log_var[:,i].mean().item(),  # 每个类别的平均log方差
-            #         epoch
-            #     )
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(

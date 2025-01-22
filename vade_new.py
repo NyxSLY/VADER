@@ -95,8 +95,8 @@ class Encoder(nn.Module):
             prev_dim = dim
 
         self.net = nn.Sequential(*layers)
-        self.attention = MultiHeadSelfAttention(intermediate_dim[-1], num_heads=num_heads)
-
+        #self.attention = MultiHeadSelfAttention(intermediate_dim[-1], num_heads=num_heads)
+        self.attention = SelfAttention(intermediate_dim[-1])
         self.to_mean = nn.Linear(intermediate_dim[-1], latent_dim)
         self.to_logvar = nn.Linear(intermediate_dim[-1], latent_dim)
 
@@ -287,8 +287,8 @@ class Decoder(nn.Module):
         # 从潜在空间开始的第一层
         self.first_linear = nn.Linear(latent_dim, decoder_dims[0])
         self.first_activation = nn.ReLU()
-        self.attention = MultiHeadSelfAttention(decoder_dims[0], num_heads=num_heads)
-        
+        #self.attention = MultiHeadSelfAttention(decoder_dims[0], num_heads=num_heads)
+        self.attention = SelfAttention(decoder_dims[0])
         # 后续层
         layers = []
         prev_dim = decoder_dims[0]
@@ -315,7 +315,7 @@ class Decoder(nn.Module):
         # 添加序列维度用于注意力层
         if len(x.shape) == 2:
             x = x.unsqueeze(1)  # [batch_size, 1, feature_dim]
-        x = self.attention(x)
+        #x = self.attention(x)
         x = x.squeeze(1)  # [batch_size, feature_dim]
         
         # 剩余层
@@ -481,68 +481,6 @@ class SpectralAttention(nn.Module):
         # 应用注意力
         return x * y.expand_as(x)
 
-class ImprovedSpectralEncoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim):
-        super().__init__()
-        
-        # 特征提取层
-        self.feature_extractor = nn.Sequential(
-            SpectralConvBlock(1, 32),
-            SpectralAttention(32),
-            SpectralConvBlock(32, 64),
-            SpectralAttention(64),
-            SpectralConvBlock(64, 128),
-            SpectralAttention(128)
-        )
-        
-        # 峰值检测分支
-        self.peak_branch = nn.Sequential(
-            nn.Conv1d(128, 64, kernel_size=1),
-            nn.ReLU(),
-            nn.Conv1d(64, 32, kernel_size=1)
-        )
-        
-        # 基线分支
-        self.baseline_branch = nn.Sequential(
-            nn.Conv1d(128, 64, kernel_size=15, padding=7),
-            nn.ReLU(),
-            nn.Conv1d(64, 32, kernel_size=15, padding=7)
-        )
-        
-        # 特征融合
-        self.fusion = nn.Sequential(
-            nn.Linear(input_dim * 64, intermediate_dim),
-            nn.LeakyReLU(),
-            nn.Dropout(0.2)
-        )
-        
-        # 输出层
-        self.to_mean = nn.Linear(intermediate_dim, latent_dim)
-        self.to_logvar = nn.Linear(intermediate_dim, latent_dim)
-        
-    def forward(self, x):
-        # 添加通道维度
-        x = x.unsqueeze(1)
-        
-        # 特征提取
-        features = self.feature_extractor(x)
-        
-        # 分支处理
-        peak_features = self.peak_branch(features)
-        baseline_features = self.baseline_branch(features)
-        
-        # 特征融合
-        combined = torch.cat([peak_features, baseline_features], dim=1)
-        batch_size = combined.size(0)
-        combined = combined.view(batch_size, -1)
-        fused = self.fusion(combined)
-        
-        # 生成均值和方差
-        mean = self.to_mean(fused)
-        logvar = self.to_logvar(fused)
-        
-        return mean, logvar
-
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, 
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
@@ -672,38 +610,25 @@ class VaDE(nn.Module):
 
                 epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
 
-            # self.encoder.to_logvar.load_state_dict(self.encoder.to_mean.state_dict())
-
-            # Z = []
-            # Y = []
-            # with torch.no_grad():
-            #     for x, y in dataloader:
-            #         if self.args.cuda:
-            #             x = x.cuda()
-
-            #         z1, z2 = self.encoder(x)
-            #         assert F.mse_loss(z1, z2) == 0
-            #         Z.append(z1)
-            #         Y.append(y)
-
-            # Z = torch.cat(Z, 0).detach().cpu().numpy()
-            # Y = torch.cat([yy.cpu() for yy in Y], 0).detach().numpy()
-
-            # gmm = GaussianMixture(n_components=self.args.nClusters, covariance_type='diag')
-
-            # pre = gmm.fit_predict(Z)
-            # print('Acc={:.4f}%'.format(cluster_acc(pre, Y)[0] * 100))
-
-            # self.pi_.data = torch.from_numpy(gmm.weights_).cuda().float()
-            # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
-            # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
-
             torch.save(self.state_dict(), './pretrain_model_50.pk')
-
         else:
-            self.load_state_dict(torch.load('./pretrain_model_50.pk'))
+            # 修改加载预训练模型的方式
+            pretrained_dict = torch.load('./pretrain_model_50.pk')
+            model_dict = self.state_dict()
             
-
+            # 过滤出匹配的参数
+            filtered_dict = {k: v for k, v in pretrained_dict.items() 
+                            if k in model_dict and model_dict[k].shape == v.shape}
+            
+            # 更新当前模型的参数
+            model_dict.update(filtered_dict)
+            self.load_state_dict(model_dict)
+            
+            print("Loaded pretrained parameters for matching layers.")
+            print("The following layers were initialized randomly:")
+            for k in model_dict.keys():
+                if k not in filtered_dict:
+                    print(f"  - {k}")
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
@@ -863,7 +788,11 @@ class VaDE(nn.Module):
             self.gaussian.pi.data.copy_(cluster_pi)
         cluster_centers_t = torch.tensor(cluster_centers,device = self.device)
         self.gaussian.means.data.copy_(cluster_centers_t)
- 
+        
+        
+    def check_reconstruction_quality(self, recon_loss):
+        """检查重构质量是否达到要求"""
+        return recon_loss < self.recon_threshold
 
     def reparameterize(self, mean, log_var):
         std = torch.exp(0.5 * log_var)
@@ -920,33 +849,6 @@ class VaDE(nn.Module):
 
         return weightd_mse
 
-        # ----------------- Before -----------------
-        # if peak_positions is not None:
-        #     peak_positions = peak_positions.to(x.device)
-        #     constraints['peak'] = F.mse_loss(
-        #         recon_x[:, peak_positions], 
-        #         x[:, peak_positions], reduction='none'
-        #     ).sum(-1)
-        
-        # # 2. 基线损失计算保持不变
-        # mean_baseline = stats['baseline_params']['mean_baseline'].to(x.device)
-        # baseline_std = stats['baseline_params']['std_baseline'].to(x.device)
-        # x_baseline = self.spectral_constraints.batch_als_baseline(x)
-        # recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
-        # baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
-        # constraints['baseline'] = (baseline_diff ** 2).mean(-1)
-        
-        # # 3. 强度范围约束
-        # intensity_range = stats['intensity_range']
-        # min_val = torch.tensor(intensity_range['min'], device=x.device)
-        # max_val = torch.tensor(intensity_range['max'], device=x.device)
-        # range_loss = (
-        #     F.relu(min_val - recon_x).sum(-1) + 
-        #     F.relu(recon_x - max_val).sum(-1)
-        # )
-        # constraints['range'] = range_loss
-        
-        # return constraints
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
 
