@@ -17,6 +17,7 @@ pretrain_model_50.pk
 nc9_pretrain_model_none_bn.pk
 *.png
 *.pth
+*.pt
 # run.py
 !.gitignore
 
