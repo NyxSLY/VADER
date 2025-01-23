@@ -19,8 +19,8 @@ model_params:
   device: "cuda:0"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 300
-  clustering_method: 'leiden'
-  resolution_1: 1.5
+  clustering_method: 'kmeans'
+  resolution_1: 0.9
   resolution_2: 1
 
   basic_parameters:

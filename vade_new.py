@@ -19,6 +19,7 @@ import itertools
 from scipy.optimize import linear_sum_assignment
 
 
+
 class SelfAttention(nn.Module):
     def __init__(self, dim):
         super(SelfAttention, self).__init__()
@@ -96,18 +97,17 @@ class Encoder(nn.Module):
 
         self.net = nn.Sequential(*layers)
         #self.attention = MultiHeadSelfAttention(intermediate_dim[-1], num_heads=num_heads)
+        self.use_attention = True
         self.attention = SelfAttention(intermediate_dim[-1])
         self.to_mean = nn.Linear(intermediate_dim[-1], latent_dim)
         self.to_logvar = nn.Linear(intermediate_dim[-1], latent_dim)
 
     def forward(self, x):
         x = self.net(x)
-        # 添加序列维度
-        if len(x.shape) == 2:
-            x = x.unsqueeze(1)  # [batch_size, 1, feature_dim]
-        x = self.attention(x)
-        # 去掉序列维度
-        x = x.squeeze(1)  # [batch_size, feature_dim]
+        if self.use_attention:  # 根据标志决定是否使用attention
+            x = x.unsqueeze(1)  
+            x = self.attention(x)
+            x = x.squeeze(1)  
         mean = self.to_mean(x)
         log_var = self.to_logvar(x)
         return mean, log_var
@@ -281,6 +281,7 @@ class PeakDetector(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dim, intermediate_dim, input_dim, num_heads=8):
         super(Decoder, self).__init__()
+        self.use_attention = True  # 添加标志
 
         decoder_dims = intermediate_dim[::-1]  # 反转维度列表
 
@@ -313,15 +314,16 @@ class Decoder(nn.Module):
         x = self.first_activation(x)
         
         # 添加序列维度用于注意力层
-        if len(x.shape) == 2:
-            x = x.unsqueeze(1)  # [batch_size, 1, feature_dim]
-        #x = self.attention(x)
-        x = x.squeeze(1)  # [batch_size, feature_dim]
+        if self.use_attention:  # 根据标志决定是否使用attention
+            if len(x.shape) == 2:
+                x = x.unsqueeze(1)  # [batch_size, 1, feature_dim]
+            x = self.attention(x)
+            x = x.squeeze(1)  # [batch_size, feature_dim]
         
         # 剩余层
         x = self.remaining_layers(x)
         return x
-
+    
 class Gaussian(nn.Module):
     def __init__(self, num_clusters, latent_dim):
         super(Gaussian, self).__init__()
@@ -681,23 +683,44 @@ class VaDE(nn.Module):
         encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
+        # 添加标准化
+        # encoded_data = (encoded_data - encoded_data.mean(axis=0)) / encoded_data.std(axis=0)
+
+        # 打印编码数据的统计信息
+        print(f"\nEncoded data shape: {encoded_data.shape}")
+        print(f"Encoded data stats - min: {encoded_data.min():.4f}, max: {encoded_data.max():.4f}")
+
         # 使用选定的聚类方法
         print(f"Using clustering method: {self.clustering_method}")
         print(f'num_clusters: {self.num_classes}')
         labels, cluster_centers = self._apply_clustering(encoded_data)
-        num_clusters = len(np.unique(labels))
-    
+        
+        # 详细打印聚类中心
+        print("\nCluster centers after clustering:")
+        for i in range(len(cluster_centers)):
+            print(f"Center {i}: {cluster_centers[i]}")
+        
+        # 转换为tensor
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
-        # 如果聚类数量发生变化，需要重新初始化高斯分布
-        if num_clusters != self.gaussian.num_clusters:
-            print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
-            self.num_clusters = num_clusters
-            self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
-
-        # 直接用聚类中心更新高斯分布参数
+        print("\nCluster centers after converting to tensor:")
+        for i in range(len(cluster_centers)):
+            print(f"Center {i}: {cluster_centers[i]}")
+        
+        # 更新前打印当前高斯分布的中心
+        print("\nGaussian means before update:")
+        for i in range(self.gaussian.means.shape[0]):
+            print(f"Gaussian mean {i}: {self.gaussian.means[i]}")
+        
+        # 更新高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
+        
+        # 更新后打印高斯分布的中心
+        print("\nGaussian means after update:")
+        for i in range(self.gaussian.means.shape[0]):
+            print(f"Gaussian mean {i}: {self.gaussian.means[i]}")
+        
         self.cluster_centers = cluster_centers
-    
+
     def optimal_transport(self,A, B, alpha):
         n, d = A.shape
         m, _ = B.shape
@@ -907,6 +930,7 @@ class VaDE(nn.Module):
         # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
         spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
 
+
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
         
@@ -923,6 +947,55 @@ class VaDE(nn.Module):
 
         
         return loss_dict
+
+
+    def _dec_loss(self, mean):
+        batch_size, latent_dim = mean.shape
+        num_clusters = self.gaussian.means.shape[0]
+        
+        mean_expanded = mean.unsqueeze(1).expand(-1, num_clusters, -1)
+        centers_expanded = self.gaussian.means.unsqueeze(0).expand(batch_size, -1, -1)
+
+        # (2) 计算样本到各中心的欧氏距离^2
+        distances = torch.sum((mean_expanded - centers_expanded) ** 2, dim=2)
+        print("\n第一个样本到各中心的距离:")
+        print(distances[0])
+        
+        # (3) 设置 alpha (可以先用固定值 alpha=1.0，看能否改善分布)
+        alpha = 10.0  # 或者你也可以做一些动态计算
+        
+        # 按照学生t分布计算q
+        # 计算q_ij = (1 + dist_ij / alpha) ^ (-(alpha+1)/2)
+        # 由于distances已经是平方距离,直接使用
+        q = (1.0 + distances / alpha) ** (-(alpha + 1.0) / 2.0)
+        
+        # 打印第一个样本的原始q值
+        print("\nOriginal q values for first sample:")
+        print(q[0])
+        
+        # (5) 归一化
+        q = q / q.sum(dim=1, keepdim=True)
+        
+        # 打印第一个样本的归一化后的q值
+        print("\nNormalized q values for first sample:")
+        print(q[0])
+        
+        # (6) 计算目标分布 p (与 DEC 同)
+        f = q.sum(dim=0)        # 每个聚类的软频率
+        q2 = q ** 2
+        p = q2 / f
+        p = p / p.sum(dim=1, keepdim=True)
+        
+        # 打印第一个样本的p值
+        print("\nTarget distribution p values for first sample:")
+        print(p[0])
+        
+        # (7) 计算 KL 散度
+        kl_loss = torch.sum(p * torch.log((p + 1e-10) / (q + 1e-10)), dim=1)
+        dec_loss = kl_loss.mean()
+        return dec_loss
+
+
 
     def _compute_cluster_separation(self, latent_vectors, cluster_assignments, method='cosine'):
         """计算类间分离损失，支持余弦相似度和欧氏距离两种方法
@@ -978,4 +1051,6 @@ class VaDE(nn.Module):
             f"Time: {train_time:.2f}s"
         )
         print(report_str)
+
+
 

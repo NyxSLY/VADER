@@ -42,10 +42,10 @@ def main():
     # oc_train_data = nc_data_org[keep_indices]
     # oc_train_label = nc_labels_org[keep_indices]
 
-    oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
-    oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
-    #oc_train_data = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference_processed_qc.npy")
-    #oc_train_label = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference_processed_qc.npy").astype(int)
+    #oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
+    # oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
+    oc_train_data = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/HP_X_processed.npy")
+    oc_train_label = np.load(r"/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/HP_Y_processed.npy").astype(int)
 
     # 准备数据
     model_params = config.get_model_params()
@@ -99,13 +99,11 @@ def main():
     #model.kmeans_init = choose_kmeans_method
     model.kmeans_init = 'random'
     # 训练模型
-    print("\n开始预训练...  ")
-    model.pretrain(
-        dataloader=dataloader,
-        learning_rate=1e-3
-    )
-
-    
+    # print("\n开始预训练...  ")
+    # model.pretrain(
+    #     dataloader=dataloader,
+    #     learning_rate=1e-3
+    # )
 
     print("\n开始模型训练...")
     # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))

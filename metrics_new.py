@@ -8,6 +8,11 @@ from utility import visualize_clusters, plot_reconstruction
 from config import config
 from torch.utils.tensorboard import SummaryWriter
 from utility import leiden_clustering,inverse_wavelet_transform
+import torch.nn as nn
+import torch.optim as optim
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
 class ModelEvaluator:
     """
     模型评估器,用于计算模型在验证集或测试集上的各种指标,并保存结果。
@@ -177,9 +182,17 @@ class ModelEvaluator:
                 'leiden_ari': z_leiden_metrics['ari']
             }
 
-            # 解包训练指标
+            # 处理训练指标，增加健壮性
             train_metrics_names = ['total_loss', 'recon_loss', 'kl_gmm', 'kl_standard', 'entropy', 'peak_loss', 'spectral_loss', 'clustering_confidence_loss', 'cluster_separation_loss']
-            train_metrics_dict = {name: train_metrics[name] for name in train_metrics_names}
+            
+            # 创建训练指标字典，只包含存在的指标
+            train_metrics_dict = {}
+            for name in train_metrics_names:
+                if name in train_metrics:
+                    train_metrics_dict[name] = train_metrics[name]
+                elif name == 'total_loss' and len(train_metrics) == 1:
+                    # 如果只有一个loss（比如DEC阶段），就把它作为total_loss
+                    train_metrics_dict['total_loss'] = list(train_metrics.values())[0]
 
             # 合并所有指标
             metrics.update(train_metrics_dict)
@@ -189,7 +202,7 @@ class ModelEvaluator:
             self._print_metrics(epoch, lr, metrics)
 
             # 打印评估结果
-            if (epoch+1) % 50 == 0:
+            if (epoch+1) % 10 == 0:
                 self._save_results(
                     epoch, 
                     metrics, 
@@ -204,6 +217,22 @@ class ModelEvaluator:
                 )
 
             return metrics
+
+    def _log_metrics(self, metrics, epoch, learning_rate):
+        """记录指标到tensorboard"""
+        # 记录学习率
+        self.writer.add_scalar('Learning_rate', learning_rate, epoch)
+        
+        # 记录损失值（如果存在）
+        for loss_name in ['total_loss', 'recon_loss', 'kl_loss', 'spectral_loss',
+                         'clustering_confidence_loss', 'cluster_separation_loss']:
+            if loss_name in metrics:
+                self.writer.add_scalar(f'Loss/{loss_name}', metrics[loss_name], epoch)
+        
+        # 记录聚类指标（如果存在）
+        for metric_name in ['nmi', 'ari', 'acc', 'leiden_nmi', 'leiden_ari', 'leiden_acc']:
+            if metric_name in metrics:
+                self.writer.add_scalar(f'Clustering/{metric_name}', metrics[metric_name], epoch)
 
     def _print_metrics(self, epoch: int, lr: float, metrics: Dict[str, float]) -> None:
         """
