@@ -15,7 +15,7 @@ model_params:
   learning_rate: 1.0e-4
   use_lr_scheduler: False
   batch_size: 256
-  epochs: 3000
+  epochs: 1000
   device: "cuda:0"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 300
@@ -24,7 +24,7 @@ model_params:
   resolution_2: 1
 
   basic_parameters:
-    latent_dim: 10
+    latent_dim: 20
     intermediate_dim: [512,1024,2048]
   cnn_parameters:
     cnn1: 32
@@ -61,8 +61,8 @@ train_config:
   min_loss_threshold:
     total: 0.5
     recon: 0.02
-  tsne_plot: False
-  recon_plot: False
+  tsne_plot: True
+  recon_plot: True
 
 # 可视化配置
 vis_config:

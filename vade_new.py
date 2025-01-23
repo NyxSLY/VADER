@@ -762,7 +762,7 @@ class VaDE(nn.Module):
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
-        if  not os.path.exists('./nc9_pretrain_model_none_bn_.pk'):
+        if  not os.path.exists('./pretrain_model_NC9_300.pk'):
 
             Loss=nn.MSELoss()
             opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
@@ -813,10 +813,10 @@ class VaDE(nn.Module):
             # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
             # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
 
-            torch.save(self.state_dict(), './pretrain_model_50.pk')
+            torch.save(self.state_dict(), './pretrain_model_NC9_300.pk')
 
         else:
-            self.load_state_dict(torch.load('./nc9_pretrain_model_none_bn.pk'))
+            self.load_state_dict(torch.load('./pretrain_model_NC9_300.pk'))
             
 
 

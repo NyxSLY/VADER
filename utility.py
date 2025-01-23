@@ -396,6 +396,7 @@ def sample_plot(
 
 def visualize_clusters(
     z: np.ndarray,
+    gaussian_centers: np.ndarray,
     labels: np.ndarray,
     gmm_labels: np.ndarray,
     leiden_labels: np.ndarray,
@@ -429,8 +430,14 @@ def visualize_clusters(
     if title is None:
         title = " "
 
+    combined_data = np.vstack([z, gaussian_centers])
+
     tsne = TSNE(n_components=2, random_state=random_state)
-    z_tsne = tsne.fit_transform(z)
+    combined_tsne = tsne.fit_transform(combined_data)
+
+    # Split the transformed data back into z and gaussian_centers
+    z_tsne = combined_tsne[:z.shape[0]]
+    gaussian_centers_tsne = combined_tsne[z.shape[0]:]
 
     ari_gmm = adjusted_rand_score(labels, gmm_labels)
     ari_leiden = adjusted_rand_score(labels, leiden_labels)
@@ -445,6 +452,8 @@ def visualize_clusters(
     ax1.set_title('True Labels')
     legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
+    ax1.scatter(gaussian_centers_tsne[:, 0], gaussian_centers_tsne[:, 1], c='red', marker='X', s=100, label='Gaussian Centers')
+    ax1.legend(loc='upper right')
     
     # 绘制GMM预测聚类结果的散点图
     colors = sns.color_palette('husl', n_colors=len(np.unique(gmm_labels)))
@@ -453,6 +462,9 @@ def visualize_clusters(
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
     legend2 = ax2.legend(*scatter2.legend_elements(num=len(np.unique(gmm_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
+    for i, center in enumerate(gaussian_centers_tsne):
+        ax2.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
+    ax2.legend(loc='upper right')
 
     # 绘制Leiden预测聚类结果的散点图
     colors = sns.color_palette('husl', n_colors=len(np.unique(leiden_labels)))
@@ -461,6 +473,9 @@ def visualize_clusters(
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
     legend3 = ax3.legend(*scatter3.legend_elements(num=len(np.unique(leiden_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax3.add_artist(legend3)
+    for i, center in enumerate(gaussian_centers_tsne):
+        ax3.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
+    ax3.legend(loc='upper right')
     
     # 保存图像
     plt.xlabel('t-SNE Component 1')
