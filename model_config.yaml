@@ -18,7 +18,7 @@ model_params:
   epochs: 1000
   device: "cuda:0"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
-  pretrain_epochs: 300
+  pretrain_epochs: 0
   clustering_method: 'leiden'
   resolution_1: 1
   resolution_2: 1
@@ -61,8 +61,8 @@ train_config:
   min_loss_threshold:
     total: 0.5
     recon: 0.02
-  tsne_plot: True
-  recon_plot: True
+  tsne_plot: False
+  recon_plot: False
 
 # 可视化配置
 vis_config:
