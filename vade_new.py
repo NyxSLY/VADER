@@ -52,157 +52,6 @@ class Encoder(nn.Module):
         log_var = self.to_logvar(x)
         return mean, log_var
 
-#CNN
-class CNNEncoder(nn.Module):
-    def __init__(self, input_dim, cnn1,cnn2,cnn3,latent_dim):
-        super(CNNEncoder, self).__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-
-        # 残差块
-        self.conv_layers = nn.ModuleList([
-            self.make_res_block(1, cnn1, kernel_size=5),
-            self.make_res_block(cnn1, cnn2, kernel_size=15),
-            self.make_res_block(cnn2, cnn3, kernel_size=25),
-        ])
-
-        # 自适应归一化
-        self.adaptive_norm = AdaptiveNormalization(alpha=0.1)
-
-        # 输出层
-        self.to_mean = nn.Linear(cnn3, latent_dim)
-        self.to_logvar = nn.Linear(cnn3, latent_dim)
-
-    def make_res_block(self, in_channels, out_channels, kernel_size):
-        return nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-            nn.Conv1d(out_channels, out_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x):
-        # 调整输入形状为 [batch_size, channels=1, sequence_length]
-        x = x.unsqueeze(1)
-
-        # 适应归一化
-        x = self.adaptive_norm(x)
-
-        # 遍历残差块
-        for res_block in self.conv_layers:
-            identity = x
-            x = res_block(x)
-
-            # 确保形状一致后再残差连接
-            if x.shape == identity.shape:
-                x = x + identity
-            x = F.relu(x)
-
-        # 展平为向量
-        x = x.mean(dim=-1)  # 取序列均值作为特征向量
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-
-        return mean, log_var
-
-# 多尺度
-class AdvancedEncoder(nn.Module):
-    def __init__(self, input_dim,cnn1,cnn2,cnn3, latent_dim):
-        super(AdvancedEncoder, self).__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-
-        # 多尺度空洞卷积块
-        self.dilated_blocks = nn.ModuleList([
-            self.make_dilated_block(1, cnn1, kernel_size=21, dilation=1),
-            self.make_dilated_block(cnn1, cnn2, kernel_size=21, dilation=2),
-            self.make_dilated_block(cnn2, cnn3, kernel_size=21, dilation=4),
-        ])
-
-        # 多尺度池化层
-        self.multi_scale_pool = MultiScalePooling(cnn3)
-
-        # 输出层
-        self.to_mean = nn.Linear(cnn3*len(self.multi_scale_pool.scales), latent_dim)
-        self.to_logvar = nn.Linear(cnn3*len(self.multi_scale_pool.scales), latent_dim)
-
-    def forward(self, x):
-        # 调整输入形状
-        x = x.unsqueeze(1)
-
-        # 空洞卷积块
-        for dilated_block in self.dilated_blocks:
-            identity = x
-            x = dilated_block(x)
-
-            # 确保形状一致后再残差连接
-            if x.shape == identity.shape:
-                x = x + identity
-            x = F.relu(x)
-
-        # 多尺度池化
-        x = self.multi_scale_pool(x)
-
-        # 展平为向量
-        x = x.mean(dim=-1)
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-
-        return mean, log_var
-
-    @staticmethod
-    def make_dilated_block(in_channels, out_channels, kernel_size, dilation):
-        padding = ((kernel_size - 1) * dilation) // 2
-        return nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, padding=padding, dilation=dilation,stride=2),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-            nn.Conv1d(out_channels, out_channels, kernel_size, padding=padding, dilation=dilation,stride=1),
-            nn.BatchNorm1d(out_channels),
-        )
-
-class MultiScalePooling(nn.Module):
-    def __init__(self, in_channels):
-        super().__init__()
-        self.scales = [5, 10, 20, 40]  # 不同池化尺度
-
-        self.pools = nn.ModuleList([
-            nn.Sequential(
-                nn.AvgPool1d(scale),
-                nn.Conv1d(in_channels, in_channels, 1),  # 1x1卷积保持通道数
-                nn.BatchNorm1d(in_channels),
-                nn.ReLU()
-            ) for scale in self.scales
-        ])
-
-    def forward(self, x):
-        """对输入进行多尺度池化处理
-
-        Args:
-            x: 输入张量 [batch, channels, length]
-
-        Returns:
-            多尺度池化后的特征张量
-        """
-        original_size = x.size(-1)
-        outputs = []
-
-        # 对每个尺度进行池化
-        for pool in self.pools:
-            pooled = pool(x)
-            # 上采样回原始大小
-            pooled = F.interpolate(
-                pooled,
-                size=original_size,
-                mode='linear',
-                align_corners=True
-            )
-            outputs.append(pooled)
-        concatenated = torch.cat(outputs, dim=1)
-        # 合并所有尺度的特征
-        return concatenated
-
 class AdaptiveNormalization(nn.Module):
     def __init__(self, alpha=0.1):
         super(AdaptiveNormalization, self).__init__()
@@ -558,105 +407,6 @@ class SpectralAnalyzer:
             return True
         return False
 
-class SpectralConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        # 多尺度卷积捕获不同范围的光谱特征
-        self.conv_small = nn.Conv1d(in_channels, out_channels//3, kernel_size=3, padding=1)
-        self.conv_medium = nn.Conv1d(in_channels, out_channels//3, kernel_size=7, padding=3)
-        self.conv_large = nn.Conv1d(in_channels, out_channels//3, kernel_size=11, padding=5)
-        
-        self.bn = nn.BatchNorm1d(out_channels)
-        self.relu = nn.ReLU()
-        
-    def forward(self, x):
-        # 多尺度特征融合
-        x_small = self.conv_small(x)
-        x_medium = self.conv_medium(x)
-        x_large = self.conv_large(x)
-        x = torch.cat([x_small, x_medium, x_large], dim=1)
-        return self.relu(self.bn(x))
-
-class SpectralAttention(nn.Module):
-    def __init__(self, channels):
-        super().__init__()
-        self.gap = nn.AdaptiveAvgPool1d(1)  # 全局平均池化
-        self.fc = nn.Sequential(
-            nn.Linear(channels, channels // 4),
-            nn.ReLU(),
-            nn.Linear(channels // 4, channels),
-            nn.Sigmoid()
-        )
-        
-    def forward(self, x):
-        b, c, _ = x.size()
-        # 计算通道注意力权重
-        y = self.gap(x).view(b, c)
-        y = self.fc(y).view(b, c, 1)
-        # 应用注意力
-        return x * y.expand_as(x)
-
-class ImprovedSpectralEncoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim):
-        super().__init__()
-        
-        # 特征提取层
-        self.feature_extractor = nn.Sequential(
-            SpectralConvBlock(1, 32),
-            SpectralAttention(32),
-            SpectralConvBlock(32, 64),
-            SpectralAttention(64),
-            SpectralConvBlock(64, 128),
-            SpectralAttention(128)
-        )
-        
-        # 峰值检测分支
-        self.peak_branch = nn.Sequential(
-            nn.Conv1d(128, 64, kernel_size=1),
-            nn.ReLU(),
-            nn.Conv1d(64, 32, kernel_size=1)
-        )
-        
-        # 基线分支
-        self.baseline_branch = nn.Sequential(
-            nn.Conv1d(128, 64, kernel_size=15, padding=7),
-            nn.ReLU(),
-            nn.Conv1d(64, 32, kernel_size=15, padding=7)
-        )
-        
-        # 特征融合
-        self.fusion = nn.Sequential(
-            nn.Linear(input_dim * 64, intermediate_dim),
-            nn.LeakyReLU(),
-            nn.Dropout(0.2)
-        )
-        
-        # 输出层
-        self.to_mean = nn.Linear(intermediate_dim, latent_dim)
-        self.to_logvar = nn.Linear(intermediate_dim, latent_dim)
-        
-    def forward(self, x):
-        # 添加通道维度
-        x = x.unsqueeze(1)
-        
-        # 特征提取
-        features = self.feature_extractor(x)
-        
-        # 分支处理
-        peak_features = self.peak_branch(features)
-        baseline_features = self.baseline_branch(features)
-        
-        # 特征融合
-        combined = torch.cat([peak_features, baseline_features], dim=1)
-        batch_size = combined.size(0)
-        combined = combined.view(batch_size, -1)
-        fused = self.fusion(combined)
-        
-        # 生成均值和方差
-        mean = self.to_mean(fused)
-        logvar = self.to_logvar(fused)
-        
-        return mean, logvar
 
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, 
@@ -739,24 +489,7 @@ class VaDE(nn.Module):
     def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim):
         """初始化编码器"""
         if encoder_type == "basic":
-
             return Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim)
-        elif encoder_type == "cnn":
-            cnn1 = l_c_dim['cnn1']
-            cnn2 = l_c_dim['cnn2']
-            cnn3 = l_c_dim['cnn3']
-            return CNNEncoder(input_dim, cnn1,cnn2,cnn3,latent_dim)
-
-        elif encoder_type == "advanced":
-            cnn1 = l_c_dim['cnn1']
-            cnn2 = l_c_dim['cnn2']
-            cnn3 = l_c_dim['cnn3']
-            return AdvancedEncoder(input_dim,cnn1,cnn2,cnn3, latent_dim)
-        elif encoder_type == "ImprovedSpectralEncoder":
-            cnn1 = l_c_dim['cnn1']
-            cnn2 = l_c_dim['cnn2']
-            cnn3 = l_c_dim['cnn3']
-            return AdvancedEncoder(input_dim,cnn1,cnn2,cnn3, latent_dim)
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
@@ -786,32 +519,6 @@ class VaDE(nn.Module):
                     opti.step()
 
                 epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
-
-            # self.encoder.to_logvar.load_state_dict(self.encoder.to_mean.state_dict())
-
-            # Z = []
-            # Y = []
-            # with torch.no_grad():
-            #     for x, y in dataloader:
-            #         if self.args.cuda:
-            #             x = x.cuda()
-
-            #         z1, z2 = self.encoder(x)
-            #         assert F.mse_loss(z1, z2) == 0
-            #         Z.append(z1)
-            #         Y.append(y)
-
-            # Z = torch.cat(Z, 0).detach().cpu().numpy()
-            # Y = torch.cat([yy.cpu() for yy in Y], 0).detach().numpy()
-
-            # gmm = GaussianMixture(n_components=self.args.nClusters, covariance_type='diag')
-
-            # pre = gmm.fit_predict(Z)
-            # print('Acc={:.4f}%'.format(cluster_acc(pre, Y)[0] * 100))
-
-            # self.pi_.data = torch.from_numpy(gmm.weights_).cuda().float()
-            # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
-            # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
 
             torch.save(self.state_dict(), './pretrain_model_NC9_300.pk')
 
@@ -1035,33 +742,6 @@ class VaDE(nn.Module):
 
         return weightd_mse
 
-        # ----------------- Before -----------------
-        # if peak_positions is not None:
-        #     peak_positions = peak_positions.to(x.device)
-        #     constraints['peak'] = F.mse_loss(
-        #         recon_x[:, peak_positions], 
-        #         x[:, peak_positions], reduction='none'
-        #     ).sum(-1)
-        
-        # # 2. 基线损失计算保持不变
-        # mean_baseline = stats['baseline_params']['mean_baseline'].to(x.device)
-        # baseline_std = stats['baseline_params']['std_baseline'].to(x.device)
-        # x_baseline = self.spectral_constraints.batch_als_baseline(x)
-        # recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
-        # baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
-        # constraints['baseline'] = (baseline_diff ** 2).mean(-1)
-        
-        # # 3. 强度范围约束
-        # intensity_range = stats['intensity_range']
-        # min_val = torch.tensor(intensity_range['min'], device=x.device)
-        # max_val = torch.tensor(intensity_range['max'], device=x.device)
-        # range_loss = (
-        #     F.relu(min_val - recon_x).sum(-1) + 
-        #     F.relu(recon_x - max_val).sum(-1)
-        # )
-        # constraints['range'] = range_loss
-        
-        # return constraints
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
 

@@ -162,19 +162,19 @@ class ModelEvaluator:
             y_true = labels.cpu().numpy()
 
             # 计算Leiden聚类标签
-            z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
+            # z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
 
             # 计算评估指标
             gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
-            z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
+            # z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
 
             metrics = {
                 'gmm_acc': gmm_metrics['acc'],
                 'gmm_nmi': gmm_metrics['nmi'],
                 'gmm_ari': gmm_metrics['ari'],
-                'leiden_acc': z_leiden_metrics['acc'],
-                'leiden_nmi': z_leiden_metrics['nmi'],
-                'leiden_ari': z_leiden_metrics['ari']
+                # 'leiden_acc': z_leiden_metrics['acc'],
+                # 'leiden_nmi': z_leiden_metrics['nmi'],
+                # 'leiden_ari': z_leiden_metrics['ari']
             }
 
             # 解包训练指标
@@ -186,22 +186,22 @@ class ModelEvaluator:
 
             self._save_log(epoch, metrics, lr)
             self._save_to_tensorboard(epoch, metrics)
-            self._print_metrics(epoch, lr, metrics)
+            # self._print_metrics(epoch, lr, metrics)
 
             # 打印评估结果
-            if (epoch+1) % 10 == 0:
-                self._save_results(
-                    epoch, 
-                    metrics, 
-                    lr,
-                    z_cpu, 
-                    recon_x_cpu, 
-                    y_true,
-                    gmm_labels,
-                    z_leiden_labels,
-                    t_plot,
-                    r_plot
-                )
+            # if (epoch+1) % 10 == 0:
+            #     self._save_results(
+            #         epoch, 
+            #         metrics, 
+            #         lr,
+            #         z_cpu, 
+            #         recon_x_cpu, 
+            #         y_true,
+            #         gmm_labels,
+            #         # z_leiden_labels,
+            #         t_plot,
+            #         r_plot
+            #     )
 
             return metrics
 
@@ -326,7 +326,7 @@ class ModelEvaluator:
                     f'{metrics["kl_gmm"]:.4f}\t{metrics["kl_standard"]:.4f}\t{metrics["entropy"]:.4f}\t'
                     f'{metrics["peak_loss"]:.4f}\t{metrics["spectral_loss"]:.4f}\t'
                     f'{metrics["gmm_acc"]:.4f}\t{metrics["gmm_nmi"]:.4f}\t{metrics["gmm_ari"]:.4f}\t'
-                    f'{metrics["leiden_acc"]:.4f}\t{metrics["leiden_nmi"]:.4f}\t{metrics["leiden_ari"]:.4f}\t'
+                    # f'{metrics["leiden_acc"]:.4f}\t{metrics["leiden_nmi"]:.4f}\t{metrics["leiden_ari"]:.4f}\t'
                     f'{lr:.4f}\n'
                 )
         except Exception as e:
@@ -347,9 +347,9 @@ class ModelEvaluator:
             self.writer.add_scalar('GMM/ARI', metrics['gmm_ari'], epoch)
             
             # Leiden clustering metrics
-            self.writer.add_scalar('Leiden/ACC', metrics['leiden_acc'], epoch)
-            self.writer.add_scalar('Leiden/NMI', metrics['leiden_nmi'], epoch)
-            self.writer.add_scalar('Leiden/ARI', metrics['leiden_ari'], epoch)
+            # self.writer.add_scalar('Leiden/ACC', metrics['leiden_acc'], epoch)
+            # self.writer.add_scalar('Leiden/NMI', metrics['leiden_nmi'], epoch)
+            # self.writer.add_scalar('Leiden/ARI', metrics['leiden_ari'], epoch)
 
     def _save_tsne_plot(
         self,
