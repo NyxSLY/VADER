@@ -15,7 +15,7 @@ model_params:
   learning_rate: 1.0e-4
   use_lr_scheduler: False
   batch_size: 256
-  epochs: 1000
+  epochs: 100
   device: "cuda:0"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 0

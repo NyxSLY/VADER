@@ -19,34 +19,47 @@ try:
 except IndexError:
     memo = 'test'
 
+def get_dataset_params(dataset_name):
+    if dataset_name == 'NC_all':
+        data = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
+        label = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
+        epoch = 300
+    
+    elif dataset_name == 'NC_9':
+        data_all = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
+        label_all = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
+        keep_indices = np.where(np.isin(label_all, [1,2,5,9,13,18,20,21,24]))
+        data = data_all[keep_indices]
+        label = label_all[keep_indices]
+        epoch = 1000
+    
+    elif dataset_name == 'Ocean':
+        data = np.load(r"/mnt/sda/zhangym/VADER/Data/Ocean_train_process.npy")
+        label = np.repeat([0,1,2],50)
+        epoch = 70000
+
+
+    elif dataset_name == 'HP_15':
+        data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
+        label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
+        epoch = 2000
+    
+    elif dataset_name == 'Algae':
+        data = np.load(r"/mnt/sda/zhangym/VADER/Data/Algae_process.npy")
+        label = np.load(r"/mnt/sda/zhangym/VADER/Data/Algae_label.npy").astype(int)
+        epoch = 15000
+
+    
+    return data, label, epoch
+    
+    
+
 def main():
-    # 读取数据
-    # oc_train_data = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_data_fil_191.txt", delimiter=" ")
-    # oc_train_label = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_labels_to_confmatrix.txt", delimiter=" ").astype(int)
-    # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9_label.npy").astype(int)
-
-    # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
-    # # # home pc
-    # # nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9.npy")
-    # # nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9_label.npy").astype(int)
+    datasets = ['NC_all', 'NC_9', 'Ocean', 'HP_15', 'Algae']
+    for dataset in datasets:
+        data, label, epoch = get_dataset_params(dataset)
     
 
-    
-    # keep_indices = np.where((nc_labels_org == 2) | (
-    #             nc_labels_org == 9) |  # (nc_labels ==25) | (nc_labels ==26) | (nc_labels ==27) | (nc_labels ==29)|\n",
-    #                         (nc_labels_org == 18) | (nc_labels_org == 21) |
-    #                         (nc_labels_org == 1) | (nc_labels_org == 5) | (nc_labels_org == 13) | (
-    #                                     nc_labels_org == 20) | (nc_labels_org == 24))
-    # oc_train_data = nc_data_org[keep_indices]
-    # oc_train_label = nc_labels_org[keep_indices]
-
-    oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
-    oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
-
-
-    # 准备数据
     model_params = config.get_model_params()
     device = set_device(model_params['device'])
     batch_size = model_params['batch_size']
