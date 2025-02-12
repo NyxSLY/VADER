@@ -11,7 +11,6 @@ from utility import wavelet_transform
 import sys
 import random
 import os
-set_random_seed(123)
 
 
 try:
