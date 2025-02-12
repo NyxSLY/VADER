@@ -38,7 +38,7 @@ def get_dataset_params(dataset_name):
     elif dataset_name == 'Ocean':
         data = np.load(r"/mnt/sda/zhangym/VADER/Data/Ocean_train_process.npy")
         label = np.repeat([0,1,2],50)
-        epoch = 700
+        epoch = 70000
 
 
     elif dataset_name == 'HP_15':
@@ -132,7 +132,7 @@ def main():
                 all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path))
 
     # 控制并行数量（根据GPU数量调整）
-    max_workers = 10  # 假设有2个GPU
+    max_workers = 3  # 假设有2个GPU
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(train_wrapper, args) for args in all_args]
         
