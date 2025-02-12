@@ -140,7 +140,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         
     device = model.device
     model_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
-    writer = SummaryWriter(log_dir=paths['tensorboard_log']+f'/{model_name}')
+    writer = SummaryWriter(log_dir=paths['tensorboard_log'])
     evaluator = ModelEvaluator(
         model=model,
         device=device,

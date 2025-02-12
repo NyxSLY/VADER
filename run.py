@@ -85,6 +85,8 @@ def train_wrapper(args):
         batch_size=batch_size,
         encoder_type='basic',
         pretrain_epochs=0,
+        epochs=epoch,
+        learning_rate=learning_rate,
         num_classes=num_classes,
         clustering_method='leiden',
         resolution_1=resolution,
@@ -96,14 +98,13 @@ def train_wrapper(args):
     #     dataloader=dataloader,
     #     learning_rate=1e-3
     # )
-    return train_manager(
-        model=model,
-        dataloader=dataloader,
-        tensor_gpu_data=tensor_gpu_data,
-        labels=tensor_gpu_labels,
-        num_classes=num_classes,
-        paths=paths
-    )
+    model = train_manager( model=model,
+                          dataloader=dataloader,
+                          tensor_gpu_data=tensor_gpu_data,
+                          labels=tensor_gpu_labels,
+                          num_classes=num_classes, 
+                          paths=paths)
+    return args
 
 def main():
     datasets = ['Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all']
@@ -126,7 +127,7 @@ def main():
             )
             
             for lr, scheduler, res, bs in other_params:
-                work_path = os.path.join(path, f'{dataset}_pretrain={pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}')
+                work_path = os.path.join(path, f'{dataset}_pretrain={pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}')
                 os.makedirs(work_path, exist_ok=True)
                 all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path))
 
@@ -139,7 +140,7 @@ def main():
         for future in as_completed(futures):
             try:
                 result = future.result()
-                print(f"Completed: {result}")
+                print(f"Completed: {result[-1]}")
             except Exception as e:
                 print(f"Error occurred: {e}")
                   
