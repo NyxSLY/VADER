@@ -131,7 +131,7 @@ def main():
                 all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path))
 
     # 控制并行数量（根据GPU数量调整）
-    max_workers = 10 
+    max_workers = 6 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(train_wrapper, args) for args in all_args]
         
