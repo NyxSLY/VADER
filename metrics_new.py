@@ -245,9 +245,9 @@ class ModelEvaluator:
         gmm_str = ', '.join([f'{name}: {value:{fmt}}' for name, value, fmt in gmm_items])
         z_leiden_str = ', '.join([f'{name}: {value:{fmt}}' for name, value, fmt in z_leiden_items])
 
-        print(loss_str)
-        print(gmm_str)
-        print(z_leiden_str)
+        # print(loss_str)
+        # print(gmm_str)
+        # print(z_leiden_str)
 
     def _save_results(
         self,

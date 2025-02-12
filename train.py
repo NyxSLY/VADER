@@ -117,7 +117,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model.learning_rate)
     
     if model_params.get('use_lr_scheduler', False):
-        print("使用学习率调度器")
+        # print("使用学习率调度器")
         # scheduler = optim.lr_scheduler.CosineAnnealingLR(
         #     optimizer,
         #     T_max=model_params['epochs'],
@@ -134,7 +134,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             eta_min=model.learning_rate * 0.01
         )
     else:
-        print("使用固定学习率")
+        # print("使用固定学习率")
         scheduler_nn = None
         scheduler_gmm = None
         
@@ -159,7 +159,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     model.init_kmeans_centers(dataloader)
 
     # 在训练开始前分析数据集
-    print("正在分析数据集特征...")
+    # print("正在分析数据集特征...")
     model.spectral_analyzer.analyze_dataset(dataloader)
     
     # 可选：保存分析结果
@@ -169,7 +169,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
                       train_config['start_epoch'] + model.epochs):
         # 更新权重
         weights = weight_scheduler.get_weights(epoch)
-        print(weights)
+        # print(weights)
         for key, value in weights.items():
             setattr(model, key, value)
         
@@ -184,7 +184,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         )
         
         # 添加进度打印
-        print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
+        # print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:

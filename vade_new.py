@@ -300,7 +300,7 @@ class Gaussian(nn.Module):
         
     def update_parameters(self, cluster_centers=None, variances=None, weights=None):
         """更新GMM参数"""
-        print('Update gmm parameters..............\n')
+        # print('Update gmm parameters..............\n')
         with torch.no_grad():
             if cluster_centers is not None:
                 self.means.data.copy_(cluster_centers)
@@ -350,17 +350,17 @@ class SpectralAnalyzer:
     @torch.no_grad()
     def analyze_dataset(self, dataloader):
         """分析数据集的光谱特征"""
-        print("开始分析数据集...")
+        # print("开始分析数据集...")
         
         # 1. 收集所有数据
-        print("正在收集光谱数据...")
+        # print("正在收集光谱数据...")
         all_spectra = []
         total_samples = 0
         for x, _ in dataloader:
             all_spectra.append(x.cpu().numpy())
             total_samples += x.shape[0]
         all_spectra = np.vstack(all_spectra)
-        print(f"共收集到 {total_samples} 个光谱样本")
+        # print(f"共收集到 {total_samples} 个光谱样本")
         
         # 2. 计算基本统计信息
         self.stats = {
@@ -373,7 +373,7 @@ class SpectralAnalyzer:
         }
         
         # 3. 分析峰位置
-        print("正在分峰位置...")
+        # print("正在分峰位置...")
         peaks = self.peak_detector(torch.tensor(all_spectra))
         # 记录在至少10%光谱中出现过峰的位置
         peak_counts = torch.sum(peaks, dim=0)
@@ -381,14 +381,14 @@ class SpectralAnalyzer:
         self.stats['peak_positions'] = torch.where(peak_counts >= min_occurrences)[0]
         
         # 4. 分析基线特zheng
-        print("正在分析基线特征...")
+        # print("正在分析基线特征...")
         baselines = self.spectral_constraints.batch_als_baseline(torch.tensor(all_spectra))
         self.stats['baseline_params'] = {
             'mean_baseline': torch.mean(baselines, dim=0),
             'std_baseline': torch.std(baselines, dim=0)
         }
         
-        print("数据集分析完成!")
+        # print("数据集分析完成!")
         return self.stats
 
     def save_analysis_results(self, save_dir='./spectral_analysis'):
@@ -396,14 +396,14 @@ class SpectralAnalyzer:
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, 'spectral_analysis.pt')
         torch.save(self.stats, save_path)
-        print(f"分析结果已保存到: {save_path}")
+        # print(f"分析结果已保存到: {save_path}")
 
     def load_analysis_results(self, save_dir='./spectral_analysis'):
         """加载分析结果"""
         load_path = os.path.join(save_dir, 'spectral_analysis.pt')
         if os.path.exists(load_path):
             self.stats = torch.load(load_path)
-            print(f"已加载分析结果从: {load_path}")
+            # print(f"已加载分析结果从: {load_path}")
             return True
         return False
 
@@ -531,7 +531,7 @@ class VaDE(nn.Module):
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
-        print(f"\nClustering method: {self.clustering_method}")
+        # print(f"\nClustering method: {self.clustering_method}")
         
         if self.clustering_method == 'kmeans':
             # K-means方法
@@ -581,15 +581,15 @@ class VaDE(nn.Module):
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
         # 使用选定的聚类方法
-        print(f"Using clustering method: {self.clustering_method}")
-        print(f'num_clusters: {self.num_classes}')
+        # print(f"Using clustering method: {self.clustering_method}")
+        # print(f'num_clusters: {self.num_classes}')
         labels, cluster_centers = self._apply_clustering(encoded_data)
         num_clusters = len(np.unique(labels))
     
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
         # 如果聚类数量发生变化，需要重新初始化高斯分布
         if num_clusters != self.gaussian.num_clusters:
-            print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
+            # print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
             self.num_clusters = num_clusters
             self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
 
@@ -657,7 +657,7 @@ class VaDE(nn.Module):
 
     @torch.no_grad()
     def update_kmeans_centers(self):
-        print(f'Update clustering centers..........')
+        # print(f'Update clustering centers..........')
         encoded_data, _ = self.encoder(self.tensor_gpu_data)
         encoded_data_cpu = encoded_data.cpu().numpy()
 
@@ -672,7 +672,7 @@ class VaDE(nn.Module):
 
         """align"""
         if num_ml_centers != self.gaussian.num_clusters:
-            print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
+            # print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
             gaussian_means = self.gaussian.means.cpu().numpy()
             cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 0.1)
             self.num_clusters = num_ml_centers
