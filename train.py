@@ -113,8 +113,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
 
     # 初始化优化器和其他组件
     # optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
-    optimizer_nn = optim.Adam(chain(model.encoder.parameters(), model.decoder.parameters()), lr=model_params['learning_rate'])
-    optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model_params['learning_rate'])
+    optimizer_nn = optim.Adam(chain(model.encoder.parameters(), model.decoder.parameters()), lr=model.learning_rate)
+    optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model.learning_rate)
     
     if model_params.get('use_lr_scheduler', False):
         print("使用学习率调度器")
@@ -125,13 +125,13 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # )
         scheduler_nn = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_nn,
-            T_max=model_params['epochs'],
-            eta_min=model_params['learning_rate'] * 0.01
+            T_max=model.epochs,
+            eta_min=model.learning_rate * 0.01
         )
         scheduler_gmm = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_gmm,
-            T_max=model_params['epochs'],
-            eta_min=model_params['learning_rate'] * 0.01
+            T_max=model.epochs,
+            eta_min=model.learning_rate * 0.01
         )
     else:
         print("使用固定学习率")
@@ -153,7 +153,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     weight_scheduler = WeightScheduler(
         init_weights=weight_config['init_weights'],
         max_weights=weight_config['max_weights'],
-        n_epochs=model_params['epochs'],
+        n_epochs=model.epochs,
         resolution_2=model_params['resolution_2']
     )
     model.init_kmeans_centers(dataloader)
@@ -166,7 +166,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     model.spectral_analyzer.save_analysis_results()
     
     for epoch in range(train_config['start_epoch'], 
-                      train_config['start_epoch'] + model_params['epochs']):
+                      train_config['start_epoch'] + model.epochs):
         # 更新权重
         weights = weight_scheduler.get_weights(epoch)
         print(weights)

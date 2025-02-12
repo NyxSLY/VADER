@@ -409,18 +409,18 @@ class SpectralAnalyzer:
 
 
 class VaDE(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, 
+    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, 
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
-                 pretrain_epochs=50,
+                 pretrain_epochs=50, epochs = 300, learning_rate = 1e-4,
                  num_classes=0, resolution_1=1.0, resolution_2=0.9, clustering_method='leiden'):
         super(VaDE, self).__init__()
         self.device = device
         self.latent_dim = latent_dim
         self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
-        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim)
+        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
         self.gaussian = Gaussian(num_classes, latent_dim)
         self.cluster_centers = None
@@ -433,6 +433,8 @@ class VaDE(nn.Module):
         self.lamb7 = lamb7
         self.cluster_separation_method = cluster_separation_method
         self.pretrain_epochs = pretrain_epochs
+        self.epochs = epochs
+        self.learning_rate = learning_rate
         self.num_classes = num_classes
         self.resolution_1 = resolution_1
         self.resolution_2 = resolution_2
@@ -486,7 +488,7 @@ class VaDE(nn.Module):
 
 
     @staticmethod
-    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim):
+    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type):
         """初始化编码器"""
         if encoder_type == "basic":
             return Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim)

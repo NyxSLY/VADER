@@ -9,6 +9,8 @@ from train import train_manager
 import torch
 from utility import wavelet_transform
 import sys
+import random
+import os
 set_random_seed(123)
 
 
@@ -36,7 +38,7 @@ def get_dataset_params(dataset_name):
     elif dataset_name == 'Ocean':
         data = np.load(r"/mnt/sda/zhangym/VADER/Data/Ocean_train_process.npy")
         label = np.repeat([0,1,2],50)
-        epoch = 70000
+        epoch = 700
 
 
     elif dataset_name == 'HP_15':
@@ -52,84 +54,94 @@ def get_dataset_params(dataset_name):
     
     return data, label, epoch
     
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import itertools
+
+def train_wrapper(args):
+    """包装训练函数以便并行化"""
+    dataset_params, latent_dim, learning_rate, lr_scheduler, resolution, batch_size, work_path = args
+    data, label, epoch = dataset_params
+    device = set_device(f'cuda:{random.randint(0, 4)}')
     
-
-def main():
-    datasets = ['NC_all', 'NC_9', 'Ocean', 'HP_15', 'Algae']
-    for dataset in datasets:
-        data, label, epoch = get_dataset_params(dataset)
-    
-
-    model_params = config.get_model_params()
-    device = set_device(model_params['device'])
-    batch_size = model_params['batch_size']
-    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(oc_train_data, oc_train_label,batch_size,device)
-
-    # 获取模型配置
+    # 原有训练逻辑
+    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(data, label, batch_size, device)
     input_dim = tensor_data.shape[1]
-    num_classes = 10 # len(unique_label)
-    project_dir = create_project_folders("home_pc")
+    num_classes = len(np.unique(label))
+    paths = {
+            'train_path':work_path,
+            'pth': work_path,
+            'plot': work_path,
+            'tensorboard_log': work_path,
+            'training_log': work_path}
     
-    weight_scheduler_config = config.get_weight_scheduler_config()
-    paths = config.get_project_paths(project_dir, num_classes,
-                                     lamb1=weight_scheduler_config['init_weights']['lamb1'],
-                                     lamb2=weight_scheduler_config['init_weights']['lamb2'],
-                                     lamb3=weight_scheduler_config['init_weights']['lamb3'],
-                                     lamb4=weight_scheduler_config['init_weights']['lamb4'],
-                                     lamb5=weight_scheduler_config['init_weights']['lamb5'],
-                                     lamb6=weight_scheduler_config['init_weights']['lamb6'], 
-                                     memo=memo)
-    l_c_dim = config.encoder_type(model_params['encoder_type'], paths['train_path'])
-
-    # 初始化模型
+    # 创建模型并训练
     model = VaDE(
         input_dim=input_dim,
-        intermediate_dim=model_params['intermediate_dim'],
-        latent_dim=model_params['latent_dim'],
+        intermediate_dim=[512,1024,2048],
+        latent_dim=latent_dim,
         tensor_gpu_data=tensor_gpu_data,
-        lamb1=weight_scheduler_config['init_weights']['lamb1'],
-        lamb2=weight_scheduler_config['init_weights']['lamb2'],
-        lamb3=weight_scheduler_config['init_weights']['lamb3'],
-        lamb4=weight_scheduler_config['init_weights']['lamb4'],
-        lamb5=weight_scheduler_config['init_weights']['lamb5'],
-        lamb6=weight_scheduler_config['init_weights']['lamb6'],
+        lamb1=0, lamb2=1, lamb3=0, lamb4=1, lamb5=0, lamb6=0,
         device=device,
-        l_c_dim=l_c_dim,
         batch_size=batch_size,
-        encoder_type=model_params['encoder_type'],
-        pretrain_epochs=model_params['pretrain_epochs'],
+        encoder_type='basic',
+        pretrain_epochs=0,
         num_classes=num_classes,
-        clustering_method=model_params['clustering_method'],
-        resolution_1=model_params['resolution_1'],
-        resolution_2=model_params['resolution_2']
+        clustering_method='leiden',
+        resolution_1=resolution,
+        resolution_2=resolution
     ).to(device)
-
-    # model.eval()
-    #choose_kmeans_method = choose_kmeans(model,dataloader,num_classes)
-    # 更新模型的kmeans初始化方法
-    #model.kmeans_init = choose_kmeans_method
+    
     model.kmeans_init = 'random'
-    # 训练模型
-    # print("\n开始预训练...  ")
     # model.pretrain(
     #     dataloader=dataloader,
     #     learning_rate=1e-3
     # )
-
-    
-
-    print("\n开始模型训练...")
-    # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))
-    model = train_manager(
+    return train_manager(
         model=model,
         dataloader=dataloader,
         tensor_gpu_data=tensor_gpu_data,
         labels=tensor_gpu_labels,
         num_classes=num_classes,
-        paths=paths,
+        paths=paths
     )
 
-    return model
+def main():
+    datasets = ['Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all']
+    pretrain = 0
+    
+    # 生成所有参数组合（保留dataset和latent_dim的循环）
+    all_args = []
+    for dataset in datasets:
+        data, label, epoch = get_dataset_params(dataset)
+        path = os.path.join('home_pc','para_test', f'{dataset}')
+        os.makedirs(path, exist_ok=True)
+        
+        for latent_dim in [10, 20]:
+            # 生成其他参数的笛卡尔积
+            other_params = itertools.product(
+                [1e-4, 1e-3],  # learning_rate
+                [True, False], # lr_scheduler
+                [1, 0.6, 0.8], # resolution
+                [128, 256, 512] # batch_size
+            )
+            
+            for lr, scheduler, res, bs in other_params:
+                work_path = os.path.join(path, f'{dataset}_pretrain={pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}')
+                os.makedirs(work_path, exist_ok=True)
+                all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path))
 
+    # 控制并行数量（根据GPU数量调整）
+    max_workers = 10  # 假设有2个GPU
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(train_wrapper, args) for args in all_args]
+        
+        # 可以添加进度监控
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                print(f"Completed: {result}")
+            except Exception as e:
+                print(f"Error occurred: {e}")
+                  
 if __name__ == "__main__":
     main()
