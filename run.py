@@ -47,7 +47,7 @@ def get_dataset_params(dataset_name):
     
     elif dataset_name == 'Algae':
         data = np.load(r"/mnt/sda/zhangym/VADER/Data/Algae_process.npy")
-        label = np.load(r"/mnt/sda/zhangym/VADER/Data/Algae_label.npy").astype(int)
+        label = np.load(r"/mnt/sda/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
         epoch = 15000
 
     
@@ -106,7 +106,7 @@ def train_wrapper(args):
     return args
 
 def main():
-    datasets = ['Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all']
+    datasets = ['Algae'] # 'Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'
     pretrain = 0
     
     # 生成所有参数组合（保留dataset和latent_dim的循环）
@@ -131,7 +131,7 @@ def main():
                 all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path))
 
     # 控制并行数量（根据GPU数量调整）
-    max_workers = 6 
+    max_workers = 3
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(train_wrapper, args) for args in all_args]
         
