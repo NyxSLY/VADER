@@ -116,7 +116,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     optimizer_nn = optim.Adam(chain(model.encoder.parameters(), model.decoder.parameters()), lr=model.learning_rate)
     optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model.learning_rate)
     
-    if model_params.get('use_lr_scheduler', False):
+    if model.use_lr_scheduler:
         # print("使用学习率调度器")
         # scheduler = optim.lr_scheduler.CosineAnnealingLR(
         #     optimizer,

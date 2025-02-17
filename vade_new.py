@@ -413,7 +413,7 @@ class VaDE(nn.Module):
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
-                 pretrain_epochs=50, epochs = 300, learning_rate = 1e-4,
+                 pretrain_epochs=50, epochs = 300, learning_rate = 1e-4, use_lr_scheduler = False,
                  num_classes=0, resolution_1=1.0, resolution_2=0.9, clustering_method='leiden'):
         super(VaDE, self).__init__()
         self.device = device
@@ -435,6 +435,7 @@ class VaDE(nn.Module):
         self.pretrain_epochs = pretrain_epochs
         self.epochs = epochs
         self.learning_rate = learning_rate
+        self.use_lr_scheduler = use_lr_scheduler
         self.num_classes = num_classes
         self.resolution_1 = resolution_1
         self.resolution_2 = resolution_2
@@ -495,23 +496,22 @@ class VaDE(nn.Module):
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
 
-    def pretrain(self, dataloader,learning_rate=1e-3):
-        pre_epoch=self.pretrain_epochs
-        if  not os.path.exists('./pretrain_model_NC9_300.pk'):
+    def pretrain(self, dataloader,save_path):
+        if  not os.path.exists(save_path):
 
             Loss=nn.MSELoss()
-            opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
+            opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()), lr = self.learning_rate)
 
-            print('Pretraining......')
-            epoch_bar=tqdm(range(pre_epoch))
+            # print('Pretraining......')
+            epoch_bar=tqdm(range(self.pretrain_epochs))
             for _ in epoch_bar:
                 L=0
                 for x,y in dataloader:
                     x=x.to(self.device)
 
                     mean,var=self.encoder(x)
-                    z = self.reparameterize(mean, var)
-                    x_=self.decoder(z)
+                    # z = self.reparameterize(mean, var)
+                    x_=self.decoder(mean)
                     loss=Loss(x,x_)
 
                     L+=loss.detach().cpu().numpy()
@@ -520,12 +520,12 @@ class VaDE(nn.Module):
                     loss.backward()
                     opti.step()
 
-                epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
+                # epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
 
-            torch.save(self.state_dict(), './pretrain_model_NC9_300.pk')
+            torch.save(self.state_dict(), save_path)
 
         else:
-            self.load_state_dict(torch.load('./pretrain_model_NC9_300.pk'))
+            self.load_state_dict(torch.load(save_path))
             
 
 

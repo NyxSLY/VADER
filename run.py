@@ -58,7 +58,7 @@ import itertools
 
 def train_wrapper(args):
     """包装训练函数以便并行化"""
-    dataset_params, latent_dim, learning_rate, lr_scheduler, resolution, batch_size, work_path = args
+    dataset_params, latent_dim, learning_rate, lr_scheduler, resolution, batch_size, work_path , pretrain, pretrain_path= args
     data, label, epoch = dataset_params
     device = set_device(f'cuda:{random.randint(0, 4)}')
     
@@ -83,9 +83,10 @@ def train_wrapper(args):
         device=device,
         batch_size=batch_size,
         encoder_type='basic',
-        pretrain_epochs=0,
+        pretrain_epochs=pretrain,
         epochs=epoch,
         learning_rate=learning_rate,
+        use_lr_scheduler=lr_scheduler,
         num_classes=num_classes,
         clustering_method='leiden',
         resolution_1=resolution,
@@ -93,10 +94,10 @@ def train_wrapper(args):
     ).to(device)
     
     model.kmeans_init = 'random'
-    # model.pretrain(
-    #     dataloader=dataloader,
-    #     learning_rate=1e-3
-    # )
+    model.pretrain(
+        dataloader=dataloader,
+        save_path = pretrain_path
+    ) 
     model = train_manager( model=model,
                           dataloader=dataloader,
                           tensor_gpu_data=tensor_gpu_data,
@@ -106,13 +107,13 @@ def train_wrapper(args):
     return args
 
 def main():
-    datasets = ['Algae'] # 'Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'
-    pretrain = 0
+    datasets = ['Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'] # 'Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'
     
     # 生成所有参数组合（保留dataset和latent_dim的循环）
     all_args = []
     for dataset in datasets:
         data, label, epoch = get_dataset_params(dataset)
+        pretrain = int(epoch / 3)
         path = os.path.join('home_pc','para_test', f'{dataset}')
         os.makedirs(path, exist_ok=True)
         
@@ -120,15 +121,16 @@ def main():
             # 生成其他参数的笛卡尔积
             other_params = itertools.product(
                 [1e-4, 1e-3],  # learning_rate
-                [True, False], # lr_scheduler
+                [True], # lr_scheduler
                 [1, 0.6, 0.8], # resolution
                 [128, 256, 512] # batch_size
             )
             
             for lr, scheduler, res, bs in other_params:
-                work_path = os.path.join(path, f'{dataset}_pretrain={pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}')
+                work_path = os.path.join(path, f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}')
                 os.makedirs(work_path, exist_ok=True)
-                all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path))
+                pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+                all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path, pretrain, pretrain_path))
 
     # 控制并行数量（根据GPU数量调整）
     max_workers = 3
