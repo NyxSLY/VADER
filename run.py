@@ -127,9 +127,9 @@ def main():
             )
             
             for lr, scheduler, res, bs in other_params:
-                work_path = os.path.join(path, f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}')
+                work_path = os.path.join(path, f'{dataset}_VAE{pretrain}_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}')
                 os.makedirs(work_path, exist_ok=True)
-                pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+                pretrain_path = os.path.join('./pretrain_model', f'{dataset}_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
                 all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, work_path, pretrain, pretrain_path))
 
     # 控制并行数量（根据GPU数量调整）
@@ -141,7 +141,7 @@ def main():
         for future in as_completed(futures):
             try:
                 result = future.result()
-                print(f"Completed: {result[-1]}")
+                print(f"Completed: {result[-3]}")
             except Exception as e:
                 print(f"Error occurred: {e}")
                   
