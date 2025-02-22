@@ -510,8 +510,8 @@ class VaDE(nn.Module):
                     x=x.to(self.device)
 
                     mean,var=self.encoder(x)
-                    z = self.reparameterize(mean, var)
-                    x_=self.decoder(z)
+                    # z = self.reparameterize(mean, var)
+                    x_=self.decoder(mean)
                     loss=Loss(x,x_)
 
                     L+=loss.detach().cpu().numpy()

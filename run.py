@@ -14,6 +14,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import itertools
 import gc
+import shutil
 
 try:
     memo = sys.argv[1]
@@ -109,18 +110,38 @@ def train_wrapper(args):
     finally:
         # 训练结束后强制释放显存
         if torch.cuda.is_available():
-            torch.cuda.synchronize() 
+            global_vars = list(globals().keys())
+            for var in global_vars:
+                if isinstance(globals()[var], torch.nn.Module):
+                    del globals()[var]
+            
+            # 2. 彻底释放显存
+            torch.cuda.synchronize()
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
-        # 彻底释放Python对象
-        gc.collect()
+            
+            # 3. 强制释放Python对象
+            gc.collect()
+            
+            # 4. 显式释放CUDA上下文
+            ctx = torch.cuda.get_device_context()
+            ctx.destroy()
+            
+            os._exit(0) 
     
 
 
-def set_gpu_device(device_id):
-    """显式绑定进程到指定GPU"""
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(device_id)
-    torch.cuda.set_device(0)  # 现在可见设备只有目标GPU
+def get_max_epoch(log_path):
+    """更高效的行数统计版本"""
+    try:
+        count = 0
+        with open(log_path, 'r') as f:
+            for line in f:
+                if line.strip():  # 跳过空行
+                    count += 1
+        return count
+    except:
+        return 0
 
 
 
@@ -129,7 +150,7 @@ def main():
     
     # 生成所有参数组合（保留dataset和latent_dim的循环）
     all_args = []
-    gpu_cycle = itertools.cycle(range(5))
+    gpu_cycle = itertools.cycle([4,3,2,1,0])
     for dataset in datasets:
         data, label, epoch = get_dataset_params(dataset)
         pretrain = int(epoch / 3)
@@ -148,15 +169,27 @@ def main():
             for lr, scheduler, res, bs in other_params:
                 gpu_id = next(gpu_cycle)
                 work_path = os.path.join(path, f'{dataset}_pretrain=0_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}_1')
-                os.makedirs(work_path, exist_ok=True)
-                pretrain_path = os.path.join('./pretrain_model', f'{dataset}_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
-                all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
+                log_path = os.path.join(work_path, 'training_log.txt')
+                if os.path.exists(log_path):
+                    current_epoch = get_max_epoch(log_path)
+                    if current_epoch < epoch -1:
+                        shutil.rmtree(work_path, ignore_errors=True)
+                        os.makedirs(work_path, exist_ok=True)
+                        gpu_id = next(gpu_cycle)
+                        pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+                        all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
+                else:
+                    gpu_id = next(gpu_cycle)
+                    os.makedirs(work_path, exist_ok=True)
+                    pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+                    all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
+
 
     # 控制并行数量（根据GPU数量调整）
     import multiprocessing
     multiprocessing.set_start_method('spawn', force=True)
 
-    max_workers = 15
+    max_workers = 3
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(train_wrapper, args) for args in all_args]
         
@@ -171,7 +204,6 @@ def main():
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-    
-                  
+        
 if __name__ == "__main__":
     main()
