@@ -12,6 +12,7 @@ import time
 import os
 from itertools import chain
 import sys
+from utility import generate_spectra_from_means
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
 
@@ -189,6 +190,14 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:
             model.update_kmeans_centers()
+            recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+            gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
+            evaluator._save_results(epoch,train_metrics,0.0001,z.cpu().detach().numpy(),recon_x.cpu().detach().numpy(),labels,np.argmax(gmm_probs, axis=1),np.argmax(gmm_probs, axis=1),False,False)
+            # generated_samples, generated_labels = generate_spectra_from_means(gmm_means.detach().cpu(), model,num_samples_per_label=int(len(labels)/gmm_means.shape[0]), noise_level=0.01)
+            # gene_txt_path = os.path.join(paths['plot'], f'epoch_{epoch+1}_generate_x_value.txt')
+            # np.savetxt(gene_txt_path, generated_samples)
+            # gene_label_path = os.path.join(paths['plot'], f'epoch_{epoch+1}_generate_y_value.txt')
+            # np.savetxt(gene_label_path, generated_labels)
             
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]

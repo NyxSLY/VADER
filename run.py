@@ -123,11 +123,6 @@ def train_wrapper(args):
             # 3. 强制释放Python对象
             gc.collect()
             
-            # 4. 显式释放CUDA上下文
-            ctx = torch.cuda.get_device_context()
-            ctx.destroy()
-            
-            os._exit(0) 
     
 
 
@@ -146,63 +141,73 @@ def get_max_epoch(log_path):
 
 
 def main():
-    datasets = ['Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'] # 'Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'
+    # datasets = ['Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'] # 'Ocean', 'Algae', 'NC_9', 'HP_15', 'NC_all'
     
-    # 生成所有参数组合（保留dataset和latent_dim的循环）
-    all_args = []
-    gpu_cycle = itertools.cycle([4,3,2,1,0])
-    for dataset in datasets:
-        data, label, epoch = get_dataset_params(dataset)
-        pretrain = int(epoch / 3)
-        path = os.path.join('home_pc','para_test', f'{dataset}')
-        os.makedirs(path, exist_ok=True)
+    # # 生成所有参数组合（保留dataset和latent_dim的循环）
+    # all_args = []
+    # gpu_cycle = itertools.cycle([4,3,2,1,0])
+    # for dataset in datasets:
+    #     data, label, epoch = get_dataset_params(dataset)
+    #     pretrain = int(epoch / 3)
+    #     path = os.path.join('home_pc','para_test', f'{dataset}')
+    #     os.makedirs(path, exist_ok=True)
         
-        for latent_dim in [10, 20]:
-            # 生成其他参数的笛卡尔积
-            other_params = itertools.product(
-                [1e-4, 1e-3],  # learning_rate
-                [True], # lr_scheduler
-                [1, 0.6, 0.8], # resolution
-                [128, 256, 512] # batch_size
-            )
+    #     for latent_dim in [10, 20]:
+    #         # 生成其他参数的笛卡尔积
+    #         other_params = itertools.product(
+    #             [1e-4, 1e-3],  # learning_rate
+    #             [True], # lr_scheduler
+    #             [1, 0.6, 0.8], # resolution
+    #             [128, 256, 512] # batch_size
+    #         )
             
-            for lr, scheduler, res, bs in other_params:
-                gpu_id = next(gpu_cycle)
-                work_path = os.path.join(path, f'{dataset}_pretrain=0_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}_1')
-                log_path = os.path.join(work_path, 'training_log.txt')
-                if os.path.exists(log_path):
-                    current_epoch = get_max_epoch(log_path)
-                    if current_epoch < epoch -1:
-                        shutil.rmtree(work_path, ignore_errors=True)
-                        os.makedirs(work_path, exist_ok=True)
-                        gpu_id = next(gpu_cycle)
-                        pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
-                        all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
-                else:
-                    gpu_id = next(gpu_cycle)
-                    os.makedirs(work_path, exist_ok=True)
-                    pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
-                    all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
+    #         for lr, scheduler, res, bs in other_params:
+    #             gpu_id = next(gpu_cycle)
+    #             work_path = os.path.join(path, f'{dataset}_pretrain=0_latent={latent_dim}_{lr}_{scheduler}_{res}_{bs}_1')
+    #             log_path = os.path.join(work_path, 'training_log.txt')
+    #             if os.path.exists(log_path):
+    #                 current_epoch = get_max_epoch(log_path)
+    #                 if current_epoch < epoch -1:
+    #                     shutil.rmtree(work_path, ignore_errors=True)
+    #                     os.makedirs(work_path, exist_ok=True)
+    #                     gpu_id = next(gpu_cycle)
+    #                     pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+    #                     all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
+    #             else:
+    #                 gpu_id = next(gpu_cycle)
+    #                 os.makedirs(work_path, exist_ok=True)
+    #                 pretrain_path = os.path.join('./pretrain_model', f'{dataset}_AE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+    #                 all_args.append(((data, label, epoch), latent_dim, lr, scheduler, res, bs, gpu_id, work_path, pretrain, pretrain_path))
 
 
-    # 控制并行数量（根据GPU数量调整）
-    import multiprocessing
-    multiprocessing.set_start_method('spawn', force=True)
+    # # 控制并行数量（根据GPU数量调整）
+    # import multiprocessing
+    # multiprocessing.set_start_method('spawn', force=True)
 
-    max_workers = 3
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(train_wrapper, args) for args in all_args]
+    # max_workers = 3
+    # with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    #     futures = [executor.submit(train_wrapper, args) for args in all_args]
         
-        # 可以添加进度监控
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                print(f"Completed: {result[-3]}")
-            finally:
-                # 立即终止已完成进程
-                del future
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+    #     # 可以添加进度监控
+    #     for future in as_completed(futures):
+    #         try:
+    #             result = future.result()
+    #             print(f"Completed: {result[-3]}")
+    #         finally:
+    #             # 立即终止已完成进程
+    #             del future
+    #             if torch.cuda.is_available():
+    #                 torch.cuda.empty_cache()
+    data = np.load(r"/mnt/sda/zhangym/VADER/Data/Noise_15s.npy")
+    label = np.load(r"/mnt/sda/zhangym/VADER/Data/Noise_15s_y.npy")[:,0].astype(int)
+    epoch = 3000
+    pretrain = 1000
+    latent_dim = 10
+    lr = 0.0001
+    bs = 128
+    work_path = os.path.join('home_pc', f'Noise','15s')
+    pretrain_path = os.path.join('./pretrain_model', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+    train_wrapper(((data, label, epoch), latent_dim, lr, False, 0.8, bs, 4, work_path, pretrain, pretrain_path))
 
         
 if __name__ == "__main__":

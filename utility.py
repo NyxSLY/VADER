@@ -287,7 +287,7 @@ def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_le
             scaled_mean = scale_signal(noisy_mean)
             latent_samples.append(scaled_mean)
         
-        latent_samples = np.array(latent_samples)
+        latent_samples = np.stack([t.numpy() for t in latent_samples])[:,0,:]
         latent_samples_tensor = torch.from_numpy(latent_samples).float()
 
         # Step 3: Interpolation and Step 4: Feature Swap
@@ -302,17 +302,16 @@ def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_le
                 for z_interp in interpolations:
                     # Feature Swap
                     swaps = feature_swap_z(z1, z_interp,num=3)
-                    for z_swap in swaps:
-                        z_samples.append(z_swap)
-                        x_spec = model.decoder(z_swap.unsqueeze(0))
-                        x_spec_np = x_spec.detach().numpy()
-                        x_spec_np_shift = shift_signal(x_spec_np)
-                        x_spec_np_smooth = smooth_edges(x_spec_np_shift)
-                        generated_samples.append(x_spec_np_smooth)
-                        generated_labels.append(label)
-                        num_generated += 1
-                        if num_generated >= num_samples_per_label:
-                            break
+                    
+                    z_samples.append(swaps)
+                    x_spec = model.decoder(swaps.to(model.device))
+                    x_spec_np = x_spec.cpu().detach().numpy()
+                    x_spec_np_shift = shift_signal(x_spec_np)
+                    generated_samples.append(x_spec_np_shift)
+                    generated_labels.append(label)
+                    num_generated += 1
+                    if num_generated >= num_samples_per_label:
+                        break
                 if num_generated >= num_samples_per_label:
                     break
             if num_generated >= num_samples_per_label:

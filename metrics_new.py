@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.optimize import linear_sum_assignment
-from utility import visualize_clusters, plot_reconstruction
+from utility import visualize_clusters, plot_reconstruction, generate_spectra_from_means
 from config import config
 from torch.utils.tensorboard import SummaryWriter
 from utility import leiden_clustering,inverse_wavelet_transform
@@ -45,7 +45,8 @@ class ModelEvaluator:
                         "Peak_loss\tSpectral_loss\t"
                         "gmm_acc\tgmm_nmi\tgmm_ari\t"
                         "z_leiden_acc\tz_leiden_nmi\tz_leiden_ari\t"
-                        "Learning_Rate\n")
+                        "Learning_Rate\t"
+                        'SNR\n')
 
     def compute_reconstruction_metrics(
         self, x: torch.Tensor, recon_x: torch.Tensor
@@ -106,6 +107,16 @@ class ModelEvaluator:
         }
 
     @staticmethod
+    def cal_SNR(X: np.ndarray) -> float:
+        max_signals = np.max(X, axis=1)
+        noise_region = X[:, 784:843]
+        noise_means = np.mean(noise_region, axis=1)
+        noise_stds = np.std(noise_region, axis=1, ddof=1) 
+        snr_values = (max_signals - noise_means) / noise_stds
+        valid_snr = snr_values[np.isfinite(snr_values)]
+        return np.mean(valid_snr)
+   
+    @staticmethod
     def calculate_acc(y_pred: np.ndarray, y_true: np.ndarray) -> float:
         """
         计算聚类准确率。
@@ -160,6 +171,7 @@ class ModelEvaluator:
             gmm_labels = np.argmax(gmm_probs, axis=1)
             recon_x_cpu = recon_x.detach().cpu().numpy()
             y_true = labels.cpu().numpy()
+            mean_SNR = self.cal_SNR(recon_x_cpu)
 
             # 计算Leiden聚类标签
             # z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
@@ -183,6 +195,7 @@ class ModelEvaluator:
 
             # 合并所有指标
             metrics.update(train_metrics_dict)
+            metrics.update({'SNR': mean_SNR})
 
             self._save_log(epoch, metrics, lr)
             self._save_to_tensorboard(epoch, metrics)
@@ -327,7 +340,8 @@ class ModelEvaluator:
                     f'{metrics["peak_loss"]:.4f}\t{metrics["spectral_loss"]:.4f}\t'
                     f'{metrics["gmm_acc"]:.4f}\t{metrics["gmm_nmi"]:.4f}\t{metrics["gmm_ari"]:.4f}\t'
                     # f'{metrics["leiden_acc"]:.4f}\t{metrics["leiden_nmi"]:.4f}\t{metrics["leiden_ari"]:.4f}\t'
-                    f'{lr:.4f}\n'
+                    f'{lr:.4f}\t'
+                    f'{metrics["SNR"]:.4f}\n'
                 )
         except Exception as e:
             print(f"Error saving log file: {e}")
@@ -345,6 +359,7 @@ class ModelEvaluator:
             self.writer.add_scalar('GMM/ACC', metrics['gmm_acc'], epoch)
             self.writer.add_scalar('GMM/NMI', metrics['gmm_nmi'], epoch)
             self.writer.add_scalar('GMM/ARI', metrics['gmm_ari'], epoch)
+            self.writer.add_scalar('Recon/SNR', metrics['SNR'], epoch)
             
             # Leiden clustering metrics
             # self.writer.add_scalar('Leiden/ACC', metrics['leiden_acc'], epoch)
@@ -370,8 +385,8 @@ class ModelEvaluator:
             colors_map: 类别到颜色的映射字典
         """
         tsne_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_tsne_plot.png')
-        # tsne_txt_pth = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
-        # np.savetxt(tsne_txt_pth,z_cpu)
+        tsne_txt_pth = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
+        np.savetxt(tsne_txt_pth,z_cpu)
         if plot :
             visualize_clusters(z=z_cpu,gaussian_centers=self.model.gaussian.means.data.cpu().numpy(),labels=labels, gmm_labels=gmm_labels, leiden_labels=leiden_labels, save_path=tsne_plot_path)
 
@@ -401,8 +416,8 @@ class ModelEvaluator:
         保存重构可视化。
         """
         recon_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_plot.png')
-        # recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
-        # np.savetxt(recon_txt_path, recon_x_cpu)
+        recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
+        np.savetxt(recon_txt_path, recon_x_cpu)
         
         if plot:
             plot_reconstruction(
@@ -411,3 +426,4 @@ class ModelEvaluator:
                 save_path=recon_plot_path,
                 wavenumber=wavenumber
             )
+    

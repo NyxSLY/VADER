@@ -18,6 +18,7 @@ nc9_pretrain_model_none_bn.pk
 lorentzian_peaks_random_colors.png
 tensor_baseline_plot.png
 tensor_line_plot.png
+Other_methods.py
 # run.py
 !.gitignore
 
