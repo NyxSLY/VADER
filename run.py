@@ -198,15 +198,44 @@ def main():
     #             del future
     #             if torch.cuda.is_available():
     #                 torch.cuda.empty_cache()
-    data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
-    label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
-    epoch = 15000
-    pretrain = 5000
+
+    # NC - All
+    # data = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
+    # label = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int) 
+
+    # NC - 9
+    # nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
+    # nc_labels_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
+    # keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
+    # data = nc_data_org[keep_indices]
+    # label = nc_labels_org[keep_indices]
+
+    
+    # HP
+    data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
+    label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
+
+    # Algae
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
+
+    # Ocean
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy")
+    # label = np.repeat([0,1,2],50)
+
+    # Science Advances - Unknown
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_jiaozhou_1_H2O_subbg.npy")
+    # data_Y = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Y_jiaozhou_1_H2O_subbg.npy").astype(int)
+    # labels = ['AB','EC','Pae','SA','SE','U','AOP','AFP','DH','H','KWP','ML','PL','SM','Others','U2']
+    # label = labels[data_Y]
+
+    epoch = 2000
+    pretrain = 666
     latent_dim = 20
     lr = 0.0001
-    bs = 128
-    resolution = 0.6
-    work_path = os.path.join('home_pc', f'Retest','Alage')
+    bs = 256
+    resolution = 1
+    work_path = os.path.join('home_pc', f'Retest','HP')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
     train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 4, work_path, pretrain, pretrain_path))
 
