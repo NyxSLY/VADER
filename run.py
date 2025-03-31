@@ -198,16 +198,17 @@ def main():
     #             del future
     #             if torch.cuda.is_available():
     #                 torch.cuda.empty_cache()
-    data = np.load(r"/mnt/sda/zhangym/VADER/Data/Noise_15s.npy")
-    label = np.load(r"/mnt/sda/zhangym/VADER/Data/Noise_15s_y.npy")[:,0].astype(int)
-    epoch = 3000
-    pretrain = 1000
-    latent_dim = 10
+    data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
+    label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
+    epoch = 15000
+    pretrain = 5000
+    latent_dim = 20
     lr = 0.0001
     bs = 128
-    work_path = os.path.join('home_pc', f'Noise','15s')
-    pretrain_path = os.path.join('./pretrain_model', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
-    train_wrapper(((data, label, epoch), latent_dim, lr, False, 0.8, bs, 4, work_path, pretrain, pretrain_path))
+    resolution = 0.6
+    work_path = os.path.join('home_pc', f'Retest','Alage')
+    pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
+    train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 4, work_path, pretrain, pretrain_path))
 
         
 if __name__ == "__main__":

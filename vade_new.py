@@ -522,7 +522,7 @@ class VaDE(nn.Module):
 
                 # epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
 
-            torch.save(self.state_dict(), save_path)
+            # torch.save(self.state_dict(), save_path)
 
         else:
             self.load_state_dict(torch.load(save_path))

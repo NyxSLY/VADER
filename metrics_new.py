@@ -303,7 +303,7 @@ class ModelEvaluator:
         self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)
 
         # 保存模型
-        self._save_model(epoch, metrics)
+        # self._save_model(epoch, metrics)
 
         # 保存重构可视化
         self._save_recon_plot(epoch, recon_x_cpu, labels, wavenumber,r_plot)
@@ -386,7 +386,7 @@ class ModelEvaluator:
         """
         tsne_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_tsne_plot.png')
         tsne_txt_pth = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
-        np.savetxt(tsne_txt_pth,z_cpu)
+        # np.savetxt(tsne_txt_pth,z_cpu)
         if plot :
             visualize_clusters(z=z_cpu,gaussian_centers=self.model.gaussian.means.data.cpu().numpy(),labels=labels, gmm_labels=gmm_labels, leiden_labels=leiden_labels, save_path=tsne_plot_path)
 
@@ -417,7 +417,7 @@ class ModelEvaluator:
         """
         recon_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_plot.png')
         recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
-        np.savetxt(recon_txt_path, recon_x_cpu)
+        # np.savetxt(recon_txt_path, recon_x_cpu)
         
         if plot:
             plot_reconstruction(

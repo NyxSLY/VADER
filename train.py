@@ -188,7 +188,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
         # skip update kmeans centers
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 100 == 0:
             model.update_kmeans_centers()
             recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
             gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
