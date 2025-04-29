@@ -186,12 +186,13 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         
         # 添加进度打印
         # print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
+
+        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+        gmm_probs = gamma.detach().cpu().numpy()
         
         # skip update kmeans centers
         if (epoch + 1) % 100 == 0:
             model.update_kmeans_centers()
-            recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
-            gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
             evaluator._save_results(epoch,train_metrics,0.0001,z.cpu().detach().numpy(),recon_x.cpu().detach().numpy(),labels,np.argmax(gmm_probs, axis=1),np.argmax(gmm_probs, axis=1),False,False)
             # generated_samples, generated_labels = generate_spectra_from_means(gmm_means.detach().cpu(), model,num_samples_per_label=int(len(labels)/gmm_means.shape[0]), noise_level=0.01)
             # gene_txt_path = os.path.join(paths['plot'], f'epoch_{epoch+1}_generate_x_value.txt')
@@ -208,17 +209,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             scheduler_gmm.step()
 
         # 记录学习率
-        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
-        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
-
-        min_y = torch.min(y, axis=1)
-        max_y = torch.max(y, axis=1)
-        
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
             writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
 
-            gmm_probs = gamma.detach().cpu().numpy()
             gmm_labels = np.argmax(gmm_probs, axis=1)
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             proportions = counts / len(gmm_labels)
@@ -226,7 +220,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(
-            tensor_gpu_data, 
+            recon_x,
+            z,
+            gamma,
             labels, 
             epoch, 
             lr_nn, 

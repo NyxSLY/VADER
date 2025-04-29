@@ -3,7 +3,7 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)  
 
 from vade_new import VaDE
-from utility import create_project_folders,prepare_data_loader, set_random_seed,choose_kmeans,set_device
+from utility import create_project_folders,prepare_data_loader, set_random_seed,set_device
 from config import config
 from train import train_manager
 import torch
@@ -206,11 +206,11 @@ def main():
     # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int) 
 
     # NC - 9
-    # nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
-    # keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
-    # data = nc_data_org[keep_indices]
-    # label = nc_labels_org[keep_indices]
+    nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
+    nc_labels_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
+    keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
+    data = nc_data_org[keep_indices]
+    label = nc_labels_org[keep_indices]
 
     
     # # HP
@@ -241,17 +241,17 @@ def main():
     # # Ocean environment
     # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_jiaozhou_2_H2O_subbg.npy")
     # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Y_jiaozhou_2_H2O_subbg.npy").astype(int)    
-    data = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/X_Apr_C3D3_NMF.npy")
-    label = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/Y_Apr_C3D3.npy").astype(int)  
+    # data = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/X_Apr_C3D3_NMF.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/Y_Apr_C3D3.npy").astype(int)  
   
          
-    epoch = 1000
+    epoch = 300
     pretrain = 100
     latent_dim = 20
     lr = 1.0e-4
-    bs = 256
+    bs = 512
     resolution = 1
-    work_path = os.path.join('home_pc', f'Ocean','Apr_C3D3_NMF_2')
+    work_path = os.path.join('home_pc', f'NC-9','test')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
     train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 3, work_path, pretrain, pretrain_path))
 

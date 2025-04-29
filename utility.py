@@ -452,7 +452,7 @@ def visualize_clusters(
     legend1 = ax1.legend(*scatter1.legend_elements(num=len(np.unique(labels))), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
     # ax1.scatter(gaussian_centers_tsne[:, 0], gaussian_centers_tsne[:, 1], c='red', marker='X', s=100, label='Gaussian Centers')
-    ax1.legend(loc='upper right')
+    ax1.legend(loc='best')
     
     # 绘制GMM预测聚类结果的散点图
     colors = sns.color_palette('husl', n_colors=len(np.unique(gmm_labels)))
@@ -463,7 +463,7 @@ def visualize_clusters(
     ax2.add_artist(legend2)
     # for i, center in enumerate(gaussian_centers_tsne):
     #     ax2.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
-    ax2.legend(loc='upper right')
+    ax2.legend(loc='best')
 
     # 绘制Leiden预测聚类结果的散点图
     colors = sns.color_palette('husl', n_colors=len(np.unique(leiden_labels)))
@@ -474,7 +474,7 @@ def visualize_clusters(
     ax3.add_artist(legend3)
     # for i, center in enumerate(gaussian_centers_tsne):
     #     ax3.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
-    ax3.legend(loc='upper right')
+    ax3.legend(loc='best')
     
     # 保存图像
     plt.xlabel('t-SNE Component 1')

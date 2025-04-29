@@ -148,7 +148,9 @@ class ModelEvaluator:
 
     def evaluate_epoch(
         self,
-        tensor_gpu_data: torch.Tensor,
+        recon_x,
+        z,
+        gamma,
         labels: torch.Tensor,
         epoch: int,
         lr: float,
@@ -162,8 +164,6 @@ class ModelEvaluator:
         
         self.model.eval()
         with torch.no_grad():
-            # 获取模型输出
-            recon_x, mean, log_var, z, gamma, pi = self.model(tensor_gpu_data)
             
             # 转换数据到CPU
             z_cpu = z.detach().cpu().numpy()
