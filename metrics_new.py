@@ -174,7 +174,7 @@ class ModelEvaluator:
             mean_SNR = self.cal_SNR(recon_x_cpu)
 
             # 计算Leiden聚类标签
-            # z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
+            z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
 
             # 计算评估指标
             gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
@@ -202,19 +202,19 @@ class ModelEvaluator:
             # self._print_metrics(epoch, lr, metrics)
 
             # 打印评估结果
-            # if (epoch+1) % 10 == 0:
-            #     self._save_results(
-            #         epoch, 
-            #         metrics, 
-            #         lr,
-            #         z_cpu, 
-            #         recon_x_cpu, 
-            #         y_true,
-            #         gmm_labels,
-            #         # z_leiden_labels,
-            #         t_plot,
-            #         r_plot
-            #     )
+            if (epoch+1) % 50 == 0:
+                self._save_results(
+                    epoch, 
+                    metrics, 
+                    lr,
+                    z_cpu, 
+                    recon_x_cpu, 
+                    y_true,
+                    gmm_labels,
+                    z_leiden_labels,
+                    t_plot,
+                    r_plot
+                )
 
             return metrics
 
@@ -301,6 +301,8 @@ class ModelEvaluator:
 
         # 保存t-SNE可视化
         self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)
+        if(t_plot):
+            np.savetxt(os.path.join(self.paths['plot'],f'epoch_{epoch}_gmm_labels.txt'),gmm_labels, fmt='%d')
 
         # 保存模型
         # self._save_model(epoch, metrics)

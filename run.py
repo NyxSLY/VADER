@@ -16,6 +16,8 @@ import itertools
 import gc
 import shutil
 
+set_random_seed(123)
+
 try:
     memo = sys.argv[1]
     if not memo or memo.isspace():
@@ -96,10 +98,10 @@ def train_wrapper(args):
         ).to(device)
         
         model.kmeans_init = 'random'
-        # model.pretrain(
-        #     dataloader=dataloader,
-        #     save_path = pretrain_path
-        # ) 
+        model.pretrain(
+            dataloader=dataloader,
+            save_path = pretrain_path
+        ) 
         model = train_manager( model=model,
                             dataloader=dataloader,
                             tensor_gpu_data=tensor_gpu_data,
@@ -199,9 +201,9 @@ def main():
     #             if torch.cuda.is_available():
     #                 torch.cuda.empty_cache()
 
-    # NC - All
-    # data = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
-    # label = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int) 
+    # # NC - All
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int) 
 
     # NC - 9
     # nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
@@ -211,9 +213,9 @@ def main():
     # label = nc_labels_org[keep_indices]
 
     
-    # HP
-    data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
-    label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
+    # # HP
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
 
     # Algae
     # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
@@ -224,20 +226,34 @@ def main():
     # label = np.repeat([0,1,2],50)
 
     # Science Advances - Unknown
-    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_jiaozhou_1_H2O_subbg.npy")
-    # data_Y = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Y_jiaozhou_1_H2O_subbg.npy").astype(int)
-    # labels = ['AB','EC','Pae','SA','SE','U','AOP','AFP','DH','H','KWP','ML','PL','SM','Others','U2']
-    # label = labels[data_Y]
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_pathogens.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_pathogens_label.npy").astype(int)
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_5pathogens_other_marked.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_5pathogens_other_marked_label.npy").astype(int)
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_Unknown.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_Unknown_label.npy").astype(int)
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_all.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/SA_all_label.npy").astype(int)
 
-    epoch = 2000
-    pretrain = 666
+    # labels = ['AB','EC','Pae','SA','SE','U','AOP','AFP','DH','H','KWP','ML','PL','SM','Others','U2']
+    # label = np.array([labels[i] for i in data_Y.flatten()])
+
+    # # Ocean environment
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_jiaozhou_2_H2O_subbg.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Y_jiaozhou_2_H2O_subbg.npy").astype(int)    
+    data = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/X_Apr_C3D3_NMF.npy")
+    label = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/Y_Apr_C3D3.npy").astype(int)  
+  
+         
+    epoch = 1000
+    pretrain = 100
     latent_dim = 20
-    lr = 0.0001
+    lr = 1.0e-4
     bs = 256
     resolution = 1
-    work_path = os.path.join('home_pc', f'Retest','HP')
+    work_path = os.path.join('home_pc', f'Ocean','Apr_C3D3_NMF_2')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
-    train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 4, work_path, pretrain, pretrain_path))
+    train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 3, work_path, pretrain, pretrain_path))
 
         
 if __name__ == "__main__":

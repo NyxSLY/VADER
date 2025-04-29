@@ -449,9 +449,9 @@ def visualize_clusters(
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
     scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=custom_cmap)
     ax1.set_title('True Labels')
-    legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
+    legend1 = ax1.legend(*scatter1.legend_elements(num=len(np.unique(labels))), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
-    ax1.scatter(gaussian_centers_tsne[:, 0], gaussian_centers_tsne[:, 1], c='red', marker='X', s=100, label='Gaussian Centers')
+    # ax1.scatter(gaussian_centers_tsne[:, 0], gaussian_centers_tsne[:, 1], c='red', marker='X', s=100, label='Gaussian Centers')
     ax1.legend(loc='upper right')
     
     # 绘制GMM预测聚类结果的散点图
@@ -461,8 +461,8 @@ def visualize_clusters(
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
     legend2 = ax2.legend(*scatter2.legend_elements(num=len(np.unique(gmm_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
-    for i, center in enumerate(gaussian_centers_tsne):
-        ax2.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
+    # for i, center in enumerate(gaussian_centers_tsne):
+    #     ax2.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
     ax2.legend(loc='upper right')
 
     # 绘制Leiden预测聚类结果的散点图
@@ -472,8 +472,8 @@ def visualize_clusters(
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
     legend3 = ax3.legend(*scatter3.legend_elements(num=len(np.unique(leiden_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax3.add_artist(legend3)
-    for i, center in enumerate(gaussian_centers_tsne):
-        ax3.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
+    # for i, center in enumerate(gaussian_centers_tsne):
+    #     ax3.scatter(center[0], center[1], c=[custom_cmap(i)], marker='X', s=100, label=f'Center {i}')
     ax3.legend(loc='upper right')
     
     # 保存图像

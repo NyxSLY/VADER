@@ -62,7 +62,7 @@ train_config:
     total: 0.5
     recon: 0.02
   tsne_plot: True
-  recon_plot: True
+  recon_plot: False
 
 # 可视化配置
 vis_config:
