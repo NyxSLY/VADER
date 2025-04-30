@@ -3,18 +3,12 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)  
 
 from vade_new import VaDE
-from utility import create_project_folders,prepare_data_loader, set_random_seed,set_device
+from utility import prepare_data_loader, set_random_seed,set_device
 from config import config
 from train import train_manager
 import torch
-from utility import wavelet_transform
 import sys
-import random
 import os
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import itertools
-import gc
-import shutil
 
 set_random_seed(123)
 
@@ -110,22 +104,8 @@ def train_wrapper(args):
                             paths=paths)
         return args
     finally:
-        # 训练结束后强制释放显存
-        if torch.cuda.is_available():
-            global_vars = list(globals().keys())
-            for var in global_vars:
-                if isinstance(globals()[var], torch.nn.Module):
-                    del globals()[var]
-            
-            # 2. 彻底释放显存
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-            
-            # 3. 强制释放Python对象
-            gc.collect()
-            
-    
+        # 训练结束后强制释放显存（CPU-only环境下无需此操作）
+        pass
 
 
 def get_max_epoch(log_path):
@@ -206,8 +186,8 @@ def main():
     # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int) 
 
     # NC - 9
-    nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
-    nc_labels_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
+    nc_data_org = np.load(r"D:\Scientific research\deep learning\DESC\DataSet\Downloaded Datasets\NC-30-species/X_reference.npy")
+    nc_labels_org = np.load(r"D:\Scientific research\deep learning\DESC\DataSet\Downloaded Datasets\NC-30-species/y_reference.npy").astype(int)
     keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
     data = nc_data_org[keep_indices]
     label = nc_labels_org[keep_indices]
@@ -251,7 +231,7 @@ def main():
     lr = 1.0e-4
     bs = 512
     resolution = 1
-    work_path = os.path.join('home_pc', f'NC-9','test')
+    work_path = os.path.join('home_pc', f'NC-9','VADER_1')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
     train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 3, work_path, pretrain, pretrain_path))
 

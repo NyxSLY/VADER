@@ -3,12 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.cluster import KMeans
 import numpy as np
-from scipy import signal,sparse
+from scipy import signal
 import os
 import torch.cuda
-from utility import leiden_clustering, compute_cluster_means
-import time
-from collections import defaultdict
+from utility import leiden_clustering
 import networkx as nx
 from sklearn.neighbors import NearestNeighbors
 from community import community_louvain

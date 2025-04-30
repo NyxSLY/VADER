@@ -164,7 +164,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     model.spectral_analyzer.analyze_dataset(dataloader)
     
     # 可选：保存分析结果
-    model.spectral_analyzer.save_analysis_results()
+    # model.spectral_analyzer.save_analysis_results()
     
     for epoch in range(train_config['start_epoch'], 
                       train_config['start_epoch'] + model.epochs):

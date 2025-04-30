@@ -4,17 +4,14 @@ import torch
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
-import matplotlib
 from sklearn.manifold import TSNE
 from typing import Optional, Dict, Union, Any, Tuple, Mapping
 from torch.distributions import Normal
 import random
 from torch.utils.data import DataLoader, TensorDataset
 import os
-from scipy.optimize import linear_sum_assignment
 import datetime, pywt
-from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
-from scipy.sparse import spmatrix, csr_matrix
+from sklearn.metrics import adjusted_rand_score
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -26,10 +23,8 @@ def set_random_seed(seed):
         torch.cuda.manual_seed_all(seed)  # 将所有设备上的随机数生成器的种子设置为相同的
 
 def set_device(dev):
-    if dev is None:
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    elif dev:
-        device = torch.device(dev)
+    # 强制使用CPU
+    device = torch.device("cpu")
     return device
 
 def create_project_folders(project_name: str) -> str:
@@ -628,40 +623,3 @@ def wavelet_transform(data, wavelet='db4', level=3):
     
     return np.array(transformed_data)
 
-
-def inverse_wavelet_transform(transformed_data, original_length, wavelet='db4', level=3):
-    """
-    进行小波逆变换
-    
-    参数:
-    transformed_data: 小波变换后的数据
-    original_length: 原始信号长度
-    wavelet: str, 小波基函数类型
-    level: int, 分解层数
-    
-    返回:
-    reconstructed_data: 重构后的数据
-    """
-    n_samples = transformed_data.shape[0]
-    reconstructed_data = []
-    
-    # 计算每层的系数长度
-    coeffs_length = []
-    dummy_data = np.zeros(original_length)
-    dummy_coeffs = pywt.wavedec(dummy_data, wavelet, level=level)
-    for coeff in dummy_coeffs:
-        coeffs_length.append(len(coeff))
-    
-    for i in range(n_samples):
-        # 分离系数
-        pos = 0
-        coeffs = []
-        for length in coeffs_length:
-            coeffs.append(transformed_data[i, pos:pos+length])
-            pos += length
-        
-        # 重构信号
-        reconstructed = pywt.waverec(coeffs, wavelet)
-        reconstructed_data.append(reconstructed)
-    
-    return np.array(reconstructed_data)

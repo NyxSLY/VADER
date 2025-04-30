@@ -7,7 +7,7 @@ from scipy.optimize import linear_sum_assignment
 from utility import visualize_clusters, plot_reconstruction, generate_spectra_from_means
 from config import config
 from torch.utils.tensorboard import SummaryWriter
-from utility import leiden_clustering,inverse_wavelet_transform
+from utility import leiden_clustering
 class ModelEvaluator:
     """
     模型评估器,用于计算模型在验证集或测试集上的各种指标,并保存结果。
