@@ -15,7 +15,10 @@ import math
 from tqdm import tqdm
 import itertools
 from scipy.optimize import linear_sum_assignment
-
+from nflows.flows import Flow
+from nflows.distributions import StandardNormal
+from nflows.transforms import CompositeTransform, AffineCouplingTransform, ReversePermutation
+from nflows.nn.nets import MLP
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, intermediate_dim,latent_dim):
@@ -453,7 +456,28 @@ class VaDE(nn.Module):
         
         # 确保所有组件都在正确的设备上
         self.to(device)
+        self.flow = self._build_flow(latent_dim, num_layers=3, hidden_dim=128).to(device)
 
+    def _build_flow(self, latent_dim, num_layers=4, hidden_dim=128):
+        # 构建 RealNVP/MAF 等 flow
+        transforms = []
+        for _ in range(num_layers):
+            transforms.append(ReversePermutation(features=latent_dim))
+            transforms.append(
+                AffineCouplingTransform(
+                    mask=torch.arange(0, latent_dim) % 2,
+                    transform_net_create_fn=lambda in_features, out_features: MLP(
+                        in_features=in_features,
+                        out_features=out_features,
+                        hidden_features=hidden_dim,
+                        num_hidden_layers=2,
+                    )
+                )
+            )
+        transform = CompositeTransform(transforms)
+        base_dist = StandardNormal([latent_dim])
+        return Flow(transform, base_dist)
+    
     def _init_spectral_stats(self):
         """初始化光谱统计数据并确保在正确的设备上"""
         self.spectral_stats = {
@@ -696,7 +720,8 @@ class VaDE(nn.Module):
     def forward(self,x):
         """模型前向传播"""
         mean, log_var = self.encoder(x)
-        z = self.reparameterize(mean, log_var)
+        z0 = self.reparameterize(mean, log_var)
+        z, log_det = self.flow(z0)
         
         # 通过GMM获取所有需要的值
         means, log_variances, y, gamma, pi = self.gaussian(z)
@@ -704,7 +729,7 @@ class VaDE(nn.Module):
         # 解码
         recon_x = self.decoder(z)
         
-        return recon_x, mean, log_var, z, gamma, pi
+        return recon_x, mean, log_var, z0, gamma, pi, z
 
 
     def train_step(self, x):
@@ -713,10 +738,10 @@ class VaDE(nn.Module):
             x: 输入数据
         """
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = self(x)
+        recon_x, mean, log_var, z0, gamma, pi, z = self(x)
         
         # 计算损失
-        loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
+        loss = self.loss_function(recon_x, x, mean, log_var, z0, gamma, pi, z)
         
         return loss
 
