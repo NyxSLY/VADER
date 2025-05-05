@@ -225,13 +225,13 @@ def main():
     # label = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/Y_Apr_C3D3.npy").astype(int)  
   
          
-    epoch = 300
-    pretrain = 100
+    epoch = 100
+    pretrain = 20
     latent_dim = 20
     lr = 1.0e-4
     bs = 512
     resolution = 1
-    work_path = os.path.join('home_pc', f'NC-9','VADER_1')
+    work_path = os.path.join('home_pc', f'NC-9','test')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
     train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 3, work_path, pretrain, pretrain_path))
 
