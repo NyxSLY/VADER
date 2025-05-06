@@ -225,8 +225,8 @@ def main():
     # label = np.load(r"/mnt/sda/gene/zhangym/Ocean_environment/Y_Apr_C3D3.npy").astype(int)  
   
          
-    epoch = 100
-    pretrain = 20
+    epoch = 300
+    pretrain = 100
     latent_dim = 20
     lr = 1.0e-4
     bs = 512

@@ -15,7 +15,10 @@ import math
 from tqdm import tqdm
 import itertools
 from scipy.optimize import linear_sum_assignment
-
+from nflows.flows import Flow
+from nflows.distributions import StandardNormal
+from nflows.transforms import CompositeTransform, AffineCouplingTransform, ReversePermutation
+from nflows.nn.nets import MLP
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, intermediate_dim,latent_dim):
@@ -405,6 +408,15 @@ class SpectralAnalyzer:
             return True
         return False
 
+class ContextMLP(nn.Module):  
+    def __init__(self, *args, **kwargs):  
+        super().__init__()  
+        self.mlp = MLP(*args, **kwargs)  
+        self.scale_limit = 2.0
+
+    def forward(self, x, context=None):  
+        out = self.mlp(x)
+        return torch.tanh(out) * self.scale_limit
 
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, 
@@ -453,7 +465,27 @@ class VaDE(nn.Module):
         
         # 确保所有组件都在正确的设备上
         self.to(device)
+        self.flow = self._build_flow(latent_dim, num_layers=3, hidden_dim=64).to(device)
 
+    def _build_flow(self, latent_dim, num_layers=3, hidden_dim=128):
+        transforms = []
+        for _ in range(num_layers):
+            mask = (np.arange(latent_dim) % 2).astype(np.float32)
+            transforms.append(ReversePermutation(features=latent_dim))
+            transforms.append(
+                AffineCouplingTransform(
+                    mask=mask,
+                    transform_net_create_fn=lambda in_features, out_features: ContextMLP(
+                        in_shape=(in_features,),
+                        out_shape=(out_features,),
+                        hidden_sizes=[hidden_dim, hidden_dim],
+                    )
+                )
+            )
+        transform = CompositeTransform(transforms)
+        base_dist = StandardNormal([latent_dim])
+        return Flow(transform, base_dist)
+    
     def _init_spectral_stats(self):
         """初始化光谱统计数据并确保在正确的设备上"""
         self.spectral_stats = {
@@ -696,7 +728,8 @@ class VaDE(nn.Module):
     def forward(self,x):
         """模型前向传播"""
         mean, log_var = self.encoder(x)
-        z = self.reparameterize(mean, log_var)
+        z0 = self.reparameterize(mean, log_var)
+        z, log_det = self.flow._transform.forward(z0) 
         
         # 通过GMM获取所有需要的值
         means, log_variances, y, gamma, pi = self.gaussian(z)
@@ -704,21 +737,7 @@ class VaDE(nn.Module):
         # 解码
         recon_x = self.decoder(z)
         
-        return recon_x, mean, log_var, z, gamma, pi
-
-
-    def train_step(self, x):
-        """单步训练
-        Args:
-            x: 输入数据
-        """
-        # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = self(x)
-        
-        # 计算损失
-        loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
-        
-        return loss
+        return recon_x, mean, log_var, z0, gamma, pi, z
 
     def compute_spectral_constraints(self, x, recon_x):
         """计算光谱约束时只使用数据集统计信息"""
@@ -743,7 +762,7 @@ class VaDE(nn.Module):
         return weightd_mse
 
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
+    def compute_loss(self, x, recon_x, mean, log_var, z0, z, y):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
@@ -768,15 +787,21 @@ class VaDE(nn.Module):
         
         # 3. GMM先验的KL散度
         try:
-            kl_gmm = torch.sum(
-                0.5 * gamma_t * (
-                    self.latent_dim * math.log(2*math.pi) +
-                    torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
-                    torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
-                ),
-                dim=(1,2)
-            )
+            # kl_gmm = torch.sum(
+            #     0.5 * gamma_t * (
+            #         self.latent_dim * math.log(2*math.pi) +
+            #         torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
+            #         torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
+            #         (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+            #     ),
+            #     dim=(1,2)
+            # )
+            log_qz0 = -0.5 * (((z0.unsqueeze(1) - gaussian_means)**2) / torch.exp(gaussian_log_vars) + gaussian_log_vars + torch.log(torch.tensor(2 * math.pi))).sum(dim=-1)
+            log_qz0 = torch.logsumexp(log_qz0 + torch.log(self.gaussian.pi + 1e-10), dim=1)
+            log_pz = self.flow.log_prob(z).sum(dim=-1)
+            kl_gmm = log_qz0 - log_pz
+            # print(f'kl_gmm: {kl_gmm.mean().item()}')
+
         except RuntimeError as e:
             print(f"Error in KL_GMM calculation:")
             print(f"gamma_t shape: {gamma_t.shape}")
@@ -804,7 +829,7 @@ class VaDE(nn.Module):
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
         
         # 返回损失字典
-        
+        # print(f'loss: {loss.item()}')
         loss_dict = {
             'total_loss': loss,
             'recon_loss': recon_loss.mean().item(),
