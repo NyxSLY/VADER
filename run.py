@@ -226,12 +226,12 @@ def main():
   
          
     epoch = 300
-    pretrain = 100
+    pretrain = 10
     latent_dim = 20
     lr = 1.0e-4
     bs = 512
-    resolution = 1
-    work_path = os.path.join('home_pc', f'NC-9','VADER_1')
+    resolution = 0.8
+    work_path = os.path.join('home_pc', f'NC-9','VADER_cahnge_pi_2')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
     train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 3, work_path, pretrain, pretrain_path))
 

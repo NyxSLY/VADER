@@ -291,7 +291,8 @@ class Gaussian(nn.Module):
         self.latent_dim = latent_dim
         
         # 初始化参数
-        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
+        # self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
+        self.pi = nn.Parameter(torch.ones(latent_dim, num_clusters))
         self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
         self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
 
@@ -325,10 +326,10 @@ class Gaussian(nn.Module):
         z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
         means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
         log_vars_expanded = self.log_variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
+        pi_expanded = self.pi.unsqueeze(0)  # [1, latent_dim, num_clusters]
     
         log_p_c = (
-            torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
+            torch.sum(torch.log(pi_expanded.permute(0,2,1)) + 1e-10, dim=2)  # 混合权重项，在latent_dim维度上求和
             - 0.5 * torch.sum(torch.log(2*math.pi*torch.exp(log_vars_expanded)), dim=2)  # 常数项和方差项
             - torch.sum((z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
         )
@@ -641,14 +642,19 @@ class VaDE(nn.Module):
             array = np.vstack((array, padding))
         return array
 
-    def  change_pi(self,array,n,w=1):
-
-        if array.shape[0]>=n:
-            array = array[:n]
+    def change_pi(self, array, n, w=1):
+        """处理pi数组，适应新的维度 [latent_dim, num_clusters]
+        Args:
+            array: 输入数组 [latent_dim, num_clusters]
+            n: 目标聚类数
+            w: 权重因子
+        """
+        if array.shape[1] >= n:
+            array = array[:, :n]
         else:
-            mean_value = np.mean(array)*w
-            padding = np.full(n - array.shape[0], mean_value)
-            array = np.concatenate((array, padding))
+            mean_value = np.mean(array, axis=1, keepdims=True) * w
+            padding = np.tile(mean_value, (1, n - array.shape[1]))
+            array = np.hstack((array, padding))
         return array
 
 
@@ -790,9 +796,11 @@ class VaDE(nn.Module):
         kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) # - mean.pow(2) - torch.exp(log_var)
         
         # 5. GMM熵项
-        pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
+        pi = self.gaussian.pi  # [latent_dim, num_clusters]
+        # 在latent_dim维度上对pi取平均
+        pi_mean = torch.mean(pi, dim=0)  # [num_clusters]
         entropy = (
-            -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
+            -torch.sum(torch.log(pi_mean + 1e-10) * gamma, dim=-1) +
             torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
         )
 

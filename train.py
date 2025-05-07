@@ -188,6 +188,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
 
         recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+        print('pi, ',pi)
+
         gmm_probs = gamma.detach().cpu().numpy()
         
         # skip update kmeans centers
