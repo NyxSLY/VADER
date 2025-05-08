@@ -96,10 +96,10 @@ def train_wrapper(args):
         ).to(device)
         
         model.kmeans_init = 'random'
-        # model.pretrain(
-        #     dataloader=dataloader,
-        #     save_path = pretrain_path
-        # ) 
+        model.pretrain(
+            dataloader=dataloader,
+            save_path = pretrain_path
+        ) 
         model = train_manager( model=model,
                             dataloader=dataloader,
                             tensor_gpu_data=tensor_gpu_data,
@@ -204,16 +204,16 @@ def main():
     # label = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int) 
 
     # NC - 9
-    # nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
-    # keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
-    # data = nc_data_org[keep_indices]
-    # label = nc_labels_org[keep_indices]
+    nc_data_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
+    nc_labels_org = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
+    keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
+    data = nc_data_org[keep_indices]
+    label = nc_labels_org[keep_indices]
 
     
     # HP
-    data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
-    label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
+    # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
+    # label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
 
     # Algae
     # data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
@@ -229,13 +229,13 @@ def main():
     # labels = ['AB','EC','Pae','SA','SE','U','AOP','AFP','DH','H','KWP','ML','PL','SM','Others','U2']
     # label = labels[data_Y]
 
-    epoch = 2000
-    pretrain = 666
+    epoch = 300
+    pretrain = 100
     latent_dim = 20
     lr = 0.0001
-    bs = 256
+    bs = 512
     resolution = 1
-    work_path = os.path.join('home_pc', f'Retest','HP')
+    work_path = os.path.join('home_pc', f'NC-9','test')
     pretrain_path = os.path.join('./pretrain_model_', f'Noise_15s_VAE{pretrain}_latent={latent_dim}_{lr}_{bs}.pk')
     train_wrapper(((data, label, epoch), latent_dim, lr, False, resolution, bs, 4, work_path, pretrain, pretrain_path))
 

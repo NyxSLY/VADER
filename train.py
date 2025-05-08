@@ -101,6 +101,43 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
         
     return total_metrics
 
+def save_gmm_parameters(epoch, gmm_means, gmm_log_variances, pi, save_dir='./gmm_parameters'):
+    """保存GMM参数到txt文件，每个cluster的参数存储在一个文件中
+    Args:
+        model: VaDE模型实例
+        epoch: 当前epoch数
+        save_dir: 保存目录
+    """
+    # 创建保存目录
+    os.makedirs(save_dir, exist_ok=True)
+
+    # 对每个cluster，将其参数保存到对应的文件中
+    for i in range(gmm_means.shape[0]):
+        # 构建当前epoch的参数行
+        # 格式: epoch means_values log_variances_values pi_values
+        params_row = np.concatenate([
+            [epoch], # epoch数
+            gmm_means[i], # 当前cluster的means
+            gmm_log_variances[i], # 当前cluster的log_variances
+            [pi[i] ] # 当前cluster的pi值
+            ])
+
+        # 保存到对应的cluster文件
+        cluster_file = os.path.join(save_dir, f'cluster_{i}_parameters.txt')
+
+        # 如果文件不存在，创建文件并写入表头
+        if not os.path.exists(cluster_file):
+            with open(cluster_file, 'w') as f:
+                # 写入表头
+                header = ['epoch']
+                header.extend([f'mean_{j}' for j in range(gmm_means.shape[1])])
+                header.extend([f'log_var_{j}' for j in range(gmm_log_variances.shape[1])])
+                header.extend([f'pi'])
+                f.write('\t'.join(header) + '\n')
+
+        # 追加当前epoch的参数
+        with open(cluster_file, 'a') as f:
+            f.write('\t'.join([f'{x:.6f}' for x in params_row]) + '\n')
 
 def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths):
     """管理整个训练流程"""
@@ -210,6 +247,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # 记录学习率
         recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
         gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
+        save_gmm_parameters(epoch,gmm_means.detach().cpu().numpy(), gmm_log_variances.detach().cpu().numpy(), pi.detach().cpu().numpy(), save_dir='./gmm_parameters_2')
 
         min_y = torch.min(y, axis=1)
         max_y = torch.max(y, axis=1)
