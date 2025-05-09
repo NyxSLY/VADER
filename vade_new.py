@@ -647,7 +647,7 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def update_kmeans_centers(self):
         print(f'Update clustering centers..........')
-        encoded_data, _ = self.encoder(self.tensor_gpu_data)
+        encoded_data, _, S = self.encoder(self.tensor_gpu_data)
         encoded_data_cpu = encoded_data.cpu().numpy()
 
         # update the clustering centers
