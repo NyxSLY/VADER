@@ -41,9 +41,11 @@ def main():
     #                                     nc_labels_org == 20) | (nc_labels_org == 24))
     # oc_train_data = nc_data_org[keep_indices]
     # oc_train_label = nc_labels_org[keep_indices]
-
-    oc_train_data = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_X_processed.npy")
-    oc_train_label = np.load(r"/mnt/sda/zhangym/VADER/Data/HP_Y_processed.npy").astype(int)
+    nc_data_org = np.load(r"D:\Scientific research\deep learning\DESC\DataSet\Downloaded Datasets\NC-30-species/X_reference.npy")
+    nc_labels_org = np.load(r"D:\Scientific research\deep learning\DESC\DataSet\Downloaded Datasets\NC-30-species/y_reference.npy").astype(int)
+    keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
+    oc_train_data = nc_data_org[keep_indices]
+    oc_train_label = nc_labels_org[keep_indices]
 
 
     # 准备数据
@@ -55,7 +57,7 @@ def main():
     # 获取模型配置
     input_dim = tensor_data.shape[1]
     num_classes = 10 # len(unique_label)
-    project_dir = create_project_folders("home_pc_HP")
+    project_dir = create_project_folders("Test_MCR")
     
     weight_scheduler_config = config.get_weight_scheduler_config()
     paths = config.get_project_paths(project_dir, num_classes,
@@ -74,6 +76,7 @@ def main():
         intermediate_dim=model_params['intermediate_dim'],
         latent_dim=model_params['latent_dim'],
         tensor_gpu_data=tensor_gpu_data,
+        n_components=20,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],

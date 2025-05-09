@@ -20,232 +20,49 @@ from scipy.optimize import linear_sum_assignment
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim,latent_dim):
+    def __init__(self, input_dim, intermediate_dim, latent_dim, n_components, S=None):
         """
         Args:
             input_dim: 输入维度
             intermediate_dim: 中间维度
-            latent_dim: 潜在空间
+            latent_dim: 潜在空间维度
+            n_components: MCR成分数
+            S: MCR成分光谱矩阵 [n_components, input_dim]
         """
         super(Encoder, self).__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
+        self.n_components = n_components
+
+        # 注册MCR成分光谱矩阵S
+        if S is not None:
+            self.S = nn.Parameter(torch.tensor(S, dtype=torch.float32))
+        else:
+            # 如果没有提供S，随机初始化
+            self.S = nn.Parameter(torch.randn(n_components, n_components, dtype=torch.float32))
 
         layers = []
         prev_dim = input_dim
         for dim in intermediate_dim:
             layers.extend([
                 nn.Linear(prev_dim, dim),
-                # nn.BatchNorm1d(dim),
                 nn.ReLU(),
             ])
             prev_dim = dim
 
         self.net = nn.Sequential(*layers)
 
-        self.to_mean = nn.Linear(intermediate_dim[-1], latent_dim)
-        self.to_logvar = nn.Linear(intermediate_dim[-1], latent_dim)
+        # 修改输出层，输出浓度相关参数
+        self.to_concentration = nn.Linear(intermediate_dim[-1], latent_dim)  # 浓度均值
+        # self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], latent_dim)  # 浓度方差, (c+σ)S
+        self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], n_components)  # 分解损失, cS+σ
 
     def forward(self, x):
         x = self.net(x)
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-        return mean, log_var
+        concentration = self.to_concentration(x)  # 浓度均值
+        concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
+        return concentration, concentration_logvar, self.S  
 
-#CNN
-class CNNEncoder(nn.Module):
-    def __init__(self, input_dim, cnn1,cnn2,cnn3,latent_dim):
-        super(CNNEncoder, self).__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-
-        # 残差块
-        self.conv_layers = nn.ModuleList([
-            self.make_res_block(1, cnn1, kernel_size=5),
-            self.make_res_block(cnn1, cnn2, kernel_size=15),
-            self.make_res_block(cnn2, cnn3, kernel_size=25),
-        ])
-
-        # 自适应归一化
-        self.adaptive_norm = AdaptiveNormalization(alpha=0.1)
-
-        # 输出层
-        self.to_mean = nn.Linear(cnn3, latent_dim)
-        self.to_logvar = nn.Linear(cnn3, latent_dim)
-
-    def make_res_block(self, in_channels, out_channels, kernel_size):
-        return nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-            nn.Conv1d(out_channels, out_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(out_channels),
-        )
-
-    def forward(self, x):
-        # 调整输入形状为 [batch_size, channels=1, sequence_length]
-        x = x.unsqueeze(1)
-
-        # 适应归一化
-        x = self.adaptive_norm(x)
-
-        # 遍历残差块
-        for res_block in self.conv_layers:
-            identity = x
-            x = res_block(x)
-
-            # 确保形状一致后再残差连接
-            if x.shape == identity.shape:
-                x = x + identity
-            x = F.relu(x)
-
-        # 展平为向量
-        x = x.mean(dim=-1)  # 取序列均值作为特征向量
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-
-        return mean, log_var
-
-# 多尺度
-class AdvancedEncoder(nn.Module):
-    def __init__(self, input_dim,cnn1,cnn2,cnn3, latent_dim):
-        super(AdvancedEncoder, self).__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-
-        # 多尺度空洞卷积块
-        self.dilated_blocks = nn.ModuleList([
-            self.make_dilated_block(1, cnn1, kernel_size=21, dilation=1),
-            self.make_dilated_block(cnn1, cnn2, kernel_size=21, dilation=2),
-            self.make_dilated_block(cnn2, cnn3, kernel_size=21, dilation=4),
-        ])
-
-        # 多尺度池化层
-        self.multi_scale_pool = MultiScalePooling(cnn3)
-
-        # 输出层
-        self.to_mean = nn.Linear(cnn3*len(self.multi_scale_pool.scales), latent_dim)
-        self.to_logvar = nn.Linear(cnn3*len(self.multi_scale_pool.scales), latent_dim)
-
-    def forward(self, x):
-        # 调整输入形状
-        x = x.unsqueeze(1)
-
-        # 空洞卷积块
-        for dilated_block in self.dilated_blocks:
-            identity = x
-            x = dilated_block(x)
-
-            # 确保形状一致后再残差连接
-            if x.shape == identity.shape:
-                x = x + identity
-            x = F.relu(x)
-
-        # 多尺度池化
-        x = self.multi_scale_pool(x)
-
-        # 展平为向量
-        x = x.mean(dim=-1)
-        mean = self.to_mean(x)
-        log_var = self.to_logvar(x)
-
-        return mean, log_var
-
-    @staticmethod
-    def make_dilated_block(in_channels, out_channels, kernel_size, dilation):
-        padding = ((kernel_size - 1) * dilation) // 2
-        return nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, padding=padding, dilation=dilation,stride=2),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-            nn.Conv1d(out_channels, out_channels, kernel_size, padding=padding, dilation=dilation,stride=1),
-            nn.BatchNorm1d(out_channels),
-        )
-
-class MultiScalePooling(nn.Module):
-    def __init__(self, in_channels):
-        super().__init__()
-        self.scales = [5, 10, 20, 40]  # 不同池化尺度
-
-        self.pools = nn.ModuleList([
-            nn.Sequential(
-                nn.AvgPool1d(scale),
-                nn.Conv1d(in_channels, in_channels, 1),  # 1x1卷积保持通道数
-                nn.BatchNorm1d(in_channels),
-                nn.ReLU()
-            ) for scale in self.scales
-        ])
-
-    def forward(self, x):
-        """对输入进行多尺度池化处理
-
-        Args:
-            x: 输入张量 [batch, channels, length]
-
-        Returns:
-            多尺度池化后的特征张量
-        """
-        original_size = x.size(-1)
-        outputs = []
-
-        # 对每个尺度进行池化
-        for pool in self.pools:
-            pooled = pool(x)
-            # 上采样回原始大小
-            pooled = F.interpolate(
-                pooled,
-                size=original_size,
-                mode='linear',
-                align_corners=True
-            )
-            outputs.append(pooled)
-        concatenated = torch.cat(outputs, dim=1)
-        # 合并所有尺度的特征
-        return concatenated
-
-class AdaptiveNormalization(nn.Module):
-    def __init__(self, alpha=0.1):
-        super(AdaptiveNormalization, self).__init__()
-        self.alpha = alpha
-    def forward(self, x):
-        # 计算峰值区域
-        peaks = self.find_peaks(x)
-        # 计算权重
-        weights = 1 + self.alpha * peaks
-        # 归一化
-        mean = x.mean(dim=2, keepdim=True)
-        std = x.std(dim=2, keepdim=True)
-        return weights * (x - mean) / (std + 1e-5)
-
-    def find_peaks(self, x):
-        """使用scipy.signal.find_peaks进行峰值检测
-
-        Args:
-            x: 输入光谱张量 [batch, 1, spectrum_length]
-
-        Returns:
-            peaks: 峰值位置的二值张量 [batch, 1, spectrum_length]
-        """
-        # 将tensor转为numpy进行处理
-        x_np = x.detach().cpu().numpy()
-        batch_size = x_np.shape[0]
-        spec_len = x_np.shape[2]
-        peaks = torch.zeros_like(x)
-
-        for i in range(batch_size):
-            # 对每个光谱进行峰值检测
-            spectrum = x_np[i, 0]
-            max_intensity = np.max(spectrum)
-            peak_indices, _ = signal.find_peaks(
-                spectrum,
-                height=0.1 * max_intensity,  # 最小峰高
-                distance=10,  # 峰间最小距
-                prominence=0.05 * max_intensity  # 小突出度
-            )
-            # 将峰值位置标记为1
-            peaks[i, 0, peak_indices] = 1.0
-
-        return peaks.to(x.device)
 
 class SpectralConstraints(nn.Module):
     def __init__(self, method='poly', poly_degree=3, window_size=50):
@@ -415,6 +232,7 @@ class PeakDetector(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dim,intermediate_dim, input_dim):
         super(Decoder, self).__init__()
+        
 
         decoder_dims = intermediate_dim[::-1]
 
@@ -558,108 +376,9 @@ class SpectralAnalyzer:
             return True
         return False
 
-class SpectralConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        # 多尺度卷积捕获不同范围的光谱特征
-        self.conv_small = nn.Conv1d(in_channels, out_channels//3, kernel_size=3, padding=1)
-        self.conv_medium = nn.Conv1d(in_channels, out_channels//3, kernel_size=7, padding=3)
-        self.conv_large = nn.Conv1d(in_channels, out_channels//3, kernel_size=11, padding=5)
-        
-        self.bn = nn.BatchNorm1d(out_channels)
-        self.relu = nn.ReLU()
-        
-    def forward(self, x):
-        # 多尺度特征融合
-        x_small = self.conv_small(x)
-        x_medium = self.conv_medium(x)
-        x_large = self.conv_large(x)
-        x = torch.cat([x_small, x_medium, x_large], dim=1)
-        return self.relu(self.bn(x))
-
-class SpectralAttention(nn.Module):
-    def __init__(self, channels):
-        super().__init__()
-        self.gap = nn.AdaptiveAvgPool1d(1)  # 全局平均池化
-        self.fc = nn.Sequential(
-            nn.Linear(channels, channels // 4),
-            nn.ReLU(),
-            nn.Linear(channels // 4, channels),
-            nn.Sigmoid()
-        )
-        
-    def forward(self, x):
-        b, c, _ = x.size()
-        # 计算通道注意力权重
-        y = self.gap(x).view(b, c)
-        y = self.fc(y).view(b, c, 1)
-        # 应用注意力
-        return x * y.expand_as(x)
-
-class ImprovedSpectralEncoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim):
-        super().__init__()
-        
-        # 特征提取层
-        self.feature_extractor = nn.Sequential(
-            SpectralConvBlock(1, 32),
-            SpectralAttention(32),
-            SpectralConvBlock(32, 64),
-            SpectralAttention(64),
-            SpectralConvBlock(64, 128),
-            SpectralAttention(128)
-        )
-        
-        # 峰值检测分支
-        self.peak_branch = nn.Sequential(
-            nn.Conv1d(128, 64, kernel_size=1),
-            nn.ReLU(),
-            nn.Conv1d(64, 32, kernel_size=1)
-        )
-        
-        # 基线分支
-        self.baseline_branch = nn.Sequential(
-            nn.Conv1d(128, 64, kernel_size=15, padding=7),
-            nn.ReLU(),
-            nn.Conv1d(64, 32, kernel_size=15, padding=7)
-        )
-        
-        # 特征融合
-        self.fusion = nn.Sequential(
-            nn.Linear(input_dim * 64, intermediate_dim),
-            nn.LeakyReLU(),
-            nn.Dropout(0.2)
-        )
-        
-        # 输出层
-        self.to_mean = nn.Linear(intermediate_dim, latent_dim)
-        self.to_logvar = nn.Linear(intermediate_dim, latent_dim)
-        
-    def forward(self, x):
-        # 添加通道维度
-        x = x.unsqueeze(1)
-        
-        # 特征提取
-        features = self.feature_extractor(x)
-        
-        # 分支处理
-        peak_features = self.peak_branch(features)
-        baseline_features = self.baseline_branch(features)
-        
-        # 特征融合
-        combined = torch.cat([peak_features, baseline_features], dim=1)
-        batch_size = combined.size(0)
-        combined = combined.view(batch_size, -1)
-        fused = self.fusion(combined)
-        
-        # 生成均值和方差
-        mean = self.to_mean(fused)
-        logvar = self.to_logvar(fused)
-        
-        return mean, logvar
 
 class VaDE(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, 
+    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components,
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
@@ -670,7 +389,8 @@ class VaDE(nn.Module):
         self.latent_dim = latent_dim
         self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
-        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim)
+        self.n_components = n_components
+        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
         self.gaussian = Gaussian(num_classes, latent_dim)
         self.cluster_centers = None
@@ -728,37 +448,15 @@ class VaDE(nn.Module):
         # 更新SpectralAnalyzer的统计数据
         self.spectral_analyzer.stats = self.spectral_stats
 
-    # def init_weights(self, m):
-    #     if isinstance(m, nn.Linear):
-    #         torch.nn.init.kaiming_normal_(m.weight)
-    #         if m.bias is not None:
-    #             m.bias.data.fill_(0.01)
-
 
     @staticmethod
-    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim):
+    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim, n_components):
         """初始化编码器"""
         if encoder_type == "basic":
-
-            return Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim)
-        elif encoder_type == "cnn":
-            cnn1 = l_c_dim['cnn1']
-            cnn2 = l_c_dim['cnn2']
-            cnn3 = l_c_dim['cnn3']
-            return CNNEncoder(input_dim, cnn1,cnn2,cnn3,latent_dim)
-
-        elif encoder_type == "advanced":
-            cnn1 = l_c_dim['cnn1']
-            cnn2 = l_c_dim['cnn2']
-            cnn3 = l_c_dim['cnn3']
-            return AdvancedEncoder(input_dim,cnn1,cnn2,cnn3, latent_dim)
-        elif encoder_type == "ImprovedSpectralEncoder":
-            cnn1 = l_c_dim['cnn1']
-            cnn2 = l_c_dim['cnn2']
-            cnn3 = l_c_dim['cnn3']
-            return AdvancedEncoder(input_dim,cnn1,cnn2,cnn3, latent_dim)
+            return Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, 
+                         n_components=n_components)
         else:
-            raise ValueError(f"Unsupported encoder type: {encoder_type}")
+            raise ValueError(f"Unknown encoder type: {encoder_type}")
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
@@ -774,8 +472,8 @@ class VaDE(nn.Module):
                 for x,y in dataloader:
                     x=x.to(self.device)
 
-                    mean,var=self.encoder(x)
-                    z = self.reparameterize(mean, var)
+                    mean,var,S = self.encoder(x)
+                    z = self.reparameterize(mean, var, S)
                     x_=self.decoder(z)
                     loss=Loss(x,x_)
 
@@ -867,7 +565,7 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def init_kmeans_centers(self, dataloader):
         encoded_data = []
-        mean, _ = self.encoder(self.tensor_gpu_data)
+        mean, var, S = self.encoder(self.tensor_gpu_data)
         encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
@@ -980,16 +678,28 @@ class VaDE(nn.Module):
         self.gaussian.means.data.copy_(cluster_centers_t)
  
 
-    def reparameterize(self, mean, log_var):
+    def reparameterize(self, concentration, log_var,spectra):
+        """
+        重参数化过程，将浓度参数转换为潜在空间表示
+        Args:
+            concentration: 浓度均值 [batch_size, n_components]
+            log_var: 浓度方差 [batch_size, n_components]
+            spectra: 光谱矩阵 [n_components, input_dim]
+        Returns:
+            z: 潜在空间表示 [batch_size, latent_dim]
+        """
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
-        # eps = torch.distributions.Cauchy(0, 1).sample(mean.shape).to(self.device)
-        return mean + eps * std
+
+        # (C+σ)*S
+        # return torch.matmul(concentration + eps * std, spectra)
+        # CS+σ
+        return torch.matmul(concentration, spectra) + eps * std
 
     def forward(self,x):
         """模型前向传播"""
-        mean, log_var = self.encoder(x)
-        z = self.reparameterize(mean, log_var)
+        mean, log_var, S = self.encoder(x)
+        z = self.reparameterize(mean, log_var, S)
         
         # 通过GMM获取所有需要的值
         means, log_variances, y, gamma, pi = self.gaussian(z)
@@ -997,7 +707,7 @@ class VaDE(nn.Module):
         # 解码
         recon_x = self.decoder(z)
         
-        return recon_x, mean, log_var, z, gamma, pi
+        return recon_x, mean, log_var, z, gamma, pi, S
 
 
     def train_step(self, x):
@@ -1006,7 +716,7 @@ class VaDE(nn.Module):
             x: 输入数据
         """
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = self(x)
+        recon_x, mean, log_var, z, gamma, pi, S = self(x)
         
         # 计算损失
         loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
@@ -1063,7 +773,7 @@ class VaDE(nn.Module):
         
         # return constraints
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
+    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
@@ -1093,7 +803,7 @@ class VaDE(nn.Module):
                     self.latent_dim * math.log(2*math.pi) +
                     torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
                     torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                    (torch.matmul(mean, S) - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
             )
