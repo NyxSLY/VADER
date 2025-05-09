@@ -39,7 +39,7 @@ class Encoder(nn.Module):
             self.S = nn.Parameter(torch.tensor(S, dtype=torch.float32))
         else:
             # 如果没有提供S，随机初始化
-            self.S = nn.Parameter(torch.randn(n_components, n_components, dtype=torch.float32))
+            self.S = nn.Parameter(torch.randn(latent_dim, n_components, dtype=torch.float32))
 
         layers = []
         prev_dim = input_dim
