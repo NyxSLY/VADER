@@ -391,7 +391,7 @@ class VaDE(nn.Module):
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
-        self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
+        self.decoder = Decoder(latent_dim, intermediate_dim, n_components)
         self.gaussian = Gaussian(num_classes, latent_dim)
         self.cluster_centers = None
         self.lamb1 = lamb1
