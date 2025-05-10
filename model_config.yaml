@@ -10,7 +10,7 @@ base_paths:
 
 # 模型参数配置
 model_params:
-  latent_dim: 10
+  latent_dim: 20
   intermediate_dim: [512,1024,2048]
   learning_rate: 1.0e-4
   use_lr_scheduler: False
@@ -20,11 +20,11 @@ model_params:
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 100
   clustering_method: 'leiden'
-  resolution_1: 1
-  resolution_2: 1
+  resolution_1: 0.8
+  resolution_2: 0.8
 
   basic_parameters:
-    latent_dim: 10
+    latent_dim: 20
     intermediate_dim: [512,1024,2048]
   cnn_parameters:
     cnn1: 32

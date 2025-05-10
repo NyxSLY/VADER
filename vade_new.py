@@ -39,7 +39,7 @@ class Encoder(nn.Module):
             self.S = nn.Parameter(torch.tensor(S, dtype=torch.float32))
         else:
             # 如果没有提供S，随机初始化
-            self.S = nn.Parameter(torch.randn(latent_dim, n_components, dtype=torch.float32))
+            self.S = nn.Parameter(torch.randn(n_components, latent_dim, dtype=torch.float32))
 
         layers = []
         prev_dim = input_dim
@@ -53,9 +53,9 @@ class Encoder(nn.Module):
         self.net = nn.Sequential(*layers)
 
         # 修改输出层，输出浓度相关参数
-        self.to_concentration = nn.Linear(intermediate_dim[-1], latent_dim)  # 浓度均值
+        self.to_concentration = nn.Linear(intermediate_dim[-1], n_components)  # 浓度均值
         # self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], latent_dim)  # 浓度方差, (c+σ)S
-        self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], n_components)  # 分解损失, cS+σ
+        self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], latent_dim)  # 分解损失, cS+σ
 
     def forward(self, x):
         x = self.net(x)
@@ -391,7 +391,7 @@ class VaDE(nn.Module):
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
-        self.decoder = Decoder(latent_dim, intermediate_dim, n_components)
+        self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
         self.gaussian = Gaussian(num_classes, latent_dim)
         self.cluster_centers = None
         self.lamb1 = lamb1
@@ -566,7 +566,7 @@ class VaDE(nn.Module):
     def init_kmeans_centers(self, dataloader):
         encoded_data = []
         mean, var, S = self.encoder(self.tensor_gpu_data)
-        encoded_data.append(mean.cpu())
+        encoded_data.append(torch.matmul(mean, S).cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
         # 使用选定的聚类方法
@@ -648,7 +648,7 @@ class VaDE(nn.Module):
     def update_kmeans_centers(self):
         print(f'Update clustering centers..........')
         encoded_data, _, S = self.encoder(self.tensor_gpu_data)
-        encoded_data_cpu = encoded_data.cpu().numpy()
+        encoded_data_cpu = torch.matmul(encoded_data, S).cpu().numpy()
 
         # update the clustering centers
         ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
