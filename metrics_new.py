@@ -152,7 +152,7 @@ class ModelEvaluator:
         self.model.eval()
         with torch.no_grad():
             # 获取模型输出
-            recon_x, mean, log_var, z, gamma, pi, S = self.model(tensor_gpu_data)
+            recon_x, mean, log_var, z, gamma, pi = self.model(tensor_gpu_data)
             
             # 转换数据到CPU
             z_cpu = z.detach().cpu().numpy()

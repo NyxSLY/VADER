@@ -60,13 +60,13 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
         x = x[0].to(model.device)
         
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi, S = model(x)
+        recon_x, mean, log_var, z, gamma, pi = model(x)
         
         # 获取GMM的输出
         gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         
         # 损失计算
-        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y, S)
+        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
 
         
         # 反向传播
@@ -202,7 +202,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             scheduler_gmm.step()
 
         # 记录学习率
-        recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
+        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
         gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
 
         min_y = torch.min(y, axis=1)

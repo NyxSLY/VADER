@@ -20,7 +20,7 @@ from scipy.optimize import linear_sum_assignment
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim, n_components, S=None):
+    def __init__(self, input_dim, intermediate_dim, latent_dim, n_components):
         """
         Args:
             input_dim: 输入维度
@@ -33,13 +33,6 @@ class Encoder(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.n_components = n_components
-
-        # 注册MCR成分光谱矩阵S
-        if S is not None:
-            self.S = nn.Parameter(torch.tensor(S, dtype=torch.float32))
-        else:
-            # 如果没有提供S，随机初始化
-            self.S = nn.Parameter(torch.randn(n_components, latent_dim, dtype=torch.float32))
 
         layers = []
         prev_dim = input_dim
@@ -54,14 +47,14 @@ class Encoder(nn.Module):
 
         # 修改输出层，输出浓度相关参数
         self.to_concentration = nn.Linear(intermediate_dim[-1], n_components)  # 浓度均值
-        # self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], latent_dim)  # 浓度方差, (c+σ)S
-        self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], latent_dim)  # 分解损失, cS+σ
+        self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], n_components)  # 浓度方差, (c+σ)S
+        # self.to_concentration_logvar = nn.Linear(intermediate_dim[-1], latent_dim)  # 分解损失, cS+σ
 
     def forward(self, x):
         x = self.net(x)
         concentration = self.to_concentration(x)  # 浓度均值
         concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
-        return concentration, concentration_logvar, self.S  
+        return concentration, concentration_logvar
 
 
 class SpectralConstraints(nn.Module):
@@ -230,9 +223,10 @@ class PeakDetector(nn.Module):
         return peaks  # peaks已经在正确的设备上
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim,intermediate_dim, input_dim):
+    def __init__(self, latent_dim,intermediate_dim, input_dim, n_components):
         super(Decoder, self).__init__()
         
+        self.S = nn.Parameter(torch.randn(n_components, latent_dim, dtype=torch.float32))
 
         decoder_dims = intermediate_dim[::-1]
 
@@ -253,7 +247,7 @@ class Decoder(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, z):
-        return self.net(z)
+        return self.net(torch.mul(z,self.S))
 
 class Gaussian(nn.Module):
     def __init__(self, num_clusters, latent_dim):
@@ -391,8 +385,8 @@ class VaDE(nn.Module):
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
-        self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
-        self.gaussian = Gaussian(num_classes, latent_dim)
+        self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
+        self.gaussian = Gaussian(num_classes, n_components)
         self.cluster_centers = None
         self.lamb1 = lamb1
         self.lamb2 = lamb2
@@ -472,8 +466,8 @@ class VaDE(nn.Module):
                 for x,y in dataloader:
                     x=x.to(self.device)
 
-                    mean,var,S = self.encoder(x)
-                    z = self.reparameterize(mean, var, S)
+                    mean,var = self.encoder(x)
+                    z = self.reparameterize(mean, var)
                     x_=self.decoder(z)
                     loss=Loss(x,x_)
 
@@ -565,7 +559,7 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def init_kmeans_centers(self, dataloader):
         encoded_data = []
-        mean, var, S = self.encoder(self.tensor_gpu_data)
+        mean, var= self.encoder(self.tensor_gpu_data)
         encoded_data.append(torch.matmul(mean, S).cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
@@ -580,7 +574,7 @@ class VaDE(nn.Module):
         if num_clusters != self.gaussian.num_clusters:
             print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
             self.num_clusters = num_clusters
-            self.gaussian = Gaussian(num_clusters, self.latent_dim).to(self.device)
+            self.gaussian = Gaussian(num_clusters, self.n_components).to(self.device)
 
         # 直接用聚类中心更新高斯分布参数
         self.gaussian.means.data.copy_(cluster_centers)
@@ -647,8 +641,8 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def update_kmeans_centers(self):
         print(f'Update clustering centers..........')
-        encoded_data, _, S = self.encoder(self.tensor_gpu_data)
-        encoded_data_cpu = torch.matmul(encoded_data, S).cpu().numpy()
+        encoded_data, _= self.encoder(self.tensor_gpu_data)
+        encoded_data_cpu = encoded_data.cpu().numpy()
 
         # update the clustering centers
         ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
@@ -669,7 +663,7 @@ class VaDE(nn.Module):
             array_pi = self.gaussian.pi.cpu().numpy()
             aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
             aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
-            self.gaussian = Gaussian(num_ml_centers, self.latent_dim).to(self.device)
+            self.gaussian = Gaussian(num_ml_centers, self.n_components).to(self.device)
             cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
             cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
             self.gaussian.log_variances.data.copy_(cluster_var)
@@ -678,13 +672,12 @@ class VaDE(nn.Module):
         self.gaussian.means.data.copy_(cluster_centers_t)
  
 
-    def reparameterize(self, concentration, log_var,spectra):
+    def reparameterize(self, concentration, log_var):
         """
         重参数化过程，将浓度参数转换为潜在空间表示
         Args:
             concentration: 浓度均值 [batch_size, n_components]
             log_var: 浓度方差 [batch_size, n_components]
-            spectra: 光谱矩阵 [n_components, input_dim]
         Returns:
             z: 潜在空间表示 [batch_size, latent_dim]
         """
@@ -694,12 +687,12 @@ class VaDE(nn.Module):
         # (C+σ)*S
         # return torch.matmul(concentration + eps * std, spectra)
         # CS+σ
-        return torch.matmul(concentration, spectra) + eps * std
+        return concentration + eps * std
 
     def forward(self,x):
         """模型前向传播"""
-        mean, log_var, S = self.encoder(x)
-        z = self.reparameterize(mean, log_var, S)
+        mean, log_var= self.encoder(x)
+        z = self.reparameterize(mean, log_var)
         
         # 通过GMM获取所有需要的值
         means, log_variances, y, gamma, pi = self.gaussian(z)
@@ -707,7 +700,7 @@ class VaDE(nn.Module):
         # 解码
         recon_x = self.decoder(z)
         
-        return recon_x, mean, log_var, z, gamma, pi, S
+        return recon_x, mean, log_var, z, gamma, pi
 
 
     def train_step(self, x):
@@ -716,7 +709,7 @@ class VaDE(nn.Module):
             x: 输入数据
         """
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi, S = self(x)
+        recon_x, mean, log_var, z, gamma, pi = self(x)
         
         # 计算损失
         loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
@@ -773,7 +766,7 @@ class VaDE(nn.Module):
         
         # return constraints
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S):
+    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
@@ -803,7 +796,7 @@ class VaDE(nn.Module):
                     self.latent_dim * math.log(2*math.pi) +
                     torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
                     torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (torch.matmul(mean, S) - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
             )
