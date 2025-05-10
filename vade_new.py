@@ -247,7 +247,7 @@ class Decoder(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, z):
-        return self.net(torch.mul(z,self.S))
+        return self.net(torch.matmul(z,self.S))
 
 class Gaussian(nn.Module):
     def __init__(self, num_clusters, latent_dim):
@@ -560,7 +560,7 @@ class VaDE(nn.Module):
     def init_kmeans_centers(self, dataloader):
         encoded_data = []
         mean, var= self.encoder(self.tensor_gpu_data)
-        encoded_data.append(torch.matmul(mean, S).cpu())
+        encoded_data.append(mean.cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
         # 使用选定的聚类方法

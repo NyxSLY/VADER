@@ -144,7 +144,7 @@ def compare_kmeans_methods(model, dataloader, num_classes, n_runs=5):
     for data in dataloader:
         x, _ = data
         with torch.no_grad():
-            mean, _ = model.encoder(x)
+            mean, _, S = model.encoder(x)
         all_encoded_data.append(mean)
     encoded_data = torch.cat(all_encoded_data, dim=0).cpu().numpy()
 
