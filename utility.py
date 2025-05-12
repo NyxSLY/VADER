@@ -26,11 +26,11 @@ def set_random_seed(seed):
         torch.cuda.manual_seed_all(seed)  # 将所有设备上的随机数生成器的种子设置为相同的
 
 def set_device(dev):
-    # if dev is None:
-    #     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # elif dev:
-    #     device = torch.device(dev)
-    device = torch.device("cpu")
+    if dev is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    elif dev:
+        device = torch.device(dev)
+    # device = torch.device("cpu")
     return device
 
 def create_project_folders(project_name: str) -> str:

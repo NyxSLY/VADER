@@ -478,6 +478,9 @@ class VaDE(nn.Module):
                     loss=Loss(x,x_)
 
                     L+=loss.detach().cpu().numpy()
+                    # print('mean:', mean,'\n')
+                    # print('S:', S, '\n')
+                    print("S grad:", self.encoder.S.grad)
 
                     opti.zero_grad()
                     loss.backward()
@@ -843,7 +846,6 @@ class VaDE(nn.Module):
             'entropy': entropy.mean().item(),
             'spectral_loss': spectral_constraints.mean().item()
         }
-
         
         return loss_dict
 
