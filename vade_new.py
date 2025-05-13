@@ -61,7 +61,7 @@ class Encoder(nn.Module):
         x = self.net(x)
         concentration = self.to_concentration(x)  # 浓度均值
         concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
-        return concentration, concentration_logvar, self.S  
+        return concentration, concentration_logvar, self.S
 
 
 class SpectralConstraints(nn.Module):
@@ -378,7 +378,7 @@ class SpectralAnalyzer:
 
 
 class VaDE(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components,
+    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components,S,
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
@@ -390,6 +390,7 @@ class VaDE(nn.Module):
         self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
+        self.S = S.to(device)
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim)
         self.gaussian = Gaussian(num_classes, latent_dim)
@@ -472,15 +473,12 @@ class VaDE(nn.Module):
                 for x,y in dataloader:
                     x=x.to(self.device)
 
-                    mean,var,S = self.encoder(x)
-                    z = self.reparameterize(mean, var, S)
-                    x_=self.decoder(z)
+                    mean,var,S,component = self.encoder(x)
+                    # z = self.reparameterize(mean, var, S)
+                    x_=self.decoder(component)
                     loss=Loss(x,x_)
 
                     L+=loss.detach().cpu().numpy()
-                    # print('mean:', mean,'\n')
-                    # print('S:', S, '\n')
-                    print("S grad:", self.encoder.S.grad)
 
                     opti.zero_grad()
                     loss.backward()
@@ -568,7 +566,7 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def init_kmeans_centers(self, dataloader):
         encoded_data = []
-        mean, var, S = self.encoder(self.tensor_gpu_data)
+        mean, var, S, component = self.encoder(self.tensor_gpu_data)
         encoded_data.append(torch.matmul(mean, S).cpu())
         encoded_data = torch.cat(encoded_data, dim=0).numpy()
 
@@ -650,7 +648,7 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def update_kmeans_centers(self):
         print(f'Update clustering centers..........')
-        encoded_data, _, S = self.encoder(self.tensor_gpu_data)
+        encoded_data, _, S, component = self.encoder(self.tensor_gpu_data)
         encoded_data_cpu = torch.matmul(encoded_data, S).cpu().numpy()
 
         # update the clustering centers
@@ -701,7 +699,7 @@ class VaDE(nn.Module):
 
     def forward(self,x):
         """模型前向传播"""
-        mean, log_var, S = self.encoder(x)
+        mean, log_var, S, component = self.encoder(x)
         z = self.reparameterize(mean, log_var, S)
         
         # 通过GMM获取所有需要的值
@@ -832,6 +830,12 @@ class VaDE(nn.Module):
         # 6. spectral constraints
         # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
         spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+
+        # # 7. S的正则损失
+        # S_norm = F.normalize(S, p=2, dim=1)  # 每行单位化
+        # SS = torch.matmul(S_norm, S_norm.t())  # [n_components, n_components]
+        # I = torch.eye(S.shape[0], device=S.device)
+        # ortho_loss = ((SS - I) ** 2).sum()*100
 
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()

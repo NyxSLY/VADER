@@ -21,29 +21,33 @@ except IndexError:
 
 def main():
     # NC
-    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
-    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
+    oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
+    oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
     
-    # keep_indices = np.where(np.isin(oc_train_label, [1,2,5,9,13,18,20,21,24]))
-    # oc_train_data = oc_train_data[keep_indices]
-    # oc_train_label = oc_train_label[keep_indices]
+    keep_indices = np.where(np.isin(oc_train_label, [1,2,5,9,13,18,20,21,24]))
+    oc_train_data = oc_train_data[keep_indices]
+    oc_train_label = oc_train_label[keep_indices]
+    
+    S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_NC9_S_20.npy")
 
     # HP_15
     # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
     # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
 
-    # Algae
-    oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
-    oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
+    # # Algae
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
+    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
     
     # Ocean
-
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy")
+    # oc_train_label = np.repeat([0,1,2],50)
 
     # 准备数据
     model_params = config.get_model_params()
     device = set_device(model_params['device'])
     batch_size = model_params['batch_size']
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(oc_train_data, oc_train_label,batch_size,device)
+    dataloader_2, unique_label_2, tensor_data_2, tensor_labels_2, tensor_gpu_data_2, tensor_gpu_labels_2 = prepare_data_loader(S, np.arange(S.shape[0]),batch_size,device)
 
     # 获取模型配置
     input_dim = tensor_data.shape[1]
@@ -68,6 +72,7 @@ def main():
         latent_dim=model_params['latent_dim'],
         tensor_gpu_data=tensor_gpu_data,
         n_components=20,
+        S=S,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
@@ -93,11 +98,9 @@ def main():
     # 训练模型
     print("\n开始预训练...  ")
     model.pretrain(
-        dataloader=dataloader,
+        dataloader=dataloader_2,
         learning_rate=1e-4
     )
-
-    
 
     print("\n开始模型训练...")
     # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))

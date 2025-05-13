@@ -14,14 +14,14 @@ model_params:
   intermediate_dim: [512,1024,2048]
   learning_rate: 1.0e-4
   use_lr_scheduler: False
-  batch_size: 128
-  epochs: 3000
+  batch_size: 512
+  epochs: 300
   device: "cuda:4"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 100
   clustering_method: 'leiden'
-  resolution_1: 0.6
-  resolution_2: 0.6
+  resolution_1: 0.8
+  resolution_2: 0.8
 
   basic_parameters:
     latent_dim: 20
