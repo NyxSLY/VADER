@@ -372,7 +372,7 @@ class SpectralAnalyzer:
 
 
 class VaDE(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components,
+    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
@@ -384,6 +384,7 @@ class VaDE(nn.Module):
         self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
+        self.S = S
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
         self.gaussian = Gaussian(num_classes, n_components)
@@ -479,32 +480,6 @@ class VaDE(nn.Module):
 
                 epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
 
-            # self.encoder.to_logvar.load_state_dict(self.encoder.to_mean.state_dict())
-
-            # Z = []
-            # Y = []
-            # with torch.no_grad():
-            #     for x, y in dataloader:
-            #         if self.args.cuda:
-            #             x = x.cuda()
-
-            #         z1, z2 = self.encoder(x)
-            #         assert F.mse_loss(z1, z2) == 0
-            #         Z.append(z1)
-            #         Y.append(y)
-
-            # Z = torch.cat(Z, 0).detach().cpu().numpy()
-            # Y = torch.cat([yy.cpu() for yy in Y], 0).detach().numpy()
-
-            # gmm = GaussianMixture(n_components=self.args.nClusters, covariance_type='diag')
-
-            # pre = gmm.fit_predict(Z)
-            # print('Acc={:.4f}%'.format(cluster_acc(pre, Y)[0] * 100))
-
-            # self.pi_.data = torch.from_numpy(gmm.weights_).cuda().float()
-            # self.mu_c.data = torch.from_numpy(gmm.means_).cuda().float()
-            # self.log_sigma2_c.data = torch.log(torch.from_numpy(gmm.covariances_).cuda().float())
-
             torch.save(self.state_dict(), './pretrain_model_50.pk')
 
         else:
@@ -557,11 +532,8 @@ class VaDE(nn.Module):
         return labels, cluster_centers
 
     @torch.no_grad()
-    def init_kmeans_centers(self, dataloader):
-        encoded_data = []
-        mean, var= self.encoder(self.tensor_gpu_data)
-        encoded_data.append(mean.cpu())
-        encoded_data = torch.cat(encoded_data, dim=0).numpy()
+    def init_kmeans_centers(self, z):
+        encoded_data = z.cpu().numpy()
 
         # 使用选定的聚类方法
         print(f"Using clustering method: {self.clustering_method}")
@@ -639,10 +611,9 @@ class VaDE(nn.Module):
 
 
     @torch.no_grad()
-    def update_kmeans_centers(self):
+    def update_kmeans_centers(self, z):
         print(f'Update clustering centers..........')
-        encoded_data, _= self.encoder(self.tensor_gpu_data)
-        encoded_data_cpu = encoded_data.cpu().numpy()
+        encoded_data_cpu = z.cpu().numpy()
 
         # update the clustering centers
         ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
@@ -698,7 +669,8 @@ class VaDE(nn.Module):
         means, log_variances, y, gamma, pi = self.gaussian(z)
         
         # 解码
-        recon_x = self.decoder(z)
+        # recon_x = self.decoder(z)
+        recon_x = torch.matmul(z, self.S)
         
         return recon_x, mean, log_var, z, gamma, pi
 

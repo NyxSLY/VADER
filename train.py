@@ -156,11 +156,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         n_epochs=model_params['epochs'],
         resolution_2=model_params['resolution_2']
     )
-    model.init_kmeans_centers(dataloader)
+    recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+    model.init_kmeans_centers(z)
 
     # 初始化S和C
-
-
     # 在训练开始前分析数据集
     print("正在分析数据集特征...")
     model.spectral_analyzer.analyze_dataset(dataloader)
@@ -186,12 +185,14 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             writer=writer,
         )
         
+        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         # 添加进度打印
         print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:
-            model.update_kmeans_centers()
+            model.update_kmeans_centers(z)
             
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
@@ -202,11 +203,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             scheduler_gmm.step()
 
         # 记录学习率
-        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
-        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
 
-        min_y = torch.min(y, axis=1)
-        max_y = torch.max(y, axis=1)
+
+        # min_y = torch.min(y, axis=1)
+        # max_y = torch.max(y, axis=1)
         
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
