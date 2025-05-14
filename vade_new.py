@@ -268,7 +268,7 @@ class Gaussian(nn.Module):
             if cluster_centers is not None:
                 self.means.data.copy_(cluster_centers)
             if variances is not None:
-                self.log_variances.data.copy_(torch.log(variances + 1e-10))
+                self.log_variances.data.copy_(variances)
             if weights is not None:
                 self.pi.data.copy_(weights)
 
@@ -458,7 +458,7 @@ class VaDE(nn.Module):
         if  not os.path.exists('./nc9_pretrain_model_none_bn_.pk'):
 
             Loss=nn.MSELoss()
-            opti=torch.optim.Adam(itertools.chain(self.encoder.parameters(),self.decoder.parameters()))
+            opti=torch.optim.Adam(itertools.chain(self.encoder.parameters()))
 
             print('Pretraining......')
             epoch_bar=tqdm(range(pre_epoch))
@@ -469,8 +469,8 @@ class VaDE(nn.Module):
 
                     mean,var = self.encoder(x)
                     z = self.reparameterize(mean, var)
-                    x_=self.decoder(z)
-                    loss=Loss(x,x_)*20
+                    x_=torch.matmul(z, self.S)
+                    loss=Loss(x,x_)
 
                     L+=loss.detach().cpu().numpy()
 
@@ -547,9 +547,9 @@ class VaDE(nn.Module):
             print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
             self.num_clusters = num_clusters
             self.gaussian = Gaussian(num_clusters, self.n_components).to(self.device)
+            self.gaussian.update_parameters(cluster_centers=cluster_centers)
 
         # 直接用聚类中心更新高斯分布参数
-        self.gaussian.means.data.copy_(cluster_centers)
         self.cluster_centers = cluster_centers
     
     def optimal_transport(self,A, B, alpha):
@@ -619,8 +619,8 @@ class VaDE(nn.Module):
         ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
         # leiden_centers = torch.tensor(leiden_centers, device=self.device).to(dtype=self.gaussian.means.data.dtype)
         # gaussian_centers = updated_centers = self.gaussian.means.data
-        # gaussian_vars = updated_vars = self.gaussian.log_variances.data
-        # gaussian_pi = updated_pi = self.gaussian.pi.data
+        cluster_var = self.gaussian.log_variances.data
+        cluster_pi = self.gaussian.pi.data
         
         num_ml_centers = len(np.unique(ml_labels))
 
@@ -628,7 +628,7 @@ class VaDE(nn.Module):
         if num_ml_centers != self.gaussian.num_clusters:
             print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
             gaussian_means = self.gaussian.means.cpu().numpy()
-            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 0.1)
+            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
             self.num_clusters = num_ml_centers
             array_var = self.gaussian.log_variances.cpu().numpy()
             array_pi = self.gaussian.pi.cpu().numpy()
@@ -637,10 +637,8 @@ class VaDE(nn.Module):
             self.gaussian = Gaussian(num_ml_centers, self.n_components).to(self.device)
             cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
             cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
-            self.gaussian.log_variances.data.copy_(cluster_var)
-            self.gaussian.pi.data.copy_(cluster_pi)
         cluster_centers_t = torch.tensor(cluster_centers,device = self.device)
-        self.gaussian.means.data.copy_(cluster_centers_t)
+        self.gaussian.update_parameters(cluster_centers=cluster_centers_t, variances=cluster_var, weights=cluster_pi)
  
 
     def reparameterize(self, concentration, log_var):

@@ -113,7 +113,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
 
     # 初始化优化器和其他组件
     # optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
-    optimizer_nn = optim.Adam(chain(model.encoder.parameters(), model.decoder.parameters()), lr=model_params['learning_rate'])
+    optimizer_nn = optim.Adam(chain(model.encoder.parameters()), lr=model_params['learning_rate'])
     optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model_params['learning_rate'])
     
     if model_params.get('use_lr_scheduler', False):
@@ -186,7 +186,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         )
         
         recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
-        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
+        # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         # 添加进度打印
         print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
         
@@ -249,7 +249,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(
-            tensor_gpu_data, 
+            recon_x,
+            gamma,
+            z,
             labels, 
             epoch, 
             lr_nn, 

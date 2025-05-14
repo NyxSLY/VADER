@@ -138,7 +138,9 @@ class ModelEvaluator:
 
     def evaluate_epoch(
         self,
-        tensor_gpu_data: torch.Tensor,
+        recon_x,
+        gamma,
+        z,
         labels: torch.Tensor,
         epoch: int,
         lr: float,
@@ -152,9 +154,6 @@ class ModelEvaluator:
         
         self.model.eval()
         with torch.no_grad():
-            # 获取模型输出
-            recon_x, mean, log_var, z, gamma, pi = self.model(tensor_gpu_data)
-            
             # 转换数据到CPU
             z_cpu = z.detach().cpu().numpy()
             gmm_probs = gamma.detach().cpu().numpy()
@@ -288,8 +287,7 @@ class ModelEvaluator:
         # self._save_to_tensorboard(epoch, metrics)
 
         # 保存成分光谱
-        S = self.model.decoder.S
-        spectra_comp = self.model.decoder(S)
+        spectra_comp = self.model.S
         spectra_comp_cpu = spectra_comp.detach().cpu().numpy()
         plt.figure(figsize=(12, 8))
         x_axis = range(spectra_comp_cpu.shape[1])

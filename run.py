@@ -73,7 +73,7 @@ def main():
         latent_dim=model_params['latent_dim'],
         tensor_gpu_data=tensor_gpu_data,
         n_components=20,
-        S = torch.tensor(S).float.to(device),
+        S = torch.tensor(S).float().to(device),
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
@@ -97,11 +97,11 @@ def main():
     #model.kmeans_init = choose_kmeans_method
     model.kmeans_init = 'random'
     # 训练模型
-    # print("\n开始预训练...  ")
-    # model.pretrain(
-    #     dataloader=dataloader,
-    #     learning_rate=1e-4
-    # )
+    print("\n开始预训练...  ")
+    model.pretrain(
+        dataloader=dataloader,
+        learning_rate=1e-4
+    )
 
     
 
