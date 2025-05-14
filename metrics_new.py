@@ -6,6 +6,7 @@ from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.optimize import linear_sum_assignment
 from utility import visualize_clusters, plot_reconstruction
 from config import config
+import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 from utility import leiden_clustering,inverse_wavelet_transform
 class ModelEvaluator:
@@ -285,6 +286,24 @@ class ModelEvaluator:
 
         # # 记录到TensorBoard
         # self._save_to_tensorboard(epoch, metrics)
+
+        # 保存成分光谱
+        S = self.model.decoder.S
+        spectra_comp = self.model.decoder(S)
+        spectra_comp_cpu = spectra_comp.detach().cpu().numpy()
+        plt.figure(figsize=(12, 8))
+        x_axis = range(spectra_comp_cpu.shape[1])
+        n_components = spectra_comp_cpu.shape[0]
+        # 为每个成分绘制一条线
+        for i in range(n_components):
+            plt.plot(x_axis, spectra_comp_cpu[i,:], label=f'Component {i+1}')
+        
+        plt.xlabel('Wavenumber')
+        plt.ylabel('Intensity')
+        plt.title('MCR Component Spectra')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(os.path.join(self.paths['plot'], f'epoch_{epoch}_spectra_comp.png'))
 
         # 保存t-SNE可视化
         self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)

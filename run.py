@@ -20,32 +20,28 @@ except IndexError:
     memo = 'test'
 
 def main():
-    # 读取数据
-    # oc_train_data = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_data_fil_191.txt", delimiter=" ")
-    # oc_train_label = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_labels_to_confmatrix.txt", delimiter=" ").astype(int)
-    # # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9_label.npy").astype(int)
-
-    # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
-    # # home pc
-    # # nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9.npy")
-    # # nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/processed_NC_9_label.npy").astype(int)
+    # NC
+    # oc_train_data = np.load(r"D:\Scientific research\deep learning\DESC\Raman DB\Datasets\NC-30-species/X_reference.npy")
+    # oc_train_label = np.load(r"D:\Scientific research\deep learning\DESC\Raman DB\Datasets\NC-30-species/y_reference.npy").astype(int)
     
-
+    # keep_indices = np.where(np.isin(oc_train_label, [1,2,5,9,13,18,20,21,24]))
+    # oc_train_data = oc_train_data[keep_indices]
+    # oc_train_label = oc_train_label[keep_indices]
     
-    # keep_indices = np.where((nc_labels_org == 2) | (
-    #             nc_labels_org == 9) |  # (nc_labels ==25) | (nc_labels ==26) | (nc_labels ==27) | (nc_labels ==29)|\n",
-    #                         (nc_labels_org == 18) | (nc_labels_org == 21) |
-    #                         (nc_labels_org == 1) | (nc_labels_org == 5) | (nc_labels_org == 13) | (
-    #                                     nc_labels_org == 20) | (nc_labels_org == 24))
-    # oc_train_data = nc_data_org[keep_indices]
-    # oc_train_label = nc_labels_org[keep_indices]
-    nc_data_org = np.load(r"D:\Scientific research\deep learning\DESC\DataSet\Downloaded Datasets\NC-30-species/X_reference.npy")
-    nc_labels_org = np.load(r"D:\Scientific research\deep learning\DESC\DataSet\Downloaded Datasets\NC-30-species/y_reference.npy").astype(int)
-    keep_indices = np.where(np.isin(nc_labels_org, [1,2,5,9,13,18,20,21,24]))
-    oc_train_data = nc_data_org[keep_indices]
-    oc_train_label = nc_labels_org[keep_indices]
+    # S = np.load(r"D:\Scientific research\deep learning\DESC\Raman DB\Datasets\NC-30-species/MCR_NC9_S_20.npy")
+
+    # HP_15
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
+    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
+
+    # # Algae
+    oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
+    oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
+    
+    # Ocean
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy")
+    # oc_train_label = np.repeat([0,1,2],50)
+
 
 
     # 准备数据
@@ -76,7 +72,7 @@ def main():
         intermediate_dim=model_params['intermediate_dim'],
         latent_dim=model_params['latent_dim'],
         tensor_gpu_data=tensor_gpu_data,
-        n_components=20,
+        n_components=10,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
@@ -103,7 +99,7 @@ def main():
     print("\n开始预训练...  ")
     model.pretrain(
         dataloader=dataloader,
-        learning_rate=1e-3
+        learning_rate=1e-4
     )
 
     
