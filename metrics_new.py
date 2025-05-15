@@ -9,6 +9,8 @@ from config import config
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 from utility import leiden_clustering,inverse_wavelet_transform
+import torch.nn.functional as F
+
 class ModelEvaluator:
     """
     模型评估器,用于计算模型在验证集或测试集上的各种指标,并保存结果。
@@ -287,7 +289,7 @@ class ModelEvaluator:
         # self._save_to_tensorboard(epoch, metrics)
 
         # 保存成分光谱
-        spectra_comp = self.model.S
+        spectra_comp = F.normalize(self.model.encoder.S, p=2, dim=1)
         spectra_comp_cpu = spectra_comp.detach().cpu().numpy()
         plt.figure(figsize=(12, 8))
         x_axis = range(spectra_comp_cpu.shape[1])

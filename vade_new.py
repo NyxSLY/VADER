@@ -20,7 +20,7 @@ from scipy.optimize import linear_sum_assignment
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim, n_components):
+    def __init__(self, input_dim, intermediate_dim, latent_dim, n_components, S):
         """
         Args:
             input_dim: 输入维度
@@ -33,6 +33,7 @@ class Encoder(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.n_components = n_components
+        self.S = nn.Parameter(torch.tensor(S, dtype=torch.float32))  # 可学习参数
 
         layers = []
         prev_dim = input_dim
@@ -52,9 +53,10 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         x = self.net(x)
-        concentration = self.to_concentration(x)  # 浓度均值
+        concentration = F.softplus(self.to_concentration(x)) # 浓度均值
         concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
-        return concentration, concentration_logvar
+        S_norm = F.normalize(F.relu(self.S), p=2, dim=1)
+        return concentration, concentration_logvar, S_norm
 
 
 class SpectralConstraints(nn.Module):
@@ -384,8 +386,7 @@ class VaDE(nn.Module):
         self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
-        self.S = S
-        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components)
+        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components,S)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
         self.gaussian = Gaussian(num_classes, n_components)
         self.cluster_centers = None
@@ -445,11 +446,11 @@ class VaDE(nn.Module):
 
 
     @staticmethod
-    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim, n_components):
+    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim, n_components,S):
         """初始化编码器"""
         if encoder_type == "basic":
             return Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, 
-                         n_components=n_components)
+                         n_components=n_components, S=S)
         else:
             raise ValueError(f"Unknown encoder type: {encoder_type}")
 
@@ -458,7 +459,9 @@ class VaDE(nn.Module):
         if  not os.path.exists('./nc9_pretrain_model_none_bn_.pk'):
 
             Loss=nn.MSELoss()
-            opti=torch.optim.Adam(itertools.chain(self.encoder.parameters()))
+            # opti=torch.optim.Adam(itertools.chain(self.encoder.parameters()))
+            params = [p for n, p in self.encoder.named_parameters() if n != "S"]
+            opti = torch.optim.Adam(params)
 
             print('Pretraining......')
             epoch_bar=tqdm(range(pre_epoch))
@@ -467,9 +470,9 @@ class VaDE(nn.Module):
                 for x,y in dataloader:
                     x=x.to(self.device)
 
-                    mean,var = self.encoder(x)
+                    mean,var, S = self.encoder(x)
                     z = self.reparameterize(mean, var)
-                    x_=torch.matmul(z, self.S)
+                    x_=torch.matmul(z, S)
                     loss=Loss(x,x_)
 
                     L+=loss.detach().cpu().numpy()
@@ -660,7 +663,7 @@ class VaDE(nn.Module):
 
     def forward(self,x):
         """模型前向传播"""
-        mean, log_var= self.encoder(x)
+        mean, log_var, S= self.encoder(x)
         z = self.reparameterize(mean, log_var)
         
         # 通过GMM获取所有需要的值
@@ -668,23 +671,22 @@ class VaDE(nn.Module):
         
         # 解码
         # recon_x = self.decoder(z)
-        recon_x = torch.matmul(z, self.S)
+        recon_x = torch.matmul(z, S)
         
-        return recon_x, mean, log_var, z, gamma, pi
+        return recon_x, mean, log_var, z, gamma, pi, S
 
-
-    def train_step(self, x):
-        """单步训练
-        Args:
-            x: 输入数据
+    @torch.no_grad()
+    def constraint_angle(self, x, weight=0.05):
         """
-        # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = self(x)
-        
-        # 计算损失
-        loss = self.loss_function(recon_x, x, mean, log_var, z, gamma, pi)
-        
-        return loss
+        S: 要约束的矩阵（一组组分或浓度行/列），shape [n, dim]
+        x: 原始输入矩阵，和R代码一样
+        """
+        S_init = self.encoder.S
+        m = x.mean(axis=0)  # 对列求均值
+        m = m / (m.norm(p=2)+1e-8)  # 单位化
+        S_init = S_init / (S_init.norm(p=2, dim=1, keepdim=True) + 1e-8)  # 行单位化
+        return (1 - weight) * S_init + weight * m
+
 
     def compute_spectral_constraints(self, x, recon_x):
         """计算光谱约束时只使用数据集统计信息"""
@@ -736,7 +738,8 @@ class VaDE(nn.Module):
         
         # return constraints
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y):
+
+    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S_norm):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
@@ -791,7 +794,12 @@ class VaDE(nn.Module):
 
         # 6. spectral constraints
         # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
-        spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+        # spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+
+        SS = torch.matmul(S_norm, S_norm.t())
+        I = torch.eye(S_norm.shape[0], device=self.device)
+        ortho_loss = ((SS - I) ** 2).sum()
+        spectral_constraints = self.lamb4 * ortho_loss
 
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()

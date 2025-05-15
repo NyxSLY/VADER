@@ -60,13 +60,13 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
         x = x[0].to(model.device)
         
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi = model(x)
+        recon_x, mean, log_var, z, gamma, pi, S = model(x)
         
         # 获取GMM的输出
         gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         
         # 损失计算
-        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y)
+        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y, S)
 
         
         # 反向传播
@@ -156,7 +156,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         n_epochs=model_params['epochs'],
         resolution_2=model_params['resolution_2']
     )
-    recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+    recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
     model.init_kmeans_centers(z)
 
     # 初始化S和C
@@ -185,7 +185,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             writer=writer,
         )
         
-        recon_x, mean, log_var, z, gamma, pi = model(tensor_gpu_data)
+        recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
+        model.constraint_angle(tensor_gpu_data, weight=0.05)
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         # 添加进度打印
         print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")

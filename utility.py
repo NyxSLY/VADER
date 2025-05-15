@@ -17,6 +17,7 @@ from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.sparse import spmatrix, csr_matrix
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
+import torch.nn.functional as F
 
 def set_random_seed(seed):
     random.seed(seed)       # 设置 Python 内置随机数生成器的种子
@@ -26,11 +27,11 @@ def set_random_seed(seed):
         torch.cuda.manual_seed_all(seed)  # 将所有设备上的随机数生成器的种子设置为相同的
 
 def set_device(dev):
-    # if dev is None:
-    #     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # elif dev:
-    #     device = torch.device(dev)
-    device = torch.device("cpu")
+    if dev is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    elif dev:
+        device = torch.device(dev)
+    # device = torch.device("cpu")
     return device
 
 def create_project_folders(project_name: str) -> str:
@@ -305,7 +306,7 @@ def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_le
                     swaps = feature_swap_z(z1, z_interp,num=3)
                     for z_swap in swaps:
                         z_samples.append(z_swap)
-                        x_spec = torch.matmul(z_swap.unsqueeze(0), model.S)
+                        x_spec = torch.matmul(z_swap.unsqueeze(0), F.normalize(model.encoder.S, p=2, dim=1))
                         x_spec_np = x_spec.detach().numpy()
                         x_spec_np_shift = shift_signal(x_spec_np)
                         x_spec_np_smooth = smooth_edges(x_spec_np_shift)

@@ -16,7 +16,7 @@ model_params:
   use_lr_scheduler: False
   batch_size: 512
   epochs: 300
-  device: "cuda:0"
+  device: "cuda:4"
   encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
   pretrain_epochs: 100
   clustering_method: 'leiden'
