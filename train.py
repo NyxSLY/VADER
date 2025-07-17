@@ -101,7 +101,7 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
     return total_metrics
 
 
-def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths):
+def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths, epochs):
     """管理整个训练流程"""
     # 初始化配置和组件
     train_config = config.get_train_config()
@@ -125,12 +125,12 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # )
         scheduler_nn = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_nn,
-            T_max=model_params['epochs'],
+            T_max=epochs,
             eta_min=model_params['learning_rate'] * 0.01
         )
         scheduler_gmm = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_gmm,
-            T_max=model_params['epochs'],
+            T_max=epochs,
             eta_min=model_params['learning_rate'] * 0.01
         )
     else:
@@ -153,7 +153,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     weight_scheduler = WeightScheduler(
         init_weights=weight_config['init_weights'],
         max_weights=weight_config['max_weights'],
-        n_epochs=model_params['epochs'],
+        n_epochs=epochs,
         resolution_2=model_params['resolution_2']
     )
     recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
@@ -168,7 +168,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     model.spectral_analyzer.save_analysis_results()
     
     for epoch in range(train_config['start_epoch'], 
-                      train_config['start_epoch'] + model_params['epochs']):
+                      train_config['start_epoch'] + epochs):
         # 更新权重
         weights = weight_scheduler.get_weights(epoch)
         print(weights)
@@ -189,7 +189,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         model.constraint_angle(tensor_gpu_data, weight=0.05)
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         # 添加进度打印
-        print(f"\nEpoch [{epoch+1}/{model_params['epochs']}]")
+        print(f"\nEpoch [{epoch+1}/{epochs}]")
         
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:

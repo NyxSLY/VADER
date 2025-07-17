@@ -1,7 +1,7 @@
 # 基础路径配置
 base_paths:
   data_dir: './VADERdata'
-  tensorboard_dir: 'tensorboard_logs_mnist'
+  tensorboard_dir: 'tensorboard_logs'
   model_dir: 'models'
   result_dir: './results'
   pth_dir: 'pth'
@@ -17,7 +17,7 @@ model_params:
   batch_size: 128
   epochs: 1000
   device: "cuda:0"
-  encoder_type: "basic"  # 可以是 "basic", "cnn", "advanced"
+  encoder_type: "basic"
   pretrain_epochs: 300
   clustering_method: 'leiden'
   resolution_1: 0.4
