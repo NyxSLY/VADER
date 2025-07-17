@@ -81,6 +81,7 @@ def train_on_dataset(
         labels=tensor_gpu_labels,
         num_classes=n_component,
         paths=paths,
+        epochs = epochs
     )
     print(f"[{project_tag}] 训练完成。\n")
     return model  
@@ -113,7 +114,7 @@ def main():
             'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy"),
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_Algae_S_10.npy"),
-            "device": "cuda:2",
+            "device": "cuda:1",
             "project_tag": "Test_MCREC",
             'Pretrain_epochs': 1000,
             'epochs': 3000,
@@ -123,8 +124,8 @@ def main():
         {
             "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy"),
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int),
-            "S": r"/mnt/sda/gene/zhangym/VADER/Data/MCR_HP_S_10.npy",
-            "device": "cuda:4",
+            "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_HP_S_10.npy"),
+            "device": "cuda:3",
             "project_tag": "Test_MCREC",
             'Pretrain_epochs': 100,
             'epochs':   600,
@@ -135,17 +136,17 @@ def main():
             "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference_9.npy"),
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference_9.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_NC9_S_20.npy"),
-            "device": "cuda:1",
+            "device": "cuda:4",
             "project_tag": "Test_MCREC",
             'Pretrain_epochs': 50,
-            'epochs':   "cuda:1",
+            'epochs':   300,
             'batch_size':   128,
             "memo": "NC_9"
         },
         {
-            "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy"),
+            "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_3/Ocean_train_process.npy"),
             "train_label": np.repeat([0,1,2],50),
-            "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_NC9_S_20.npy"),
+            "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_3/MCR_Ocean3_10_component.npy"),
             "device": "cuda:2",
             "project_tag": "Test_MCREC",
             'Pretrain_epochs': 5000,

@@ -20,8 +20,8 @@ model_params:
   encoder_type: "basic"
   pretrain_epochs: 300
   clustering_method: 'leiden'
-  resolution_1: 0.4
-  resolution_2: 0.4
+  resolution_1: 0.8
+  resolution_2: 0.8
 
   basic_parameters:
     latent_dim: 10

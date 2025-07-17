@@ -134,7 +134,7 @@ class ProjectConfig:
         folder_params = '_'.join(params)
         #train_path = os.path.join(project_dir, f'{folder_params}_{base_folder_name}_{timestamp}')
         
-        train_path = os.path.join(project_dir, f'{memo}_{timestamp}')
+        train_path = os.path.join(project_dir, f'{memo}') # _{timestamp}
         
         paths = {
             'train_path':train_path,

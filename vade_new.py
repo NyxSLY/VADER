@@ -463,9 +463,8 @@ class VaDE(nn.Module):
             params = [p for n, p in self.encoder.named_parameters() if n != "S"]
             opti = torch.optim.Adam(params)
 
-            print('Pretraining......')
-            epoch_bar=tqdm(range(pre_epoch))
-            for _ in epoch_bar:
+            # epoch_bar=tqdm(range(pre_epoch))
+            for _ in range(pre_epoch):
                 L=0
                 for x,y in dataloader:
                     x=x.to(self.device)
@@ -481,7 +480,7 @@ class VaDE(nn.Module):
                     loss.backward()
                     opti.step()
 
-                epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
+                # epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
 
             torch.save(self.state_dict(), './pretrain_model_50.pk')
 
@@ -710,33 +709,6 @@ class VaDE(nn.Module):
 
         return weightd_mse
 
-        # ----------------- Before -----------------
-        # if peak_positions is not None:
-        #     peak_positions = peak_positions.to(x.device)
-        #     constraints['peak'] = F.mse_loss(
-        #         recon_x[:, peak_positions], 
-        #         x[:, peak_positions], reduction='none'
-        #     ).sum(-1)
-        
-        # # 2. 基线损失计算保持不变
-        # mean_baseline = stats['baseline_params']['mean_baseline'].to(x.device)
-        # baseline_std = stats['baseline_params']['std_baseline'].to(x.device)
-        # x_baseline = self.spectral_constraints.batch_als_baseline(x)
-        # recon_baseline = self.spectral_constraints.batch_als_baseline(recon_x)
-        # baseline_diff = (recon_baseline - x_baseline) / (baseline_std + 1e-6)
-        # constraints['baseline'] = (baseline_diff ** 2).mean(-1)
-        
-        # # 3. 强度范围约束
-        # intensity_range = stats['intensity_range']
-        # min_val = torch.tensor(intensity_range['min'], device=x.device)
-        # max_val = torch.tensor(intensity_range['max'], device=x.device)
-        # range_loss = (
-        #     F.relu(min_val - recon_x).sum(-1) + 
-        #     F.relu(recon_x - max_val).sum(-1)
-        # )
-        # constraints['range'] = range_loss
-        
-        # return constraints
 
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S_norm):
