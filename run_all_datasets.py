@@ -122,7 +122,7 @@ def main():
             "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy"),
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_HP_S_10.npy"),
-            "device": "cuda:3",
+            "device": "cuda:4",
             "project_tag": "Test_MCREC/0718_ASC",
             'Pretrain_epochs': 100,
             'epochs':   600,
@@ -147,7 +147,7 @@ def main():
             "device": "cuda:2",
             "project_tag": "Test_MCREC/0718_ASC",
             'Pretrain_epochs': 5000,
-            'epochs':   30000,
+            'epochs':   3000,
             'batch_size':   128,
             "memo": "Ocean_3"
         },
