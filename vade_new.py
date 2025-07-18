@@ -33,7 +33,7 @@ class Encoder(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.n_components = n_components
-        self.S = nn.Parameter(torch.tensor(S, dtype=torch.float32))  # 可学习参数
+        self.S = nn.Parameter(S.clone().detach().float())  # 可学习参数
 
         layers = []
         prev_dim = input_dim
