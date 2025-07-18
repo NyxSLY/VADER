@@ -53,9 +53,9 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         x = self.net(x)
-        concentration = F.softplus(self.to_concentration(x)) # 浓度均值
+        concentration = F.softplus(self.to_concentration(x)) # 浓度均值，#仅非负约束：softplus
         concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
-        S_norm = F.normalize(F.relu(self.S), p=2, dim=1)
+        S_norm = F.normalize(F.relu(self.S), p=2, dim=1) # 非负，L2规范化（每个component平方和为1）
         return concentration, concentration_logvar, S_norm
 
 
