@@ -4,6 +4,8 @@ nc_test/
 nc_test*/
 baseline/
 home_pc/
+Test_MCREC/
+Test_MCR/
 **/
 model_config.yaml
 nohup.out
