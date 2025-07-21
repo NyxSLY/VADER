@@ -53,10 +53,10 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         x = self.net(x)
-        concentration = F.softmax(self.to_concentration(x)) # 浓度均值，#仅非负约束：softplus
+        concentration = F.softplus(self.to_concentration(x)) # 浓度均值，#仅非负约束：softplus
         concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
-        S_norm = F.normalize(F.relu(self.S), p=2, dim=1) # 非负，L2规范化（每个component平方和为1）
-        return concentration, concentration_logvar, S_norm
+        S_pos = F.relu(self.S) # 非负，L2规范化（每个component平方和为1）
+        return concentration, concentration_logvar, S_pos
 
 
 class SpectralConstraints(nn.Module):
@@ -678,7 +678,7 @@ class VaDE(nn.Module):
     def constraint_angle(self, x, weight=0.05):
         """
         S: 要约束的矩阵（一组组分或浓度行/列），shape [n, dim]
-        x: 原始输入矩阵，和R代码一样
+        x: 原始输入矩阵
         """
         S_init = self.encoder.S
         m = x.mean(axis=0)  # 对列求均值

@@ -186,7 +186,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         )
         
         recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
-        model.constraint_angle(tensor_gpu_data, weight=0.05)
+        model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         # 添加进度打印
         print(f"\nEpoch [{epoch+1}/{epochs}]")
