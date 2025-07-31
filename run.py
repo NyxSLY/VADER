@@ -37,9 +37,9 @@ def main():
 
 
     # # Algae
-    oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
-    oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
-    S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_Algae_S_10.npy")
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
+    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
+    # S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_Algae_S_10.npy")
     
     # Ocean
     # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy")

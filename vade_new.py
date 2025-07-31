@@ -17,6 +17,7 @@ import math
 from tqdm import tqdm
 import itertools
 from scipy.optimize import linear_sum_assignment
+from ramanbiolib.search import PeakMatchingSearch, SpectraSimilaritySearch
 
 
 class Encoder(nn.Module):
@@ -374,7 +375,7 @@ class SpectralAnalyzer:
 
 
 class VaDE(nn.Module):
-    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,
+    def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
                  encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
@@ -386,6 +387,7 @@ class VaDE(nn.Module):
         self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
+        self.wavenumber = wavenumber
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components,S)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
         self.gaussian = Gaussian(num_classes, n_components)
@@ -610,7 +612,41 @@ class VaDE(nn.Module):
             array = np.concatenate((array, padding))
         return array
 
+    @torch.no_grad()
+    def match_components(self,S, min_similarity):
+        valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
+        wavenumber = self.wavenumber[valid_idx]
+        S_valid = S[:,valid_idx]
 
+        match_specs = []
+        match_chems = []       
+        spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber)
+
+        for i in range(0,S_valid.shape[0]):
+            unknown_comp = S_valid[i].cpu().numpy()
+            search_results = spectra_search.search(
+                unknown_comp,
+                class_filter=None,
+                unique_components_in_results=True,
+                similarity_method="cosine_similarity",
+                similarity_params=25
+                )
+            top_100 = search_results.get_results(limit=100)
+
+            top_similar = top_100[(top_100['similarity_score'] >= min_similarity) & (top_100['laser'] == 532.0)]
+            if top_similar.empty:
+                match_spec = unknown_comp
+                match_chem = 'Unknown'
+            else: 
+                match_id = top_similar['id'].iloc[0]
+                match_wave = np.array(search_results.database['wavenumbers'][match_id-1])
+                match_spec = np.array(search_results.database['intensity'][match_id-1])
+                match_chem = search_results.database['component'][match_id-1]
+            match_specs.append(match_spec)
+            match_chems.append(match_chem)
+
+        match_specs = np.array(match_specs)
+        return match_specs, match_chems
 
     @torch.no_grad()
     def update_kmeans_centers(self, z):
@@ -711,7 +747,7 @@ class VaDE(nn.Module):
 
 
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S_norm):
+    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
@@ -768,10 +804,20 @@ class VaDE(nn.Module):
         # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
         # spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
 
-        SS = torch.matmul(S_norm, S_norm.t())
-        I = torch.eye(S_norm.shape[0], device=self.device)
-        ortho_loss = ((SS - I) ** 2).sum()
-        spectral_constraints = self.lamb4 * ortho_loss
+        # Unsimilar of S
+        # SS = torch.matmul(S, S.t())
+        # I = torch.eye(S.shape[0], device=self.device)
+        # ortho_loss = ((SS - I) ** 2).sum()
+        # spectral_constraints = self.lamb4 * ortho_loss
+
+        # Match Loss
+        matched_comp, matched_chems = self.match_components(S,0.7)
+        matched_comp = torch.tensor(matched_comp, dtype=torch.float32, device = self.device)
+        valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
+        S_valid = S[:,valid_idx]
+        cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
+        match_loss = 1 - cos_sim
+        spectral_constraints = self.lamb4 * match_loss
 
         # 7. 总损失
         loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()

@@ -169,6 +169,7 @@ class ModelEvaluator:
             # 计算评估指标
             gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
             z_leiden_metrics = self.compute_clustering_metrics(z_leiden_labels, y_true)
+            
 
             metrics = {
                 'gmm_acc': gmm_metrics['acc'],
@@ -193,7 +194,7 @@ class ModelEvaluator:
             # 打印评估结果
             if (epoch+1) % 50 == 0:
                 self._save_results(
-                    epoch, 
+                    epoch+1, 
                     metrics, 
                     lr,
                     z_cpu, 
@@ -204,6 +205,9 @@ class ModelEvaluator:
                     t_plot,
                     r_plot
                 )
+                # 保存gmm_labels为txt文件
+                gmm_labels_path = os.path.join(self.paths['pth'], f'Epoch_{epoch+1}_gmm_labels.txt')
+                np.savetxt(gmm_labels_path, gmm_labels, fmt='%d')
 
             return metrics
 
