@@ -184,7 +184,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         )
         
         recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
-        model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
+        # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         matched_comp, matched_chems = self.match_components(S,0.7)
         print(f'S分别匹配到的物质(cosine > 0.7): {match_chems}\n')
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
@@ -194,6 +194,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:
             model.update_kmeans_centers(z)
+        if (epoch + 1) % 50 == 0:
+           np.savetxt(os.path.join(paths['tensorboard_log'], 'S_values.txt'), np.hstack(np.full((S.shape[0], 1), epoch + 1),S.cpu().numpy()), fmt='%.6f') 
             
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
