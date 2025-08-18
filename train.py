@@ -50,7 +50,7 @@ class WeightScheduler:
         return weights 
     
 
-def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
+def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, matched_S):
     """训练一个epoch"""
     model.train()
     total_metrics = defaultdict(float)
@@ -66,7 +66,8 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer):
         gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         
         # 损失计算
-        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y, S)
+
+        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y, S, matched_S)
 
         # 反向传播
         optimizer_nn.zero_grad()
@@ -174,6 +175,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             setattr(model, key, value)
         
         # 训练一个epoch
+        recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
+        matched_comp, matched_chems = model.match_components(S,0.7)
+
         train_metrics = train_epoch(
             model=model,
             data_loader=dataloader,
@@ -181,12 +185,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             optimizer_gmm=optimizer_gmm,
             epoch=epoch,
             writer=writer,
+            matched_S = matched_comp
         )
         
-        recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
-        matched_comp, matched_chems = self.match_components(S,0.7)
-        print(f'S分别匹配到的物质(cosine > 0.7): {match_chems}\n')
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
         # 添加进度打印
         print(f"\nEpoch [{epoch+1}/{epochs}]")
@@ -194,8 +196,17 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         # skip update kmeans centers
         if (epoch + 1) % 10 == 0:
             model.update_kmeans_centers(z)
+
         if (epoch + 1) % 50 == 0:
-           np.savetxt(os.path.join(paths['tensorboard_log'], 'S_values.txt'), np.hstack(np.full((S.shape[0], 1), epoch + 1),S.cpu().numpy()), fmt='%.6f') 
+           np.savetxt(os.path.join(paths['plot'], f'S_values_epoch_{epoch+1}.txt'),  S.detach().cpu().numpy(), fmt='%.6f') 
+
+        # 保存物质匹配情况
+        if not os.path.exists(os.path.join(paths['training_log'], "matched_chems.txt")):
+            with open(os.path.join(paths['training_log'], "matched_chems.txt"), "w") as f:
+                f.write("Epoch\tMatched_Chems\n")  
+        
+        with open(os.path.join(paths['training_log'], "matched_chems.txt"), "a") as f:
+            f.write(f'{epoch+1}\t{ matched_chems}\n')
             
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]

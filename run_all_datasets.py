@@ -128,7 +128,7 @@ def main():
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/HP/HP_wave.npy'),
             "device": "cuda:4",
             "project_tag": "Test_MCREC/0818_Add_reference",
-            'Pretrain_epochs': 100,
+            'Pretrain_epochs': 200,
             'epochs':   600,
             'batch_size':   128,
             "memo": "HP_15"
@@ -152,7 +152,7 @@ def main():
             "Wavenumber": np.arange(600, 1801),
             "device": "cuda:2",
             "project_tag": "Test_MCREC/0818_Add_reference",
-            'Pretrain_epochs': 5000,
+            'Pretrain_epochs': 1000,
             'epochs':   3000,
             'batch_size':   128,
             "memo": "Ocean_3"
@@ -164,7 +164,7 @@ def main():
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Marine_7/Marine_7_wave.npy'),
             "device": "cuda:3",
             "project_tag": "Test_MCREC/0818_Add_reference",
-            'Pretrain_epochs': 100,
+            'Pretrain_epochs': 200,
             'epochs':   600,
             'batch_size':   128,
             "memo": "Ocean_7"

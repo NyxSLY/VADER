@@ -747,7 +747,7 @@ class VaDE(nn.Module):
 
 
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S):
+    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S, matched_S):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
@@ -810,17 +810,16 @@ class VaDE(nn.Module):
         # ortho_loss = ((SS - I) ** 2).sum()
         # spectral_constraints = self.lamb4 * ortho_loss
 
-        # Match Loss
-        matched_comp, matched_chems = self.match_components(S,0.7)
-        matched_comp = torch.tensor(matched_comp, dtype=torch.float32, device = self.device)
+        # 6. Match Loss
+        matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
         valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
         S_valid = S[:,valid_idx]
         cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
         match_loss = 1 - cos_sim
-        spectral_constraints = self.lamb4 * match_loss
+        match_loss_bioDB = self.lamb4 * match_loss
 
         # 7. 总损失
-        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + spectral_constraints.mean()
+        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + match_loss_bioDB.mean()
         
         # 返回损失字典
         
@@ -830,7 +829,7 @@ class VaDE(nn.Module):
             'kl_gmm': kl_gmm.mean().item(),
             'kl_standard': kl_standard.mean().item(),
             'entropy': entropy.mean().item(),
-            'spectral_loss': spectral_constraints.mean().item()
+            'spectral_loss': match_loss_bioDB.mean().item()
         }
 
         

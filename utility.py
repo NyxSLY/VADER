@@ -440,7 +440,7 @@ def visualize_clusters(
     # 绘图
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(22, 8))
     
-        # 创建大调色板
+    # 创建大调色板
     colors = sns.color_palette('husl', n_colors=len(np.unique(labels)))
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
     scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=custom_cmap)
