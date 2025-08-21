@@ -414,7 +414,8 @@ class VaDE(nn.Module):
             window_size=200  # 分段大小
         ).to(device)
         self.spectral_analyzer = SpectralAnalyzer(self.peak_detector, self.spectral_constraints)
-        self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber)
+        self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])
+
         
         # 初始化光谱统计数据
         self._init_spectral_stats()
