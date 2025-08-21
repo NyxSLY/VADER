@@ -414,6 +414,7 @@ class VaDE(nn.Module):
             window_size=200  # 分段大小
         ).to(device)
         self.spectral_analyzer = SpectralAnalyzer(self.peak_detector, self.spectral_constraints)
+        self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber)
         
         # 初始化光谱统计数据
         self._init_spectral_stats()
@@ -620,7 +621,7 @@ class VaDE(nn.Module):
 
         match_specs = []
         match_chems = []       
-        spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber)
+        spectra_search = self.spectra_search
 
         for i in range(0,S_valid.shape[0]):
             unknown_comp = S_valid[i].cpu().numpy()
