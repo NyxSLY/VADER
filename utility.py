@@ -280,7 +280,7 @@ def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_le
     mean_labels = means.shape[0]
     
     for label in range(mean_labels):
-        mean = means[label].unsqueeze(0)
+        mean = means[label].unsqueeze(0).cpu().detach().numpy()
         latent_samples = []
         
         # Step 1: Add noise to means
@@ -307,7 +307,7 @@ def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_le
                     swaps = feature_swap_z(z1, z_interp,num=3)
                     for z_swap in swaps:
                         z_samples.append(z_swap)
-                        x_spec = torch.matmul(z_swap.unsqueeze(0), F.normalize(model.encoder.S, p=2, dim=1))
+                        x_spec = torch.matmul(F.softplus(z_swap.unsqueeze(0)), F.relu(model.encoder.S).cpu())
                         x_spec_np = x_spec.detach().numpy()
                         x_spec_np_shift = shift_signal(x_spec_np)
                         x_spec_np_smooth = smooth_edges(x_spec_np_shift)

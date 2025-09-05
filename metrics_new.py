@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 from utility import leiden_clustering,inverse_wavelet_transform
 import torch.nn.functional as F
+import pandas as pd
 
 class ModelEvaluator:
     """
@@ -165,6 +166,12 @@ class ModelEvaluator:
 
             # 计算Leiden聚类标签
             z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
+
+            # 打印 gmm_labels 和 y_true 的交叉表进行手动检查
+            print("\n--- GMM Labels vs True Labels Contingency Table ---")
+            contingency_table = pd.crosstab(y_true, gmm_labels)
+            print(contingency_table)
+            print("---------------------------------------------------\n")
 
             # 计算评估指标
             gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)

@@ -1,3 +1,4 @@
+from tkinter import Y
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -253,10 +254,11 @@ class Decoder(nn.Module):
         return self.net(torch.matmul(z,self.S))
 
 class Gaussian(nn.Module):
-    def __init__(self, num_clusters, latent_dim):
+    def __init__(self, num_clusters, latent_dim, global_label_mapping=None):
         super(Gaussian, self).__init__()
         self.num_clusters = num_clusters
         self.latent_dim = latent_dim
+        self.global_label_mapping = global_label_mapping # 全局标签映射
         
         # 初始化参数
         self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
@@ -275,18 +277,34 @@ class Gaussian(nn.Module):
             if weights is not None:
                 self.pi.data.copy_(weights)
 
-    def forward(self, z):
-        # 计算条件概率/可能性
-        y = self.gaussian_log_prob(z)  # log p(z|c)
-        
-        # 计算后验概率
-        gamma = F.softmax(y, dim=1)  # p(c|z)
-        
+    def forward(self, z, labels_batch=None):
+        if labels_batch is not None: # 如果有批次标签，就使用它
+            # labels_batch 预计是 1D 的标签张量
+            y_labels_tensor = labels_batch.cpu().numpy() # Convert to numpy for mapping
+            
+            # 使用全局映射重映射批次标签
+            if self.global_label_mapping is not None:
+                remapped_labels_np = np.array([self.global_label_mapping[label.item()] for label in y_labels_tensor])
+                y_labels_tensor_remapped = torch.tensor(remapped_labels_np, device=z.device, dtype=torch.long)
+            else:
+                # Fallback if no global mapping, though it should exist if prior_y was given
+                unique_batch_labels = torch.unique(labels_batch)
+                batch_label_mapping = {old_label.item(): new_label for new_label, old_label in enumerate(unique_batch_labels)}
+                remapped_labels_np = np.array([batch_label_mapping[label.item()] for label in y_labels_tensor])
+                y_labels_tensor_remapped = torch.tensor(remapped_labels_np, device=z.device, dtype=torch.long)
+
+            # 为 gamma 创建独热编码，使用全局 num_clusters
+            gamma = F.one_hot(y_labels_tensor_remapped, num_classes=self.num_clusters).float()
+            y = y_labels_tensor_remapped # y 也应该是重映射后的标签
+        else: # 如果没有批次标签，则回退到原来的GMM计算方式
+            y = self.gaussian_log_prob(z)  # log p(z|c) # 计算条件概率/可能性
+            gamma = F.softmax(y, dim=1)  # p(c|z) # 计算后验概率
+
         # 计算条件均值
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
-        
+
         # 返回所有需要的值
-        return self.means,self.log_variances, y, gamma, self.pi  # 输出PI
+        return self.means,self.log_variances, y, gamma, self.pi  
 
     def gaussian_log_prob(self, z):
         """计算log p(z|c)"""
@@ -376,7 +394,7 @@ class SpectralAnalyzer:
 
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
-                 encoder_type="basic", batch_size=None, tensor_gpu_data=None,
+                 prior_y = None, encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  cluster_separation_method='cosine',
                  pretrain_epochs=50,
@@ -388,9 +406,23 @@ class VaDE(nn.Module):
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
         self.wavenumber = wavenumber
+        self.prior_y = prior_y
+
+        # Dynamically set self.num_classes and create global_label_mapping if prior_y is provided
+        if self.prior_y is not None:
+            if not isinstance(self.prior_y, np.ndarray):
+                self.prior_y = np.array(self.prior_y)
+            
+            unique_prior_labels = np.unique(self.prior_y)
+            self.num_classes = len(unique_prior_labels) # Update num_classes based on prior_y
+            self.global_label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_prior_labels)}
+        else:
+            self.num_classes = num_classes # Use the provided num_classes if no prior_y
+
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components,S)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
-        self.gaussian = Gaussian(num_classes, n_components)
+        # Pass global_label_mapping to Gaussian
+        self.gaussian = Gaussian(self.num_classes, n_components, global_label_mapping=self.global_label_mapping)
         self.cluster_centers = None
         self.lamb1 = lamb1
         self.lamb2 = lamb2
@@ -656,7 +688,12 @@ class VaDE(nn.Module):
         encoded_data_cpu = z.cpu().numpy()
 
         # update the clustering centers
-        ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
+        if self.prior_y is not None:
+            ml_labels = self.prior_y
+            cluster_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
+        else:
+            ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
+
         # leiden_centers = torch.tensor(leiden_centers, device=self.device).to(dtype=self.gaussian.means.data.dtype)
         # gaussian_centers = updated_centers = self.gaussian.means.data
         cluster_var = self.gaussian.log_variances.data
@@ -668,6 +705,8 @@ class VaDE(nn.Module):
         if num_ml_centers != self.gaussian.num_clusters:
             print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
             gaussian_means = self.gaussian.means.cpu().numpy()
+            print(f"Shape of cluster_centers before optimal_transport: {cluster_centers.shape}")
+            print(f"Shape of gaussian_means before optimal_transport: {gaussian_means.shape}")
             cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
             self.num_clusters = num_ml_centers
             array_var = self.gaussian.log_variances.cpu().numpy()
@@ -698,19 +737,19 @@ class VaDE(nn.Module):
         # CS+σ
         return concentration + eps * std
 
-    def forward(self,x):
+    def forward(self,x, labels_batch=None): # Add labels_batch parameter
         """模型前向传播"""
         mean, log_var, S= self.encoder(x)
         z = self.reparameterize(mean, log_var)
         
         # 通过GMM获取所有需要的值
-        means, log_variances, y, gamma, pi = self.gaussian(z)
+        means, log_variances, y, gamma, pi = self.gaussian(z, labels_batch) # Pass labels_batch
         
         # 解码
         # recon_x = self.decoder(z)
         recon_x = torch.matmul(z, S)
         
-        return recon_x, mean, log_var, z, gamma, pi, S
+        return recon_x, mean, means, log_var, z, gamma, pi, S
 
     @torch.no_grad()
     def constraint_angle(self, x, weight=0.05):
@@ -749,18 +788,14 @@ class VaDE(nn.Module):
 
 
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, y, S, matched_S):
+    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, gamma, S, matched_S):
 
         """计算所有损失，严格按照原始VaDE论文"""
         batch_size = x.size(0)
         
         # 1. 重构损失
-      
         recon_loss = self.lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
        
-        # 2. 从y计算gamma
-        gamma = F.softmax(y, dim=-1)  # [batch_size, num_clusters]
-        
         # 扩展gamma的维度用于广播
         gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
         
@@ -772,7 +807,7 @@ class VaDE(nn.Module):
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
         gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
-        # 3. GMM先验的KL散度
+        # 2. GMM先验的KL散度
         try:
             kl_gmm = torch.sum(
                 0.5 * gamma_t * (

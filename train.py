@@ -57,17 +57,17 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, 
     
     for batch_idx, x in enumerate(data_loader):
         # 数据准备
-        x = x[0].to(model.device)
+        data_x = x[0].to(model.device)
         
         # 前向传播
-        recon_x, mean, log_var, z, gamma, pi, S = model(x)
+        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(data_x,  labels_batch = x[1].to(model.device))
         
         # 获取GMM的输出
-        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
+        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z, labels_batch = x[1].to(model.device))
         
         # 损失计算
 
-        loss_dict = model.compute_loss(x, recon_x, mean, log_var, z, y, S, matched_S)
+        loss_dict = model.compute_loss(data_x, recon_x, mean, log_var, z, gamma, S, matched_S)
 
         # 反向传播
         optimizer_nn.zero_grad()
@@ -156,7 +156,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         n_epochs=epochs,
         resolution_2=model_params['resolution_2']
     )
-    recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
+    recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = labels.to(model.device))
     model.init_kmeans_centers(z)
 
     # 初始化S和C
@@ -175,7 +175,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             setattr(model, key, value)
         
         # 训练一个epoch
-        recon_x, mean, log_var, z, gamma, pi, S = model(tensor_gpu_data)
+        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
 
         train_metrics = train_epoch(
