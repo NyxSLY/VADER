@@ -576,10 +576,17 @@ class VaDE(nn.Module):
         # 使用选定的聚类方法
         print(f"Using clustering method: {self.clustering_method}")
         print(f'num_clusters: {self.num_classes}')
-        labels, cluster_centers = self._apply_clustering(encoded_data)
-        num_clusters = len(np.unique(labels))
     
+        # update the clustering centers
+        if self.prior_y is not None:
+            labels = self.prior_y
+            cluster_centers = np.array([encoded_data[labels == i].mean(axis=0) for i in np.unique(labels)])
+        else:
+            labels, cluster_centers = self._apply_clustering(encoded_data)
+        
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        num_clusters = len(np.unique(labels))
+
         # 如果聚类数量发生变化，需要重新初始化高斯分布
         if num_clusters != self.gaussian.num_clusters:
             print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
