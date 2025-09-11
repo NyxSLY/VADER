@@ -296,9 +296,10 @@ class Gaussian(nn.Module):
             # 为 gamma 创建独热编码，使用全局 num_clusters
             gamma = F.one_hot(y_labels_tensor_remapped, num_classes=self.num_clusters).float()
             y = y_labels_tensor_remapped # y 也应该是重映射后的标签
+
         else: # 如果没有批次标签，则回退到原来的GMM计算方式
-            y = self.gaussian_log_prob(z)  # log p(z|c) # 计算条件概率/可能性
-            gamma = F.softmax(y, dim=1)  # p(c|z) # 计算后验概率
+            y = self.gaussian_log_prob(z)  # log p(c|z) # 计算条件概率/可能性
+            gamma = F.softmax(y, dim=1)  # gamma(c)
 
         # 计算条件均值
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
@@ -418,6 +419,7 @@ class VaDE(nn.Module):
             self.global_label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_prior_labels)}
         else:
             self.num_classes = num_classes # Use the provided num_classes if no prior_y
+            self.global_label_mapping = None
 
         self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components,S)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
@@ -698,12 +700,11 @@ class VaDE(nn.Module):
         if self.prior_y is not None:
             ml_labels = self.prior_y
             cluster_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
+            cluster_var = np.array([np.log(encoded_data_cpu[ml_labels == i].var(axis=0) + 1e-6) for i in np.unique(ml_labels)]) 
         else:
             ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
-
-        # leiden_centers = torch.tensor(leiden_centers, device=self.device).to(dtype=self.gaussian.means.data.dtype)
-        # gaussian_centers = updated_centers = self.gaussian.means.data
-        cluster_var = self.gaussian.log_variances.data
+            cluster_var = self.gaussian.log_variances.data
+        
         cluster_pi = self.gaussian.pi.data
         
         num_ml_centers = len(np.unique(ml_labels))
@@ -712,8 +713,6 @@ class VaDE(nn.Module):
         if num_ml_centers != self.gaussian.num_clusters:
             print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
             gaussian_means = self.gaussian.means.cpu().numpy()
-            print(f"Shape of cluster_centers before optimal_transport: {cluster_centers.shape}")
-            print(f"Shape of gaussian_means before optimal_transport: {gaussian_means.shape}")
             cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
             self.num_clusters = num_ml_centers
             array_var = self.gaussian.log_variances.cpu().numpy()
@@ -721,6 +720,14 @@ class VaDE(nn.Module):
             aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
             aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
             self.gaussian = Gaussian(num_ml_centers, self.n_components).to(self.device)
+            cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
+            cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
+        else:
+            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
+            array_var = self.gaussian.log_var_c.cpu().numpy()
+            array_pi = self.gaussian.pi_.cpu().numpy()
+            aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
+            aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
             cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
             cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
         cluster_centers_t = torch.tensor(cluster_centers,device = self.device)
@@ -802,7 +809,8 @@ class VaDE(nn.Module):
         
         # 1. 重构损失
         recon_loss = self.lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
-       
+
+        # 2. GMM先验的KL散度       
         # 扩展gamma的维度用于广播
         gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
         
@@ -814,12 +822,10 @@ class VaDE(nn.Module):
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
         gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
-        # 2. GMM先验的KL散度
         try:
             kl_gmm = torch.sum(
                 0.5 * gamma_t * (
-                    self.latent_dim * math.log(2*math.pi) +
-                    torch.log(torch.exp(gaussian_log_vars) + 1e-10) +
+                    self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
                     torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
                     (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),

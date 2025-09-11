@@ -327,6 +327,63 @@ def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_le
     
     return generated_samples, generated_labels
 
+
+def generate_groups(means,log_var, model, num_samples_per_label=100, noise_level=0.01,num=3):
+    model.eval()
+    generated_samples = []
+    generated_labels = []
+    z_samples = []
+    mean_labels = means.shape[0]
+    
+    for label in range(mean_labels):
+        mean = means[label].unsqueeze(0).cpu().detach().numpy()
+        latent_samples = []
+        
+        # Step 1: Add noise to means
+        for _ in range(num_samples_per_label):
+            noisy_mean = add_noise_to_signal(mean, noise_level=noise_level)
+            #shifted_mean = shift_signal(noisy_mean)
+            scaled_mean = scale_signal(noisy_mean)
+            latent_samples.append(scaled_mean)
+        
+        latent_samples = np.array(latent_samples)
+        latent_samples_tensor = torch.from_numpy(latent_samples).float()
+
+        # Step 3: Interpolation and Step 4: Feature Swap
+        num_generated = 0
+        while num_generated < num_samples_per_label:
+            for i in range(0, len(latent_samples_tensor) - 1, 2):
+                z1 = latent_samples_tensor[i]
+                z2 = latent_samples_tensor[num_samples_per_label-1-i]
+                
+                # Interpolation
+                interpolations = interpolate_z(z1, z2, steps=1)
+                for z_interp in interpolations:
+                    # Feature Swap
+                    swaps = feature_swap_z(z1, z_interp,num=3)
+                    for z_swap in swaps:
+                        z_samples.append(z_swap)
+                        x_spec = torch.matmul(F.softplus(z_swap.unsqueeze(0)), F.relu(model.encoder.S).cpu())
+                        x_spec_np = x_spec.detach().numpy()
+                        x_spec_np_shift = shift_signal(x_spec_np)
+                        x_spec_np_smooth = smooth_edges(x_spec_np_shift)
+                        generated_samples.append(x_spec_np_smooth)
+                        generated_labels.append(label)
+                        num_generated += 1
+                        if num_generated >= num_samples_per_label:
+                            break
+                if num_generated >= num_samples_per_label:
+                    break
+            if num_generated >= num_samples_per_label:
+                break
+
+    generated_samples = np.vstack(generated_samples)
+    generated_labels = np.array(generated_labels)
+    z_samples = np.vstack(z_samples)
+    
+    return generated_samples, generated_labels
+
+
 def sample_plot(
         generated_samples: np.ndarray,
         generated_labels: np.ndarray,

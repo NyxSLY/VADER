@@ -87,7 +87,8 @@ def train_on_dataset(
     )
 
     if n_gene is not None:
-        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = tensor_gpu_labels)
+        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else tensor_gpu_labels)
+        # labels_batch = None if model.prior_y is None else labels.to(model.device)
         gene_samples, gene_labels = generate_spectra_from_means(gaussian_means,model, num_samples_per_label=n_gene, noise_level=0.001,num=3)
         np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_X_gene_cVADER_{n_gene}.npy', gene_samples)
         np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_Y_gene_cVADER_{n_gene}.npy', gene_labels)
@@ -116,7 +117,7 @@ async def run_all_datasets_async(datasets):
     return results
 
 def main():
-    project_tag = 'Test_MCREC/0903_Prior_Generate'
+    project_tag = 'Test_MCREC/0903_Test'
     datasets = [
         # {
         #     'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy"),
@@ -143,10 +144,10 @@ def main():
         #     "memo": "HP_15"
         # },
         # {
-        #     "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/X_reference_9.npy"),
+        #     "train_data":  np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/X_reference_9.npy"), axis=1),
         #     "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference_9.npy").astype(int),
-        #     "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/MCR_NC9_S_20.npy"),
-        #     "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'),
+        #     "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/MCR_NC9_S_20.npy"),axis=1),
+        #     "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'),axis=0),
         #     "device": "cuda:1",
         #     "project_tag": project_tag,
         #     'Pretrain_epochs': 100,
@@ -155,6 +156,20 @@ def main():
         #     "memo": "NC_9",
         #     'n_gene': 1000
         # },
+        {
+            "train_data":  np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/X_reference.npy"), axis=1),
+            "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference.npy").astype(int), 
+            "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_All/MCR_NCAll_Raw_30_component.npy"),axis=1),
+            "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'), axis=0),
+            "device": "cuda:0",
+            "project_tag": project_tag,
+            'Pretrain_epochs': 100,
+            'epochs':   1000,
+            'batch_size':   128,
+            "memo": "NC_All",
+            'n_gene': 20000
+        },
+
         # {
         #     "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_3/Ocean_train_process.npy"),
         #     "train_label": np.repeat([0,1,2],50),
@@ -215,20 +230,6 @@ def main():
         #     'batch_size': 128,
         #     "memo": "MTB_Scitific"
         # },
-        {
-            "train_data":  np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/X_reference.npy"), axis=1),
-            "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference.npy").astype(int), 
-            "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_All/MCR_NCAll_Raw_30_component.npy"),axis=1),
-            "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'), axis=0),
-            "device": "cuda:3",
-            "project_tag": project_tag,
-            'Pretrain_epochs': 100,
-            'epochs':   300,
-            'batch_size':   128,
-            "memo": "NC_All",
-            'n_gene': 10000
-        },
-
 
         ## ATCC Datasets
         # {
