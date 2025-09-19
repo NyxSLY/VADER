@@ -167,6 +167,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     # 可选：保存分析结果
     model.spectral_analyzer.save_analysis_results()
     
+    # 初始化 best_gmm_acc 和 best_epoch
+    best_leiden_acc = -1.0
+    best_epoch = -1
+
     for epoch in range(train_config['start_epoch'], 
                       train_config['start_epoch'] + epochs):
         # 更新权重
@@ -226,35 +230,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             proportions = counts / len(gmm_labels)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
-            # for i, (label, proportion) in enumerate(zip(unique_labels, proportions)):
-            #     writer.add_scalar(f'GMM/cluster_{label}_proportion', proportion, epoch)
-
-
-            # for i in range(10):
-            #     writer.add_scalar(
-            #         f'GMM/cluster_{i}_log_variance_mean', 
-            #         gmm_log_variances[i].mean().item(),  # 每个类别的平均log方差
-            #         epoch
-            #     )
-            
-            # writer.add_scalar(
-            #     f'gaussian/cluster_log_pcz_min', 
-            #     min_y.values.float().mean().item(),  # 每个类别的平均log方差
-            #     epoch
-            # )
-            
-            # writer.add_scalar(
-            #     f'gaussian/cluster_log_pcz_max', 
-            #     max_y.values.float().mean().item(),  # 每个类别的平均log方差
-            #     epoch
-            # )
-            
-            # for i in range(10):
-            #     writer.add_scalar(
-            #         f'VADE/dim_{i}_log_var_mean', 
-            #         log_var[:,i].mean().item(),  # 每个类别的平均log方差
-            #         epoch
-            #     )
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(
@@ -268,6 +243,16 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             t_plot, 
             r_plot
         )
+
+        # 在训练了100个epoch以后，总是记录gmm_acc最大的epoch的pth
+        # if epoch >= 100:
+        #     current_leiden_acc = metrics['leiden_acc']
+        #     if current_leiden_acc > best_leiden_acc:
+        #         best_leiden_acc = current_leiden_acc
+        #         best_epoch = epoch
+        #         print(f"新的最佳GMM准确率: {best_leiden_acc:.4f} 在 epoch {best_epoch + 1}")
+        #         torch.save(model.state_dict(), os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth'))
+        #         print(f"模型已保存到 {os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth')}")
             
         # 检查早停条件
         if check_early_stopping(metrics, train_config['min_loss_threshold']):

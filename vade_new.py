@@ -593,7 +593,7 @@ class VaDE(nn.Module):
         if num_clusters != self.gaussian.num_clusters:
             print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
             self.num_clusters = num_clusters
-            self.gaussian = Gaussian(num_clusters, self.n_components).to(self.device)
+            self.gaussian = Gaussian(num_clusters, self.n_components, global_label_mapping=self.global_label_mapping).to(self.device)
             self.gaussian.update_parameters(cluster_centers=cluster_centers)
 
         # 直接用聚类中心更新高斯分布参数
@@ -706,28 +706,27 @@ class VaDE(nn.Module):
             cluster_var = self.gaussian.log_variances.data
         
         cluster_pi = self.gaussian.pi.data
+        gaussian_means = self.gaussian.means.cpu().numpy()
         
         num_ml_centers = len(np.unique(ml_labels))
 
         """align"""
         if num_ml_centers != self.gaussian.num_clusters:
             print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
-            gaussian_means = self.gaussian.means.cpu().numpy()
             cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-            self.num_clusters = num_ml_centers
             array_var = self.gaussian.log_variances.cpu().numpy()
             array_pi = self.gaussian.pi.cpu().numpy()
-            aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
-            aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
-            self.gaussian = Gaussian(num_ml_centers, self.n_components).to(self.device)
+            aligned_gaussian_var = self.change_var(array_var,num_ml_centers,w=1.0)
+            aligned_gaussian_pi = self.change_pi(array_pi,num_ml_centers,w=0.5)
+            self.gaussian = Gaussian(num_ml_centers, self.n_components,global_label_mapping=self.global_label_mapping).to(self.device)
             cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
             cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
         else:
             cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-            array_var = self.gaussian.log_var_c.cpu().numpy()
-            array_pi = self.gaussian.pi_.cpu().numpy()
-            aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
-            aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
+            array_var = self.gaussian.log_variances.cpu().numpy()
+            array_pi = self.gaussian.pi.cpu().numpy()
+            aligned_gaussian_var = self.change_var(array_var,num_ml_centers,w=1.0)
+            aligned_gaussian_pi = self.change_pi(array_pi,num_ml_centers,w=0.5)
             cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
             cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
         cluster_centers_t = torch.tensor(cluster_centers,device = self.device)
