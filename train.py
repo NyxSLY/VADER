@@ -245,14 +245,14 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         )
 
         # 在训练了100个epoch以后，总是记录gmm_acc最大的epoch的pth
-        # if epoch >= 100:
-        #     current_leiden_acc = metrics['leiden_acc']
-        #     if current_leiden_acc > best_leiden_acc:
-        #         best_leiden_acc = current_leiden_acc
-        #         best_epoch = epoch
-        #         print(f"新的最佳GMM准确率: {best_leiden_acc:.4f} 在 epoch {best_epoch + 1}")
-        #         torch.save(model.state_dict(), os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth'))
-        #         print(f"模型已保存到 {os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth')}")
+        if epoch >= 100:
+            current_leiden_acc = metrics['leiden_acc']
+            if current_leiden_acc > best_leiden_acc:
+                best_leiden_acc = current_leiden_acc
+                best_epoch = epoch
+                print(f"新的最佳GMM准确率: {best_leiden_acc:.4f} 在 epoch {best_epoch + 1}")
+                torch.save(model.state_dict(), os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth'))
+                print(f"模型已保存到 {os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth')}")
             
         # 检查早停条件
         if check_early_stopping(metrics, train_config['min_loss_threshold']):
