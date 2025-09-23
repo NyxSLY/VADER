@@ -164,8 +164,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     print("正在分析数据集特征...")
     model.spectral_analyzer.analyze_dataset(dataloader)
     
-    # 可选：保存分析结果
-    model.spectral_analyzer.save_analysis_results()
     
     # 初始化 best_gmm_acc 和 best_epoch
     best_leiden_acc = -1.0

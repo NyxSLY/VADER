@@ -66,7 +66,7 @@ class PeakDetector(nn.Module):
         """直接在 GPU 上计算峰值权重"""
         device = x.device
         batch_size, N = x.shape
-        peaks = torch.zeros_like(x)  # 这样会自动在正确的设备上创建
+        peaks = torch.zeros_like(x)  
 
         # 归一化到 [0, 1]
         x_normalized = (x - x.min(dim=-1, keepdim=True)[0]) / (
@@ -75,7 +75,6 @@ class PeakDetector(nn.Module):
 
         # 批量检测峰值
         for i in range(batch_size):
-            # 添加 detach() 来处理需要梯度的张量
             spectrum = x_normalized[i].detach().cpu().numpy()
             peak_indices, _ = signal.find_peaks(
                 spectrum,
@@ -83,10 +82,9 @@ class PeakDetector(nn.Module):
                 distance=self.min_distance,
                 prominence=self.prominence_factor,
             )
-            # 直接在正确的设备上索引
             peaks[i, peak_indices] = 1.0
 
-        return peaks  # peaks已经在正确的设备上
+        return peaks  
 
 class Decoder(nn.Module):
     def __init__(self, latent_dim,intermediate_dim, input_dim, n_components):
@@ -185,69 +183,6 @@ class Gaussian(nn.Module):
         return log_p_c
 
 
-class SpectralAnalyzer:
-    def __init__(self, peak_detector):
-        self.peak_detector = peak_detector
-        self.stats = {}  # 用于存储分析结果
-        
-    def get_dataset_stats(self):
-        """获取数据集统计信息"""
-        return self.stats
-        
-    @torch.no_grad()
-    def analyze_dataset(self, dataloader):
-        """分析数据集的光谱特征"""
-        print("开始分析数据集...")
-        
-        # 1. 收集所有数据
-        print("正在收集光谱数据...")
-        all_spectra = []
-        total_samples = 0
-        for x, _ in dataloader:
-            all_spectra.append(x.cpu().numpy())
-            total_samples += x.shape[0]
-        all_spectra = np.vstack(all_spectra)
-        print(f"共收集到 {total_samples} 个光谱样本")
-        
-        # 2. 计算基本统计信息
-        self.stats = {
-            'mean_spectrum': torch.tensor(np.mean(all_spectra, axis=0)),
-            'std_spectrum': torch.tensor(np.std(all_spectra, axis=0)),
-            'intensity_range': {
-                'min': float(np.min(all_spectra)),
-                'max': float(np.max(all_spectra))
-            }
-        }
-        
-        # 3. 分析峰位置
-        print("正在分峰位置...")
-        peaks = self.peak_detector(torch.tensor(all_spectra))
-        # 记录在至少10%光谱中出现过峰的位置
-        peak_counts = torch.sum(peaks, dim=0)
-        min_occurrences = 0.1 * peaks.shape[0]  # 10%的样本数
-        self.stats['peak_positions'] = torch.where(peak_counts >= min_occurrences)[0]
-        
-        
-        print("数据集分析完成!")
-        return self.stats
-
-    def save_analysis_results(self, save_dir='./spectral_analysis'):
-        """保存分析结果"""
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, 'spectral_analysis.pt')
-        torch.save(self.stats, save_path)
-        print(f"分析结果已保存到: {save_path}")
-
-    def load_analysis_results(self, save_dir='./spectral_analysis'):
-        """加载分析结果"""
-        load_path = os.path.join(save_dir, 'spectral_analysis.pt')
-        if os.path.exists(load_path):
-            self.stats = torch.load(load_path)
-            print(f"已加载分析结果从: {load_path}")
-            return True
-        return False
-
-
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
                  prior_y = None, encoder_type="basic", batch_size=None, tensor_gpu_data=None,
@@ -295,31 +230,10 @@ class VaDE(nn.Module):
         self.input_dim = input_dim
 
         self.peak_detector = PeakDetector().to(device)
-        self.spectral_analyzer = SpectralAnalyzer(self.peak_detector)
-        self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])
-
-        self._init_spectral_stats()
-        
+        self.spectral_analyzer = self.get_peak_positions()
+        self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])  
         self.to(device)
 
-    def _init_spectral_stats(self):
-        """初始化光谱统计数据并确保在正确的设备上"""
-        self.spectral_stats = {
-            'peak_features': {
-                'peak_count': torch.tensor(0, device=self.device),
-                'peak_heights': torch.tensor([], device=self.device),
-                'peak_positions': torch.tensor([], device=self.device),
-                'peak_prominences': torch.tensor([], device=self.device)
-            },
-            'spectral_features': {
-                'total_intensity': torch.tensor(0.0, device=self.device),
-                'max_intensity': torch.tensor(1.0, device=self.device),
-                'min_intensity': torch.tensor(0.0, device=self.device),
-                'mean_intensity': torch.tensor(0.5, device=self.device),
-                'std_intensity': torch.tensor(0.1, device=self.device)
-            }
-        }
-        self.spectral_analyzer.stats = self.spectral_stats
 
 
     def pretrain(self, dataloader,learning_rate=1e-3):
@@ -607,6 +521,16 @@ class VaDE(nn.Module):
         return (1 - weight) * S_init + weight * m
 
 
+    @torch.no_grad()
+    def get_peak_positions(self):
+        all_spectra = self.tensor_gpu_data.cpu()
+        peaks = self.peak_detector(all_spectra)
+        peak_counts = torch.sum(peaks, dim=0)
+        min_occurrences = 0.1 * peaks.shape[0]  # 10%的样本数
+        peak_positions = torch.where(peak_counts >= min_occurrences)[0]
+        return peak_positions
+
+    @torch.no_grad()
     def compute_spectral_constraints(self, x, recon_x):
         """计算光谱约束时只使用数据集统计信息"""
         constraints = {}
