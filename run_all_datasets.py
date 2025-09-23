@@ -56,7 +56,7 @@ def train_on_dataset(
         n_components=n_component,
         S=torch.tensor(S).float().to(device),
         wavenumber = Wavenumber,
-        prior_y=train_label,
+        # prior_y=train_label,
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
@@ -117,7 +117,7 @@ async def run_all_datasets_async(datasets):
     return results
 
 def main():
-    project_tag = 'Test_MCREC/0915_Save_Model'
+    project_tag = 'Test_MCREC/0922_Save_Model'
     datasets = [
         # {
         #     'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy"),
@@ -163,7 +163,7 @@ def main():
             "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'),axis=0),
             "device": "cuda:0",
             "project_tag": project_tag,
-            'Pretrain_epochs': 100,
+            'Pretrain_epochs': 10,
             'epochs':   300,
             'batch_size':   128,
             "memo": "NC_9_prior_y",

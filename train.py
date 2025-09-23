@@ -63,7 +63,7 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, 
         recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(data_x,  labels_batch = None if model.prior_y is None else x[1].to(model.device))
         
         # 获取GMM的输出
-        gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z, labels_batch = None if model.prior_y is None else x[1].to(model.device))
+        # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z, labels_batch = None if model.prior_y is None else x[1].to(model.device))
         
         # 损失计算
 
@@ -191,6 +191,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             writer=writer,
             matched_S = matched_comp
         )
+
+        print(S[:,1])
         
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)

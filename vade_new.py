@@ -303,6 +303,7 @@ class Gaussian(nn.Module):
 
         # 计算条件均值
         means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
+        # print(self.means[1,:])
 
         # 返回所有需要的值
         return self.means,self.log_variances, y, gamma, self.pi  
@@ -860,15 +861,15 @@ class VaDE(nn.Module):
         # spectral_constraints = self.lamb4 * ortho_loss
 
         # 6. Match Loss
-        matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
-        valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
-        S_valid = S[:,valid_idx]
-        cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
-        match_loss = 1 - cos_sim
-        match_loss_bioDB = self.lamb4 * match_loss
+        # matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
+        # valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
+        # S_valid = S[:,valid_idx]
+        # cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
+        # match_loss = 1 - cos_sim
+        # match_loss_bioDB = self.lamb4 * match_loss
 
         # 7. 总损失
-        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() + match_loss_bioDB.mean()
+        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() #+ match_loss_bioDB.mean()
         
         # 返回损失字典
         
@@ -878,7 +879,7 @@ class VaDE(nn.Module):
             'kl_gmm': kl_gmm.mean().item(),
             'kl_standard': kl_standard.mean().item(),
             'entropy': entropy.mean().item(),
-            'spectral_loss': match_loss_bioDB.mean().item()
+            #'spectral_loss': match_loss_bioDB.mean().item()
         }
 
         
