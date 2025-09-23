@@ -1,22 +1,15 @@
-from tkinter import Y
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.cluster import KMeans
 import numpy as np
-from scipy import signal,sparse
+from scipy import signal
 import os
-import torch.cuda
-from utility import leiden_clustering, compute_cluster_means
-import time
-from collections import defaultdict
 import networkx as nx
 from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
 from utility import leiden_clustering
 import math
-from tqdm import tqdm
-import itertools
 from scipy.optimize import linear_sum_assignment
 from ramanbiolib.search import PeakMatchingSearch, SpectraSimilaritySearch
 
@@ -35,7 +28,7 @@ class Encoder(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.n_components = n_components
-        self.S = nn.Parameter(S.clone().detach().float())  # 可学习参数
+        self.S = nn.Parameter(S.clone().detach().float())  
 
         layers = []
         prev_dim = input_dim
@@ -61,144 +54,13 @@ class Encoder(nn.Module):
         return concentration, concentration_logvar, S_pos
 
 
-class SpectralConstraints(nn.Module):
-    def __init__(self, method='poly', poly_degree=3, window_size=50):
-        super().__init__()
-        self.method = method
-        self.poly_degree = poly_degree
-        self.window_size = window_size
-        self.dummy = nn.Parameter(torch.zeros(1))
-        
-    @torch.no_grad()
-    def batch_als_baseline(self, x):
-        if self.method == 'poly':
-            return self._poly_baseline(x)
-        # ... 其他方法保持不变 ...
-
-    def _poly_baseline(self, x):
-        """多项式拟合基线
-        使用批量处理的多项式拟合
-        """
-        device = x.device
-        batch_size, N = x.shape
-        
-        # 创建X矩阵 (多项式的次数项)
-        x_range = torch.linspace(0, 1, N, device=device)
-        X = torch.stack([x_range ** i for i in range(self.poly_degree + 1)]).T  # [N, degree+1]
-        
-        # 批量最小二乘拟合
-        try:
-            # 使用批量矩阵运算
-            # X: [N, degree+1], x: [batch_size, N]
-            # 计算 (X^T X)^(-1) X^T
-            Xt = X.T
-            XtX = torch.mm(Xt, X)
-            XtX_inv = torch.linalg.inv(XtX + torch.eye(XtX.shape[0], device=device) * 1e-10)
-            proj_matrix = torch.mm(XtX_inv, Xt)  # [(degree+1), N]
-            
-            # 批量计算系数
-            coeffs = torch.mm(proj_matrix, x.T).T  # [batch_size, degree+1]
-            
-            # 计算拟合的基线
-            baselines = torch.mm(coeffs, X.T)  # [batch_size, N]
-            
-        except Exception as e:
-            print(f"Warning: Error in polynomial fitting: {str(e)}")
-            # 如果失败，返回简单的均值基线
-            baselines = torch.mean(x, dim=1, keepdim=True).expand(-1, N)
-        
-        return baselines
-
-    def _adaptive_poly_baseline(self, x):
-        """自适应多项式拟合基线
-        将光谱分段处理，每段使用不同阶数的多项式
-        """
-        device = x.device
-        batch_size, N = x.shape
-        segment_size = min(self.window_size, N)
-        num_segments = (N + segment_size - 1) // segment_size
-        
-        baselines = torch.zeros_like(x)
-        
-        for i in range(num_segments):
-            start_idx = i * segment_size
-            end_idx = min((i + 1) * segment_size, N)
-            segment = x[:, start_idx:end_idx]
-            
-            # 对每段使用较低阶多项式
-            segment_baseline = self._poly_baseline_segment(segment, degree=min(2, self.poly_degree))
-            baselines[:, start_idx:end_idx] = segment_baseline
-        
-        # 平滑段之间的过渡
-        if num_segments > 1:
-            baselines = self._smooth_transitions(baselines, segment_size)
-        
-        return baselines
-    
-    def _poly_baseline_segment(self, x, degree):
-        """对单个段进行多项式拟合"""
-        device = x.device
-        batch_size, seg_length = x.shape
-        
-        x_range = torch.linspace(0, 1, seg_length, device=device)
-        X = torch.stack([x_range ** i for i in range(degree + 1)]).T
-        
-        try:
-            Xt = X.T
-            XtX = torch.mm(Xt, X)
-            XtX_inv = torch.linalg.inv(XtX + torch.eye(XtX.shape[0], device=device) * 1e-10)
-            proj_matrix = torch.mm(XtX_inv, Xt)
-            coeffs = torch.mm(proj_matrix, x.T).T
-            segment_baseline = torch.mm(coeffs, X.T)
-            
-        except Exception as e:
-            segment_baseline = torch.mean(x, dim=1, keepdim=True).expand(-1, seg_length)
-        
-        return segment_baseline
-    
-    def _smooth_transitions(self, baselines, segment_size):
-        """平滑段之间的过渡"""
-        device = baselines.device
-        batch_size, N = baselines.shape
-        
-        # 使用简单的移动平均来平滑过渡区域
-        window_size = min(segment_size // 4, 20)  # 过渡区域的大小
-        if window_size > 1:
-            kernel = torch.ones(1, 1, window_size, device=device) / window_size
-            padded = F.pad(baselines.unsqueeze(1), (window_size//2, window_size//2), mode='reflect')
-            smoothed = F.conv1d(padded, kernel).squeeze(1)
-            
-            # 只在段的边界附近应用平滑
-            mask = torch.ones_like(baselines)
-            for i in range(1, (N + segment_size - 1) // segment_size):
-                idx = i * segment_size
-                if idx < N:
-                    start_idx = max(0, idx - window_size//2)
-                    end_idx = min(N, idx + window_size//2)
-                    mask[:, start_idx:end_idx] = 0
-            
-            baselines = mask * baselines + (1 - mask) * smoothed
-            
-        return baselines
-
-    def forward(self, x, recon_x):
-        """计算光谱约束"""
-        # 计算基线
-        x_baseline = self.batch_als_baseline(x)
-        recon_baseline = self.batch_als_baseline(recon_x)
-        
-        # 计算约束
-        baseline_loss = F.mse_loss(recon_baseline, x_baseline)
-        return baseline_loss
-
 class PeakDetector(nn.Module):
     def __init__(self, height_factor=0.1, min_distance=10, prominence_factor=0.05):
         super().__init__()
         self.height_factor = height_factor
         self.min_distance = min_distance
         self.prominence_factor = prominence_factor
-        # 添加一个虚拟参数以确保设备一致性
-        self.dummy = nn.Parameter(torch.zeros(1))
+
 
     def forward(self, x):
         """直接在 GPU 上计算峰值权重"""
@@ -324,9 +186,8 @@ class Gaussian(nn.Module):
 
 
 class SpectralAnalyzer:
-    def __init__(self, peak_detector, spectral_constraints):
+    def __init__(self, peak_detector):
         self.peak_detector = peak_detector
-        self.spectral_constraints = spectral_constraints
         self.stats = {}  # 用于存储分析结果
         
     def get_dataset_stats(self):
@@ -366,13 +227,6 @@ class SpectralAnalyzer:
         min_occurrences = 0.1 * peaks.shape[0]  # 10%的样本数
         self.stats['peak_positions'] = torch.where(peak_counts >= min_occurrences)[0]
         
-        # 4. 分析基线特zheng
-        print("正在分析基线特征...")
-        baselines = self.spectral_constraints.batch_als_baseline(torch.tensor(all_spectra))
-        self.stats['baseline_params'] = {
-            'mean_baseline': torch.mean(baselines, dim=0),
-            'std_baseline': torch.std(baselines, dim=0)
-        }
         
         print("数据集分析完成!")
         return self.stats
@@ -398,7 +252,6 @@ class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
                  prior_y = None, encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
-                 cluster_separation_method='cosine',
                  pretrain_epochs=50,
                  num_classes=0, resolution_1=1.0, resolution_2=0.9, clustering_method='leiden'):
         super(VaDE, self).__init__()
@@ -422,7 +275,7 @@ class VaDE(nn.Module):
             self.num_classes = num_classes # Use the provided num_classes if no prior_y
             self.global_label_mapping = None
 
-        self.encoder = self._init_encoder(input_dim, intermediate_dim, latent_dim, encoder_type, l_c_dim, n_components,S)
+        self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
         self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
         # Pass global_label_mapping to Gaussian
         self.gaussian = Gaussian(self.num_classes, n_components, global_label_mapping=self.global_label_mapping)
@@ -434,7 +287,6 @@ class VaDE(nn.Module):
         self.lamb5 = lamb5
         self.lamb6 = lamb6
         self.lamb7 = lamb7
-        self.cluster_separation_method = cluster_separation_method
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
         self.resolution_1 = resolution_1
@@ -443,19 +295,11 @@ class VaDE(nn.Module):
         self.input_dim = input_dim
 
         self.peak_detector = PeakDetector().to(device)
-        self.spectral_constraints = SpectralConstraints(
-            method='poly',  # 使用多项式拟合
-            poly_degree=3,  # 多项式阶数
-            window_size=200  # 分段大小
-        ).to(device)
-        self.spectral_analyzer = SpectralAnalyzer(self.peak_detector, self.spectral_constraints)
+        self.spectral_analyzer = SpectralAnalyzer(self.peak_detector)
         self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])
 
-        
-        # 初始化光谱统计数据
         self._init_spectral_stats()
         
-        # 确保所有组件都在正确的设备上
         self.to(device)
 
     def _init_spectral_stats(self):
@@ -467,11 +311,6 @@ class VaDE(nn.Module):
                 'peak_positions': torch.tensor([], device=self.device),
                 'peak_prominences': torch.tensor([], device=self.device)
             },
-            'baseline_features': {
-                'baseline_mean': torch.tensor(0.5, device=self.device),
-                'baseline_std': torch.tensor(0.1, device=self.device),
-                'baseline_slope': torch.tensor(0.0, device=self.device)
-            },
             'spectral_features': {
                 'total_intensity': torch.tensor(0.0, device=self.device),
                 'max_intensity': torch.tensor(1.0, device=self.device),
@@ -480,18 +319,8 @@ class VaDE(nn.Module):
                 'std_intensity': torch.tensor(0.1, device=self.device)
             }
         }
-        # 更新SpectralAnalyzer的统计数据
         self.spectral_analyzer.stats = self.spectral_stats
 
-
-    @staticmethod
-    def _init_encoder(input_dim, intermediate_dim,latent_dim, encoder_type,l_c_dim, n_components,S):
-        """初始化编码器"""
-        if encoder_type == "basic":
-            return Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, 
-                         n_components=n_components, S=S)
-        else:
-            raise ValueError(f"Unknown encoder type: {encoder_type}")
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
@@ -822,23 +651,15 @@ class VaDE(nn.Module):
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
         gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
-        try:
-            kl_gmm = torch.sum(
-                0.5 * gamma_t * (
-                    self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
-                    torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
-                ),
-                dim=(1,2)
-            )
-        except RuntimeError as e:
-            print(f"Error in KL_GMM calculation:")
-            print(f"gamma_t shape: {gamma_t.shape}")
-            print(f"log_var shape: {log_var.shape}")
-            print(f"mean shape: {mean.shape}")
-            print(f"gaussian_means shape: {gaussian_means.shape}")
-            print(f"gaussian_log_vars shape: {gaussian_log_vars.shape}")
-            raise e
+        kl_gmm = torch.sum(
+            0.5 * gamma_t * (
+                self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
+                torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
+                (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+            ),
+            dim=(1,2)
+        )
+
         
         # 4. 标准正态分布的KL散度
         kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) # - mean.pow(2) - torch.exp(log_var)
@@ -930,7 +751,7 @@ class VaDE(nn.Module):
         """确保所有损失值都正确显示"""
         report_str = (
             f"Epoch: {epoch:d}, "
-            f"Loss: {loss_dict['total_loss'].item():.4f}, "  # 这里调用.item()
+            f"Loss: {loss_dict['total_loss'].item():.4f}, "  
             f"Recon Loss: {loss_dict['recon_loss']:.4f}, "
             f"KL Loss: {loss_dict['kl_loss']:.4f}, "
             f"Spectral Loss: {loss_dict['spectral_loss']:.4f}, "

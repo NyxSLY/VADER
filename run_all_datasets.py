@@ -3,11 +3,10 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)  
 
 from vade_new import VaDE
-from utility import create_project_folders,prepare_data_loader, set_random_seed,choose_kmeans,set_device
+from utility import create_project_folders,prepare_data_loader, set_random_seed,set_device
 from config import config
 from train import train_manager
 import torch
-from utility import wavelet_transform, generate_spectra_from_means
 import sys
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
@@ -86,12 +85,12 @@ def train_on_dataset(
         epochs = epochs
     )
 
-    if n_gene is not None:
-        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else tensor_gpu_labels)
-        # labels_batch = None if model.prior_y is None else labels.to(model.device)
-        gene_samples, gene_labels = generate_spectra_from_means(gaussian_means,model, num_samples_per_label=n_gene, noise_level=0.001,num=3)
-        np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_X_gene_cVADER_{n_gene}.npy', gene_samples)
-        np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_Y_gene_cVADER_{n_gene}.npy', gene_labels)
+    # if n_gene is not None:
+    #     recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else tensor_gpu_labels)
+    #     # labels_batch = None if model.prior_y is None else labels.to(model.device)
+    #     gene_samples, gene_labels = generate_spectra_from_means(gaussian_means,model, num_samples_per_label=n_gene, noise_level=0.001,num=3)
+    #     np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_X_gene_cVADER_{n_gene}.npy', gene_samples)
+    #     np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_Y_gene_cVADER_{n_gene}.npy', gene_labels)
 
     print(f"[{project_tag}] 训练完成。\n")
 
