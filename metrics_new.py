@@ -36,13 +36,13 @@ class ModelEvaluator:
         device: torch.device,
         paths: Optional[Dict] = None,
         writer: Optional[SummaryWriter] = None,
-        resolution_2: float = 1.0
+        resolution: float = 1.0
     ):
         self.model = model
         self.device = device
         self.paths = paths
         self.writer = writer
-        self.resolution_2 = resolution_2
+        self.resolution = resolution
         if self.paths and not os.path.exists(os.path.join(self.paths['training_log'], "training_log.txt")):
             with open(os.path.join(self.paths['training_log'], "training_log.txt"), "w") as f:
                 f.write("Epoch\tTotal_loss\tRecon_loss\tKL_GMM\tKL_Standard\tEntropy\t"
@@ -165,7 +165,7 @@ class ModelEvaluator:
             y_true = labels.cpu().numpy()
 
             # 计算Leiden聚类标签
-            z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution_2)
+            z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution)
 
             # 打印 gmm_labels 和 y_true 的交叉表进行手动检查
             print("\n--- GMM Labels vs True Labels Contingency Table ---")

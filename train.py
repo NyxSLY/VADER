@@ -16,7 +16,7 @@ import sys
 mp.set_start_method('spawn', force=True)
 
 class WeightScheduler:
-    def __init__(self, init_weights, max_weights, n_epochs, resolution_2):
+    def __init__(self, init_weights, max_weights, n_epochs, resolution):
         """
         Args:
             init_weights: 初始权重字典 {'lamb1': 1.0, 'lamb2': 0.1, ...}
@@ -27,7 +27,7 @@ class WeightScheduler:
         self.max_weights = max_weights
         self.n_epochs = n_epochs
         self.warmup_epochs = n_epochs // 5  # 预热期为总轮数的1/5
-        self.resolution_2 = resolution_2
+        self.resolution = resolution
         
     def get_weights(self, epoch):
         """获取当前epoch的权重"""
@@ -146,7 +146,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         device=device,
         paths=paths,
         writer=writer,
-        resolution_2=model_params['resolution_2']
+        resolution=model_params['resolution']
     )
 
     # 初始化权重调度器
@@ -154,17 +154,11 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         init_weights=weight_config['init_weights'],
         max_weights=weight_config['max_weights'],
         n_epochs=epochs,
-        resolution_2=model_params['resolution_2']
+        resolution=model_params['resolution']
     )
     recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
     model.init_kmeans_centers(z)
 
-    # 初始化S和C
-    # 在训练开始前分析数据集
-    print("正在分析数据集特征...")
-    model.spectral_analyzer.analyze_dataset(dataloader)
-    
-    
     # 初始化 best_gmm_acc 和 best_epoch
     best_leiden_acc = -1.0
     best_epoch = -1

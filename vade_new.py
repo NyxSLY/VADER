@@ -8,7 +8,7 @@ import os
 import networkx as nx
 from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
-from utility import leiden_clustering
+from utility import leiden_clustering, compute_cluster_means
 import math
 from scipy.optimize import linear_sum_assignment
 from ramanbiolib.search import PeakMatchingSearch, SpectraSimilaritySearch
@@ -53,38 +53,6 @@ class Encoder(nn.Module):
         S_pos = F.relu(self.S) # 非负，L2规范化（每个component平方和为1）
         return concentration, concentration_logvar, S_pos
 
-
-class PeakDetector(nn.Module):
-    def __init__(self, height_factor=0.1, min_distance=10, prominence_factor=0.05):
-        super().__init__()
-        self.height_factor = height_factor
-        self.min_distance = min_distance
-        self.prominence_factor = prominence_factor
-
-
-    def forward(self, x):
-        """直接在 GPU 上计算峰值权重"""
-        device = x.device
-        batch_size, N = x.shape
-        peaks = torch.zeros_like(x)  
-
-        # 归一化到 [0, 1]
-        x_normalized = (x - x.min(dim=-1, keepdim=True)[0]) / (
-            x.max(dim=-1, keepdim=True)[0] - x.min(dim=-1, keepdim=True)[0] + 1e-5
-        )
-
-        # 批量检测峰值
-        for i in range(batch_size):
-            spectrum = x_normalized[i].detach().cpu().numpy()
-            peak_indices, _ = signal.find_peaks(
-                spectrum,
-                height=self.height_factor,
-                distance=self.min_distance,
-                prominence=self.prominence_factor,
-            )
-            peaks[i, peak_indices] = 1.0
-
-        return peaks  
 
 class Decoder(nn.Module):
     def __init__(self, latent_dim,intermediate_dim, input_dim, n_components):
@@ -188,7 +156,7 @@ class VaDE(nn.Module):
                  prior_y = None, encoder_type="basic", batch_size=None, tensor_gpu_data=None,
                  lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  pretrain_epochs=50,
-                 num_classes=0, resolution_1=1.0, resolution_2=0.9, clustering_method='leiden'):
+                 num_classes=0, resolution=1.0,clustering_method='leiden'):
         super(VaDE, self).__init__()
         self.device = device
         self.latent_dim = latent_dim
@@ -211,7 +179,7 @@ class VaDE(nn.Module):
             self.global_label_mapping = None
 
         self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
-        self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
+        # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
         # Pass global_label_mapping to Gaussian
         self.gaussian = Gaussian(self.num_classes, n_components, global_label_mapping=self.global_label_mapping)
         self.cluster_centers = None
@@ -224,26 +192,20 @@ class VaDE(nn.Module):
         self.lamb7 = lamb7
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
-        self.resolution_1 = resolution_1
-        self.resolution_2 = resolution_2
+        self.resolution = resolution
         self.clustering_method = clustering_method
         self.input_dim = input_dim
 
-        self.peak_detector = PeakDetector().to(device)
-        self.spectral_analyzer = self.get_peak_positions()
         self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])  
         self.to(device)
-
-
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
         if  not os.path.exists('./nc9_pretrain_model_none_bn_.pk'):
 
             Loss=nn.MSELoss()
-            # opti=torch.optim.Adam(itertools.chain(self.encoder.parameters()))
             params = [p for n, p in self.encoder.named_parameters() if n != "S"]
-            opti = torch.optim.Adam(params)
+            opti = torch.optim.Adam(params, lr=learning_rate)
 
             # epoch_bar=tqdm(range(pre_epoch))
             for _ in range(pre_epoch):
@@ -255,16 +217,13 @@ class VaDE(nn.Module):
                     z = self.reparameterize(mean, var)
                     x_=torch.matmul(z, S)
                     loss=Loss(x,x_)
-
                     L+=loss.detach().cpu().numpy()
 
                     opti.zero_grad()
                     loss.backward()
                     opti.step()
 
-                # epoch_bar.write('L2={:.4f}'.format(L/len(dataloader)))
-
-            torch.save(self.state_dict(), './pretrain_model_50.pk')
+            # torch.save(self.state_dict(), './pretrain_model_50.pk')
 
         else:
             self.load_state_dict(torch.load('./nc9_pretrain_model_none_bn.pk'))
@@ -283,32 +242,19 @@ class VaDE(nn.Module):
             
         elif self.clustering_method == 'louvain':
             # Louvain方法
-            # 构建 KNN 图
             nn = NearestNeighbors(n_neighbors=10)
             nn.fit(encoded_data)
             adj_matrix = nn.kneighbors_graph(encoded_data, mode='distance')
             
             G = nx.from_scipy_sparse_matrix(adj_matrix)
-            partition = community_louvain.best_partition(G, resolution=self.resolution_1)
+            partition = community_louvain.best_partition(G, resolution=self.resolution)
             labels = np.array(list(partition.values()))
-            
-            # 计算聚类中心
-            unique_labels = np.unique(labels)
-            cluster_centers = np.zeros((len(unique_labels), encoded_data.shape[1]))
-            for i, label in enumerate(unique_labels):
-                mask = labels == label
-                cluster_centers[i] = encoded_data[mask].mean(axis=0)
+            cluster_centers = np.array([encoded_data[labels == i].mean(axis=0) for i in np.unique(labels)])
         
         elif self.clustering_method == 'leiden':
             # Leiden方法
-            labels = leiden_clustering(encoded_data,  resolution=self.resolution_1)
-            
-            # 计算聚类中心
-            unique_labels = np.unique(labels)
-            cluster_centers = np.zeros((len(unique_labels), encoded_data.shape[1]))
-            for i, label in enumerate(unique_labels):
-                mask = labels == label
-                cluster_centers[i] = encoded_data[mask].mean(axis=0)
+            labels = leiden_clustering(encoded_data,  resolution=self.resolution)
+            cluster_centers = np.array([encoded_data[labels == i].mean(axis=0) for i in np.unique(labels)])
         
         else:
             raise ValueError(f"Unsupported clustering method: {self.clustering_method}")
@@ -318,11 +264,6 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def init_kmeans_centers(self, z):
         encoded_data = z.cpu().numpy()
-
-        # 使用选定的聚类方法
-        print(f"Using clustering method: {self.clustering_method}")
-        print(f'num_clusters: {self.num_classes}')
-    
         # update the clustering centers
         if self.prior_y is not None:
             labels = self.prior_y
@@ -350,8 +291,6 @@ class VaDE(nn.Module):
         # 计算成本矩阵
         cost_matrix = np.linalg.norm(A[:, None, :] - B[None, :, :], axis=2)
         row_ind, col_ind = linear_sum_assignment(cost_matrix)  # 解指派问题
-        # print("row_ind:", row_ind) #A [0,1]
-        # print("col_ind:", col_ind) #B [2,1]
 
         # 用匹配的值替换对应位置
         if n>= m:
@@ -390,7 +329,6 @@ class VaDE(nn.Module):
         return array
 
     def  change_pi(self,array,n,w=1):
-
         if array.shape[0]>=n:
             array = array[:n]
         else:
@@ -520,168 +458,126 @@ class VaDE(nn.Module):
         S_init = S_init / (S_init.norm(p=2, dim=1, keepdim=True) + 1e-8)  # 行单位化
         return (1 - weight) * S_init + weight * m
 
-
     @torch.no_grad()
     def get_peak_positions(self):
-        all_spectra = self.tensor_gpu_data.cpu()
-        peaks = self.peak_detector(all_spectra)
+        x = self.tensor_gpu_data.detach().cpu()
+        peaks = torch.zeros_like(x) 
+        x_normalized = (x - x.min(dim=-1, keepdim=True)[0]) / (x.max(dim=-1, keepdim=True)[0] - x.min(dim=-1, keepdim=True)[0] + 1e-5)
+
+        for i in range(x_normalized.shape[0]):
+            spectrum = x_normalized[i].detach().cpu().numpy()
+            peak_indices, _ = signal.find_peaks(
+                spectrum,
+                height=0.1,
+                distance=10,
+                prominence=0.05,
+            )
+            peaks[i, peak_indices] = 1.0
         peak_counts = torch.sum(peaks, dim=0)
-        min_occurrences = 0.1 * peaks.shape[0]  # 10%的样本数
+        min_occurrences = 0.1 * peaks.shape[0]  
         peak_positions = torch.where(peak_counts >= min_occurrences)[0]
         return peak_positions
 
     @torch.no_grad()
     def compute_spectral_constraints(self, x, recon_x):
-        """计算光谱约束时只使用数据集统计信息"""
-        constraints = {}
-        stats = self.spectral_analyzer.get_dataset_stats()
-        
-        # 1. 使用统计信息中的峰位置
-        peak_positions = stats['peak_positions']
+        peak_positions = self.get_peak_positions()
         distance = torch.diff(peak_positions, prepend=peak_positions[:1], append=peak_positions[-1:])
         variances = torch.max(distance[:-1], distance[1:])
 
         weights = torch.zeros_like(x)
-        # plt.plot(self.tensor_gpu_data.mean(0).cpu().numpy(),linestyle='-')
         for i, peak in enumerate(peak_positions):
             gamma = variances[i]  # 洛伦兹分布的半宽
             lorentzian = gamma**2 / ((torch.arange(x.shape[1], device=x.device) - peak)**2 + gamma**2)
-            # plt.plot( lorentzian.cpu().numpy(),  color=random_color(), linestyle='-')
             weights += lorentzian
 
-        weightd_mse = F.mse_loss(recon_x, x, reduction='none') * weights
+        weighted_mse = F.mse_loss(recon_x, x, reduction='none') * weights
 
-        return weightd_mse
+        print(f"weighted_MSE = {weighted_mse.shape}")
 
+        return weighted_mse
 
 
     def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, gamma, S, matched_S):
-
-        """计算所有损失，严格按照原始VaDE论文"""
-        batch_size = x.size(0)
-        
         # 1. 重构损失
-        recon_loss = self.lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
+        if self.lamb1 > 0:
+            recon_loss = self.lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
+        else:
+            recon_loss = np.array([0])
 
         # 2. GMM先验的KL散度       
-        # 扩展gamma的维度用于广播
         gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
-        
-        # 调整其他张量的维度
         mean = mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
         log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
         
-        # 调整高斯分布参数的维度
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
         gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
-        kl_gmm = torch.sum(
-            0.5 * gamma_t * (
-                self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
-                torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
-            ),
-            dim=(1,2)
-        )
+        if self.lamb2 > 0:
+            kl_gmm = torch.sum(
+                0.5 * gamma_t * (
+                    self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
+                    torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
+                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                ),
+                dim=(1,2)
+            ) * self.lamb2
+        else:
+            kl_gmm = np.array([0])
 
-        
-        # 4. 标准正态分布的KL散度
-        kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) # - mean.pow(2) - torch.exp(log_var)
-        
-        # 5. GMM熵项
-        pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
-        entropy = (
-            -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
-            torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
-        )
+        # 3. VAE的KL散度
+        if self.lamb3 > 0:
+            kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) * self.lamb3 # - mean.pow(2) - torch.exp(log_var)
+        else:
+            kl_standard = np.array([0])  
 
-        # 6. spectral constraints
-        # spectral_constraints = self.lamb4 * torch.stack(list(self.compute_spectral_constraints(x, recon_x).values())).sum(0)
-        # spectral_constraints = self.lamb4 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+        # 4. GMM熵项
+        if self.lamb4 > 0:
+            pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
+            entropy = self.lamb4 * (
+                -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
+                torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
+            )
+        else:
+            entropy = np.array([0])
 
-        # Unsimilar of S
-        # SS = torch.matmul(S, S.t())
-        # I = torch.eye(S.shape[0], device=self.device)
-        # ortho_loss = ((SS - I) ** 2).sum()
-        # spectral_constraints = self.lamb4 * ortho_loss
+        # 5. 峰加权损失，替换Recon_Loss
+        if self.lamb5 > 0:
+            spectral_constraints = self.lamb5 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+        else:
+            spectral_constraints = np.array([0])
 
-        # 6. Match Loss
-        # matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
-        # valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
-        # S_valid = S[:,valid_idx]
-        # cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
-        # match_loss = 1 - cos_sim
-        # match_loss_bioDB = self.lamb4 * match_loss
+        # 6. Match Loss of S
+        if self.lamb6 > 0:
+            matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
+            valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
+            S_valid = S[:,valid_idx]
+            cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
+            match_loss_bioDB = self.lamb6 * (1 - cos_sim)
+        else:
+            match_loss_bioDB = np.array([0])
 
-        # 7. 总损失
-        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean() #+ match_loss_bioDB.mean()
+        # 7. Unsimilarity between S
+        if self.lamb7 > 0:
+            SS = torch.matmul(S, S.t())
+            I = torch.eye(S.shape[0], device=self.device)
+            ortho_loss = ((SS - I) ** 2).sum()
+            unsimilaity_S = self.lamb7 * ortho_loss
+        else:
+            unsimilaity_S = np.array([0])
+
+        # 总损失
+        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean()  + match_loss_bioDB.mean() + spectral_constraints.mean() + unsimilaity_S.mean()
         
         # 返回损失字典
-        
         loss_dict = {
             'total_loss': loss,
             'recon_loss': recon_loss.mean().item(),
             'kl_gmm': kl_gmm.mean().item(),
-            'kl_standard': kl_standard.mean().item(),
+            'kl_VAE': kl_standard.mean().item(),
             'entropy': entropy.mean().item(),
-            #'spectral_loss': match_loss_bioDB.mean().item()
+            'weighted_spectral': spectral_constraints.mean().item(),
+            'match_loss': match_loss_bioDB.mean().item(),
+            'match_loss': unsimilaity_S.mean().item()
         }
-
         
         return loss_dict
-
-    def _compute_cluster_separation(self, latent_vectors, cluster_assignments, method='cosine'):
-        """计算类间分离损失，支持余弦相似度和欧氏距离两种方法
-        
-        Args:
-            latent_vectors: 潜在空间向量 [batch_size, latent_dim]
-            cluster_assignments: 聚类分配 [batch_size]
-            method: 'cosine' 或 'dist'，选择计算方法
-        """
-        batch_size = latent_vectors.size(0)
-        if batch_size < 2:
-            return torch.tensor(0.0, device=latent_vectors.device)
-
-        if method == 'cosine':
-            # 原始的余弦相似度方法
-            z_norm = F.normalize(latent_vectors, p=2, dim=1)
-            sim_matrix = torch.mm(z_norm, z_norm.t())
-            assignments_matrix = cluster_assignments.unsqueeze(0) == cluster_assignments.unsqueeze(1)
-            same_class_sim = sim_matrix[assignments_matrix].mean()
-            diff_class_sim = sim_matrix[~assignments_matrix].mean()
-            return -same_class_sim + diff_class_sim
-
-        elif method == 'dist':
-            # 欧氏距离方法
-            dist_matrix = torch.cdist(latent_vectors, latent_vectors)
-            assignments_matrix = cluster_assignments.unsqueeze(0) == cluster_assignments.unsqueeze(1)
-            same_class_mask = assignments_matrix.float()
-            diff_class_mask = (~assignments_matrix).float()
-            
-            # 移除对角线
-            diag_mask = ~torch.eye(batch_size, dtype=torch.bool, device=latent_vectors.device)
-            same_class_mask = same_class_mask * diag_mask
-            
-            # 计算类内和类间距离
-            intra_class_dist = (dist_matrix * same_class_mask).sum() / (same_class_mask.sum() + 1e-10)
-            inter_class_dist = (dist_matrix * diff_class_mask).sum() / (diff_class_mask.sum() + 1e-10)
-            
-            return torch.relu(intra_class_dist - inter_class_dist + 1.0)  # margin=1.0
-        
-        else:
-            raise ValueError(f"Unsupported method: {method}. Use 'cosine' or 'dist'.")
-
-    def report(self, epoch, loss_dict, train_time):
-        """确保所有损失值都正确显示"""
-        report_str = (
-            f"Epoch: {epoch:d}, "
-            f"Loss: {loss_dict['total_loss'].item():.4f}, "  
-            f"Recon Loss: {loss_dict['recon_loss']:.4f}, "
-            f"KL Loss: {loss_dict['kl_loss']:.4f}, "
-            f"Spectral Loss: {loss_dict['spectral_loss']:.4f}, "
-            f"Clustering Confidence Loss: {loss_dict['clustering_confidence_loss']:.4f}, "
-            f"Cluster Separation Loss: {loss_dict['cluster_separation_loss']:.4f}, "
-            f"Time: {train_time:.2f}s"
-        )
-        print(report_str)
-

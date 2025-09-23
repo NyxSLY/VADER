@@ -74,12 +74,6 @@ class ProjectConfig:
             'wavenumber_ticks': [int(x) for x in config['vis_config']['wavenumber_ticks']]
         }
         
-        # 确保COLOR_MAPS中的键为整数
-        self.COLOR_MAPS = {
-            str_k: {int(k): v for k, v in color_map.items()}
-            for str_k, color_map in config['color_maps'].items()
-        }
-
     def encoder_type(self, encoder_type, train_path):
         if encoder_type == "basic":
             dim = {
