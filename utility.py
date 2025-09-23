@@ -292,66 +292,6 @@ def visualize_clusters(
     plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
 
-
-def visualize_clusters1(
-    z: np.ndarray,
-    labels: np.ndarray,
-    save_path: str,
-    colors_map: Optional[Dict[int, str]] = None,
-    random_state: int = 42,
-    fig_size: Tuple[int, int] = (10, 8),
-    title: Optional[str] = None
-) -> None:
-    """
-    z visualization
-
-    Args:
-        z: (n_samples, n_features)
-        labels: sample label
-        save_path: save plot to path
-        colors_map: colors dict
-        random_state: t-SNE的随机种子，默认为42
-        fig_size: 图像尺寸，默认为(10, 8)
-        title: plot title
-
-    Returns:
-        None
-    """
-    # 输入验证
-    if len(z) != len(labels):
-        raise ValueError(
-            f"Features and labels length mismatch: {len(z)} != {len(labels)}"
-        )
-
-    if title is None:
-        title = " "
-
-    tsne = TSNE(n_components=2, random_state=random_state)
-    z_tsne = tsne.fit_transform(z)
-
-    unique_labels = np.unique(labels)
-    if colors_map is None:
-        colors_list = matplotlib.colormaps.get_cmap('tab10')
-        colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
-
-    plt.figure(figsize=fig_size)
-    for label in unique_labels:
-        mask = (labels == label)
-        plt.scatter(
-            z_tsne[mask, 0],
-            z_tsne[mask, 1],
-            c=[colors_map[label]],
-            label=f'Cluster {label}',
-        )
-
-    plt.title(title)
-    plt.xlabel('t-SNE Component 1')
-    plt.ylabel('t-SNE Component 2')
-    plt.legend(bbox_to_anchor=(1.08, 0.5), loc='center')
-    plt.tight_layout()
-    plt.savefig(save_path, bbox_inches='tight', dpi=500)
-    plt.close()
-
 def plot_reconstruction(
         recon_data: np.ndarray,
         labels: np.ndarray,

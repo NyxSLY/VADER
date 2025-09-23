@@ -1,12 +1,12 @@
 # 基础路径配置
 base_paths:
-  data_dir: './VADERdata'
-  tensorboard_dir: 'tensorboard_logs'
-  model_dir: 'models'
+  data_dir: './data'
+  model_dir: './models'
   result_dir: './results'
   pth_dir: 'pth'
   plot_dir: 'plot'
   txt_dir: 'txt'
+  tensorboard_dir: 'tensorboard_logs'
 
 # 模型参数配置
 model_params:
@@ -20,8 +20,16 @@ model_params:
   encoder_type: "basic"
   pretrain_epochs: 300
   clustering_method: 'leiden'
-  resolution_1: 0.8
-  resolution_2: 0.8
+  resolution: 0.8 #initial
+  train_config:
+    save_interval: 50
+    update_interval: 10
+    early_stop_patience: 5
+    min_loss_threshold:
+      total: 0.5
+      recon: 0.02
+    tsne_plot: True
+    recon_plot: True
 
   basic_parameters:
     latent_dim: 10
@@ -53,21 +61,3 @@ weight_scheduler:
     lamb5: 0    # 峰加权损失，替换Recon_Loss
     lamb6: 0    # Match Loss of S
     lamb7: 0    # Unsimilarity between S
-
-
-# 训练配置
-train_config:
-  start_epoch: 0
-  save_interval: 100
-  early_stop_patience: 20
-  min_loss_threshold:
-    total: 0.5
-    recon: 0.02
-  tsne_plot: True
-  recon_plot: True
-
-# 可视化配置
-vis_config:
-  figsize: [15, 5]
-  dpi: 500
-  wavenumber_ticks: [500, 750, 1000, 1250, 1500, 1750]

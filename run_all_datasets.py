@@ -56,12 +56,6 @@ def train_on_dataset(
         S=torch.tensor(S).float().to(device),
         wavenumber = Wavenumber,
         # prior_y=train_label,
-        lamb1=weight_scheduler_config['init_weights']['lamb1'],
-        lamb2=weight_scheduler_config['init_weights']['lamb2'],
-        lamb3=weight_scheduler_config['init_weights']['lamb3'],
-        lamb4=weight_scheduler_config['init_weights']['lamb4'],
-        lamb5=weight_scheduler_config['init_weights']['lamb5'],
-        lamb6=weight_scheduler_config['init_weights']['lamb6'],
         device=device,
         l_c_dim=l_c_dim,
         batch_size=batch_size,
@@ -69,8 +63,7 @@ def train_on_dataset(
         pretrain_epochs=Pretrain_epochs,
         num_classes=n_component,
         clustering_method=model_params['clustering_method'],
-        resolution_1=model_params['resolution_1'],
-        resolution_2=model_params['resolution_2']
+        resolution=model_params['resolution']
     ).to(device)
 
     model.kmeans_init = 'random'

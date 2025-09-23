@@ -154,7 +154,6 @@ class Gaussian(nn.Module):
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
                  prior_y = None, encoder_type="basic", batch_size=None, tensor_gpu_data=None,
-                 lamb1=1.0, lamb2=1.0, lamb3=1.0, lamb4=1.0, lamb5=1.0, lamb6=1.0, lamb7=1.0, 
                  pretrain_epochs=50,
                  num_classes=0, resolution=1.0,clustering_method='leiden'):
         super(VaDE, self).__init__()
@@ -183,13 +182,6 @@ class VaDE(nn.Module):
         # Pass global_label_mapping to Gaussian
         self.gaussian = Gaussian(self.num_classes, n_components, global_label_mapping=self.global_label_mapping)
         self.cluster_centers = None
-        self.lamb1 = lamb1
-        self.lamb2 = lamb2
-        self.lamb3 = lamb3
-        self.lamb4 = lamb4
-        self.lamb5 = lamb5
-        self.lamb6 = lamb6
-        self.lamb7 = lamb7
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
         self.resolution = resolution
@@ -497,10 +489,10 @@ class VaDE(nn.Module):
         return weighted_mse
 
 
-    def compute_loss(self, x, recon_x, mean, log_var, z_prior_mean, gamma, S, matched_S):
+    def compute_loss(self, x, recon_x, mean, log_var, gamma, S, matched_S,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
         # 1. 重构损失
-        if self.lamb1 > 0:
-            recon_loss = self.lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
+        if lamb1 > 0:
+            recon_loss = lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
         else:
             recon_loss = np.array([0])
 
@@ -512,7 +504,7 @@ class VaDE(nn.Module):
         gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
         gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
-        if self.lamb2 > 0:
+        if lamb2 > 0:
             kl_gmm = torch.sum(
                 0.5 * gamma_t * (
                     self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
@@ -520,20 +512,20 @@ class VaDE(nn.Module):
                     (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
-            ) * self.lamb2
+            ) * lamb2
         else:
             kl_gmm = np.array([0])
 
         # 3. VAE的KL散度
-        if self.lamb3 > 0:
-            kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) * self.lamb3 # - mean.pow(2) - torch.exp(log_var)
+        if lamb3 > 0:
+            kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) * lamb3 # - mean.pow(2) - torch.exp(log_var)
         else:
             kl_standard = np.array([0])  
 
         # 4. GMM熵项
-        if self.lamb4 > 0:
+        if lamb4 > 0:
             pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
-            entropy = self.lamb4 * (
+            entropy = lamb4 * (
                 -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
                 torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
             )
@@ -541,27 +533,27 @@ class VaDE(nn.Module):
             entropy = np.array([0])
 
         # 5. 峰加权损失，替换Recon_Loss
-        if self.lamb5 > 0:
-            spectral_constraints = self.lamb5 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+        if lamb5 > 0:
+            spectral_constraints = lamb5 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
         else:
             spectral_constraints = np.array([0])
 
         # 6. Match Loss of S
-        if self.lamb6 > 0:
+        if lamb6 > 0:
             matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
             valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
             S_valid = S[:,valid_idx]
             cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
-            match_loss_bioDB = self.lamb6 * (1 - cos_sim)
+            match_loss_bioDB = lamb6 * (1 - cos_sim)
         else:
             match_loss_bioDB = np.array([0])
 
         # 7. Unsimilarity between S
-        if self.lamb7 > 0:
+        if lamb7 > 0:
             SS = torch.matmul(S, S.t())
             I = torch.eye(S.shape[0], device=self.device)
             ortho_loss = ((SS - I) ** 2).sum()
-            unsimilaity_S = self.lamb7 * ortho_loss
+            unsimilaity_S = lamb7 * ortho_loss
         else:
             unsimilaity_S = np.array([0])
 

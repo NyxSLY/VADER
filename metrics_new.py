@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Tuple, Dict, Union, Callable
+from typing import Optional, Dict, Union
 import numpy as np
 import torch
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
@@ -8,28 +8,11 @@ from utility import visualize_clusters, plot_reconstruction
 from config import config
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
-from utility import leiden_clustering,inverse_wavelet_transform
+from utility import leiden_clustering
 import torch.nn.functional as F
 import pandas as pd
 
 class ModelEvaluator:
-    """
-    模型评估器,用于计算模型在验证集或测试集上的各种指标,并保存结果。
-
-    Args:
-        model: 待评估的模型
-        dataloader:数据加载
-        device: 使用的设备,either 'cpu' or 'cuda'
-        project_dir: 项目根目录路径,用于保存评估结果
-        writer: TensorBoard日志记录器,用于记录评估指标
-
-    Attributes:
-        model: 待评估的模型
-        device: 使用的设备
-        project_dir: 项目根目录路径
-        writer: TensorBoard日志记录器
-        paths: 保存评估结果的路径
-    """
     def __init__(
         self,
         model: torch.nn.Module,
@@ -51,51 +34,10 @@ class ModelEvaluator:
                         "z_leiden_acc\tz_leiden_nmi\tz_leiden_ari\t"
                         "Learning_Rate\n")
 
-    def compute_reconstruction_metrics(
-        self, x: torch.Tensor, recon_x: torch.Tensor
-    ) -> Dict[str, float]:
-        """
-        计算重构相关指标。
-
-        Args:
-            x: 原始输入数据
-            recon_x: 重构后的数据
-
-        Returns:
-            字典,包含 'mse', 'mae', 'max_error' 等重构质量相关指标
-        """
-        mse = ((x - recon_x) ** 2).mean().item()
-        mae = (x - recon_x).abs().mean().item()
-        max_error = (x - recon_x).abs().max().item()
-
-        return {
-            'mse': mse,
-            'mae': mae,
-            'max_error': max_error
-        }
-
     def compute_clustering_metrics(
         self, y_pred: Union[torch.Tensor, np.ndarray], y_true: Optional[Union[torch.Tensor, np.ndarray]] = None
     ) -> Dict[str, float]:
-        """
-        计算聚类相关指标,包括准确率(ACC)、标准化互信息(NMI)和调整兰德系数(ARI)。
 
-        Args:
-            y_pred: 预测的聚类标签
-            y_true: 真实的聚类标签,可选
-
-        Returns:
-            字典,包含 'acc', 'nmi', 'ari' 等聚类质量相关指标
-        """
-        # 如果没有真实标签,返回默认值
-        if y_true is None:
-            return {
-                'acc': 0.0,
-                'nmi': 0.0,
-                'ari': 0.0
-            }
-
-        # 确保数据在CPU上并转换为numpy数组
         y_pred = self._to_numpy(y_pred)
         y_true = self._to_numpy(y_true)
 
@@ -111,16 +53,6 @@ class ModelEvaluator:
 
     @staticmethod
     def calculate_acc(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-        """
-        计算聚类准确率。
-
-        Args:
-            y_pred: 预测标签
-            y_true: 真实标签
-
-        Returns:
-            聚类准确率
-        """
         assert y_pred.size == y_true.size
         D = int(max(y_pred.max(), y_true.max())) + 1
         w = np.zeros((D, D), dtype=np.int64)
