@@ -1,5 +1,6 @@
 from collections import defaultdict
 from metrics_new import ModelEvaluator
+from utility import WeightScheduler
 import torch
 import numpy as np
 from config import config
@@ -15,42 +16,7 @@ import sys
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
 
-class WeightScheduler:
-    def __init__(self, init_weights, max_weights, n_epochs, resolution):
-        """
-        Args:
-            init_weights: 初始权重字典 {'lamb1': 1.0, 'lamb2': 0.1, ...}
-            max_weights: 最终权重字典
-            n_epochs: 总训练轮数
-        """
-        self.init_weights = init_weights
-        self.max_weights = max_weights
-        self.n_epochs = n_epochs
-        self.warmup_epochs = n_epochs // 5  # 预热期为总轮数的1/5
-        self.resolution = resolution
-        
-    def get_weights(self, epoch):
-        """获取当前epoch的权重"""
-        # 预热期：线性增加
-        if epoch < self.warmup_epochs:
-            ratio = epoch / self.warmup_epochs
-        else:
-            # 预热后：余弦退火
-            ratio = 0.5 * (1 + np.cos(
-                np.pi * (epoch - self.warmup_epochs) / 
-                (self.n_epochs - self.warmup_epochs)
-            ))
-            
-        weights = {}
-        for key in self.init_weights:
-            weights[key] = self.init_weights[key] + (
-                self.max_weights[key] - self.init_weights[key]
-            ) * ratio
-            
-        return weights 
-    
-
-def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, matched_S):
+def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, matched_S):
     """训练一个epoch"""
     model.train()
     total_metrics = defaultdict(float)
@@ -67,7 +33,9 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, 
         
         # 损失计算
 
-        loss_dict = model.compute_loss(data_x, recon_x, mean, log_var, z, gamma, S, matched_S)
+        loss_dict = model.compute_loss(data_x, recon_x, mean, log_var, z, gamma, S, matched_S,
+                                       weights['lamb1'], weights['lamb2'], weights['lamb3'], weights['lamb4'],
+                                       weights['lamb5'], weights['lamb6'], weights['lamb7'])
 
         # 反向传播
         optimizer_nn.zero_grad()
@@ -101,15 +69,13 @@ def train_epoch(model, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, 
     return total_metrics
 
 
-def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths, epochs):
+def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     """管理整个训练流程"""
     # 初始化配置和组件
-    train_config = config.get_train_config()
     model_params = config.get_model_params()
-    vis_config = config.get_vis_config()
     weight_config = config.get_weight_scheduler_config()
-    t_plot = train_config['tsne_plot']
-    r_plot = train_config['recon_plot']
+    t_plot = model_params['tsne_plot']
+    r_plot = model_params['recon_plot']
 
     # 初始化优化器和其他组件
     # optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
@@ -163,19 +129,16 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
     best_leiden_acc = -1.0
     best_epoch = -1
 
-    for epoch in range(train_config['start_epoch'], 
-                      train_config['start_epoch'] + epochs):
+    for epoch in range(0, epochs):
         # 更新权重
         weights = weight_scheduler.get_weights(epoch)
-        for key, value in weights.items():
-            setattr(model, key, value)
-        
+
         # 训练一个epoch
-        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
+        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
 
         train_metrics = train_epoch(
-            model=model,
+            model=model, weights=weights,
             data_loader=dataloader,
             optimizer_nn=optimizer_nn,
             optimizer_gmm=optimizer_gmm,
@@ -183,8 +146,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
             writer=writer,
             matched_S = matched_comp
         )
-
-        print(S[:,1])
         
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
@@ -192,10 +153,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
         print(f"\nEpoch [{epoch+1}/{epochs}]")
         
         # skip update kmeans centers
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % model_params['update_interval'] == 0:
             model.update_kmeans_centers(z)
 
-        if (epoch + 1) % 50 == 0:
+        if (epoch + 1) % model_params['save_interval'] == 0:
            np.savetxt(os.path.join(paths['plot'], f'S_values_epoch_{epoch+1}.txt'),  S.detach().cpu().numpy(), fmt='%.6f') 
 
         # 保存物质匹配情况
@@ -249,7 +210,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, num_classes, paths
                 print(f"模型已保存到 {os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth')}")
             
         # 检查早停条件
-        if check_early_stopping(metrics, train_config['min_loss_threshold']):
+        if check_early_stopping(metrics, model_params['min_loss_threshold']):
             print(f'达到最小损失阈值,提前停止训练。总损失:{metrics["total_loss"]:.6f}, '
                   f'重建损失:{metrics["recon_loss"]:.6f}')
             return model

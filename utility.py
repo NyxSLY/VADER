@@ -410,3 +410,37 @@ def compute_cluster_means(spectra, clusters):
         cluster_means.append(mean_spectrum)
         
     return np.array(cluster_means)
+
+class WeightScheduler:
+    def __init__(self, init_weights, max_weights, n_epochs, resolution):
+        """
+        Args:
+            init_weights: 初始权重字典 {'lamb1': 1.0, 'lamb2': 0.1, ...}
+            max_weights: 最终权重字典
+            n_epochs: 总训练轮数
+        """
+        self.init_weights = init_weights
+        self.max_weights = max_weights
+        self.n_epochs = n_epochs
+        self.warmup_epochs = n_epochs // 5  # 预热期为总轮数的1/5
+        self.resolution = resolution
+        
+    def get_weights(self, epoch):
+        """获取当前epoch的权重"""
+        # 预热期：线性增加
+        if epoch < self.warmup_epochs:
+            ratio = epoch / self.warmup_epochs
+        else:
+            # 预热后：余弦退火
+            ratio = 0.5 * (1 + np.cos(
+                np.pi * (epoch - self.warmup_epochs) / 
+                (self.n_epochs - self.warmup_epochs)
+            ))
+             
+        weights = {}
+        for key in self.init_weights:
+            weights[key] = self.init_weights[key] + (
+                self.max_weights[key] - self.init_weights[key]
+            ) * ratio
+            
+        return weights 
