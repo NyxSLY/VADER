@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.optimize import linear_sum_assignment
-from utility import visualize_clusters, plot_reconstruction
+from utility import plot_spectra, visualize_clusters
 from config import config
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
@@ -26,20 +26,10 @@ class ModelEvaluator:
         self.paths = paths
         self.writer = writer
         self.resolution = resolution
-        if self.paths and not os.path.exists(os.path.join(self.paths['training_log'], "training_log.txt")):
-            with open(os.path.join(self.paths['training_log'], "training_log.txt"), "w") as f:
-                f.write("Epoch\tTotal_loss\tRecon_loss\tKL_GMM\tKL_Standard\tEntropy\t"
-                        "Peak_loss\tSpectral_loss\t"
-                        "gmm_acc\tgmm_nmi\tgmm_ari\t"
-                        "z_leiden_acc\tz_leiden_nmi\tz_leiden_ari\t"
-                        "Learning_Rate\n")
 
     def compute_clustering_metrics(
         self, y_pred: Union[torch.Tensor, np.ndarray], y_true: Optional[Union[torch.Tensor, np.ndarray]] = None
     ) -> Dict[str, float]:
-
-        y_pred = self._to_numpy(y_pred)
-        y_true = self._to_numpy(y_true)
 
         acc = self.calculate_acc(y_pred, y_true)
         nmi = normalized_mutual_info_score(y_pred, y_true)
@@ -126,24 +116,12 @@ class ModelEvaluator:
             # 合并所有指标
             metrics.update(train_metrics_dict)
 
-            self._save_log(epoch, metrics, lr)
             self._save_to_tensorboard(epoch, metrics)
             self._print_metrics(epoch, lr, metrics)
 
             # 打印评估结果
-            if (epoch+1) % 50 == 0:
-                self._save_results(
-                    epoch+1, 
-                    metrics, 
-                    lr,
-                    z_cpu, 
-                    recon_x_cpu, 
-                    y_true,
-                    gmm_labels,
-                    z_leiden_labels,
-                    t_plot,
-                    r_plot
-                )
+            if (epoch+1) % config.get_model_params()['save_interval'] == 0:
+                self._save_results(epoch+1, metrics, lr, z_cpu, recon_x_cpu, y_true, gmm_labels, z_leiden_labels, t_plot, r_plot)
                 # 保存gmm_labels为txt文件
                 gmm_labels_path = os.path.join(self.paths['pth'], f'Epoch_{epoch+1}_gmm_labels.txt')
                 np.savetxt(gmm_labels_path, gmm_labels, fmt='%d')
@@ -225,12 +203,6 @@ class ModelEvaluator:
             print("Warning: No paths specified for saving results")
             return
 
-        # # 记录到文件
-        # self._save_log(epoch, metrics, lr)
-
-        # # 记录到TensorBoard
-        # self._save_to_tensorboard(epoch, metrics)
-
         # 保存成分光谱
         spectra_comp = F.normalize(self.model.encoder.S, p=2, dim=1)
         spectra_comp_cpu = spectra_comp.detach().cpu().numpy()
@@ -252,47 +224,11 @@ class ModelEvaluator:
         self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)
 
         # 保存模型
-        # self._save_model(epoch, metrics)
+        # model_path = os.path.join(self.paths['pth'],f'epoch_{epoch}_gmm_acc_{metrics["gmm_acc"]:.2f}_gmm_nmi_{metrics["gmm_nmi"]:.2f}_gmm_ari_{metrics["gmm_ari"]:.2f}.pth')
+        # torch.save(self.model.state_dict(), model_path)
 
         # 保存重构可视化
         self._save_recon_plot(epoch, recon_x_cpu, labels, wavenumber,r_plot)
-
-    @staticmethod
-    def _to_numpy(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-        """
-        将输入转换为numpy数组。
-
-        Args:
-            tensor: 输入数据,可以是 PyTorch Tensor 或 numpy 数组
-
-        Returns:
-            numpy 数组
-        """
-        if torch.is_tensor(tensor):
-            return tensor.detach().cpu().numpy()
-        else:
-            return np.asarray(tensor)
-
-    def _save_log(self, epoch: int, metrics: Dict[str, float], lr: float) -> None:
-        """
-        将评估指标保存到日志文件。
-
-        Args:
-            epoch: 当前 epoch 编号
-            metrics: 评估指标字典
-        """
-        try:
-            with open(os.path.join(self.paths['training_log'], "training_log.txt"), "a") as f:
-                f.write(
-                    f'{epoch}\t{metrics["total_loss"]:.4f}\t{metrics["recon_loss"]:.4f}\t'
-                    f'{metrics["kl_gmm"]:.4f}\t{metrics["kl_standard"]:.4f}\t{metrics["entropy"]:.4f}\t'
-                    f'{metrics["peak_loss"]:.4f}\t{metrics["spectral_loss"]:.4f}\t'
-                    f'{metrics["gmm_acc"]:.4f}\t{metrics["gmm_nmi"]:.4f}\t{metrics["gmm_ari"]:.4f}\t'
-                    f'{metrics["leiden_acc"]:.4f}\t{metrics["leiden_nmi"]:.4f}\t{metrics["leiden_ari"]:.4f}\t'
-                    f'{lr:.4f}\n'
-                )
-        except Exception as e:
-            print(f"Error saving log file: {e}")
 
     def _save_to_tensorboard(self, epoch: int, metrics: Dict[str, float]) -> None:
         """
@@ -337,20 +273,6 @@ class ModelEvaluator:
         if plot :
             visualize_clusters(z=z_cpu, labels=labels, gmm_labels=gmm_labels, leiden_labels=leiden_labels, save_path=tsne_plot_path)
 
-    def _save_model(self, epoch: int, metrics: Dict[str, float]) -> None:
-        """
-        保存模型权重。
-
-        Args:
-            epoch: 当前 epoch 编号
-            metrics: 评估指标字典
-        """
-        model_path = os.path.join(
-            self.paths['pth'],
-            f'epoch_{epoch}_gmm_acc_{metrics["gmm_acc"]:.2f}_gmm_nmi_{metrics["gmm_nmi"]:.2f}_gmm_ari_{metrics["gmm_ari"]:.2f}.pth'
-        )
-        torch.save(self.model.state_dict(), model_path)
-
     def _save_recon_plot(
         self,
         epoch: int,
@@ -367,7 +289,7 @@ class ModelEvaluator:
         # np.savetxt(recon_txt_path, recon_x_cpu)
         
         if plot:
-            plot_reconstruction(
+            plot_spectra(
                 recon_data=recon_x_cpu,
                 labels=labels,
                 save_path=recon_plot_path,

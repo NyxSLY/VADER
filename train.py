@@ -72,7 +72,7 @@ def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch,
 def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     """管理整个训练流程"""
     # 初始化配置和组件
-    model_params = config.get_model_params()
+    model_params = config.get_model_params() 
     weight_config = config.get_weight_scheduler_config()
     t_plot = model_params['tsne_plot']
     r_plot = model_params['recon_plot']
@@ -196,7 +196,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             lr_nn, 
             train_metrics, 
             t_plot, 
-            r_plot
+            r_plot,
+            matched_S = matched_comp,
+            matched_chem = matched_chems
         )
 
         # 在训练了100个epoch以后，总是记录gmm_acc最大的epoch的pth

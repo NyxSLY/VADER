@@ -22,7 +22,7 @@ model_params:
   clustering_method: 'leiden'
   resolution: 0.8 #initial
   train_config:
-    save_interval: 50
+    save_interval: 1
     update_interval: 10
     early_stop_patience: 5
     min_loss_threshold:

@@ -48,7 +48,6 @@ def train_on_dataset(
         # prior_y=train_label,
         device=device,
         l_c_dim=l_c_dim,
-        batch_size=batch_size,
         encoder_type=model_params['encoder_type'],
         pretrain_epochs=Pretrain_epochs,
         num_classes=n_component,

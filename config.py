@@ -119,6 +119,5 @@ class ProjectConfig:
 
         return paths
 
-
 # ------------------- 全局配置实例 -------------------
 config = ProjectConfig()

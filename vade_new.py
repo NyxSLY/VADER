@@ -153,13 +153,12 @@ class Gaussian(nn.Module):
 
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
-                 prior_y = None, encoder_type="basic", batch_size=None, tensor_gpu_data=None,
+                 prior_y = None, encoder_type="basic",  tensor_gpu_data=None,
                  pretrain_epochs=50,
                  num_classes=0, resolution=1.0,clustering_method='leiden'):
         super(VaDE, self).__init__()
         self.device = device
         self.latent_dim = latent_dim
-        self.batch_size = batch_size
         self.tensor_gpu_data = tensor_gpu_data
         self.n_components = n_components
         self.wavenumber = wavenumber
@@ -189,7 +188,7 @@ class VaDE(nn.Module):
         self.input_dim = input_dim
 
         self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])  
-        self.to(device)
+
 
     def pretrain(self, dataloader,learning_rate=1e-3):
         pre_epoch=self.pretrain_epochs
@@ -341,7 +340,6 @@ class VaDE(nn.Module):
 
         for i in range(0,S_valid.shape[0]):
             unknown_comp = S_valid[i].cpu().numpy()
-            print(f'Max: {np.max(unknown_comp)},    Min: {np.min(unknown_comp)}')
             search_results = spectra_search.search(
                 unknown_comp,
                 class_filter=None,

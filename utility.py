@@ -292,70 +292,71 @@ def visualize_clusters(
     plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
 
-def plot_reconstruction(
-        recon_data: np.ndarray,
+def plot_spectra(
+        X: np.ndarray,
         labels: np.ndarray,
         save_path: str,
-        wavenumber: Optional[np.ndarray] = None,
-        colors_map: Optional[Dict[int, str]] = None
+        wavenumber: Optional[np.ndarray] = None
 ) -> None:
     """
     Args:
-        recon_data: (n_samples, n_features)
+        X: (n_samples, n_features)
         labels: sample labels
         save_path: save plot to path
         wavenumber: spec wavenumber
-        colors_map: colors dic
-
     Returns:
         None
     """
-    # 获取唯一标签及设置图形高度
-    unique_labels = np.unique(labels)
-    num_classes = len(unique_labels)
-    figure_height = 5 if num_classes <= 3 else 5 + 0.5 * num_classes
+    x = np.arange(X.shape[1]) if wavenumber is None else wavenumber
+    unique_labels = np.unique(labels)  
+    stack_gap = float(np.mean(np.max(X, axis=1))) * 0.6 
 
-    if colors_map is None:
-        colors = sns.color_palette('husl', n_colors=num_classes)
-        colors_list = LinearSegmentedColormap.from_list('custom', colors)
-        colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
-    # 设置波长范围
-    if wavenumber is None:
-        wavenumber = np.arange(recon_data.shape[1])
+    palette = sns.color_palette('husl', n_colors=len(unique_labels))
+    colors_map = {lbl: palette[i] for i, lbl in enumerate(unique_labels)}
 
-    # 创建图形
-    plt.figure(figsize=(15, figure_height))
+    plt.figure(figsize=(14, 4 + 0.6 * len(unique_labels)))
+    for i, lbl in enumerate(unique_labels):
+        grp = X[labels == lbl]
+        if grp.size == 0:
+            continue
+        mean = grp.mean(axis=0)
+        sd = grp.std(axis=0, ddof=1) if grp.shape[0] > 1 else np.zeros_like(mean)
+        offset = -i * stack_gap
+        color = colors_map[lbl]
 
-    # 绘制每个类别的谱线
-    for i, label in enumerate(unique_labels):
-        # print(i,label)
-        indices = np.where(labels == label)[0]
-        dis = -1 * i
+        plt.fill_between(x, mean - sd + offset, mean + sd + offset, color=color, alpha=0.5, linewidth=0)
+        plt.plot(x, mean + offset, color=color, lw=2, label=f'Cluster {lbl} (n={grp.shape[0]})')
 
-        # 获取当前类别的颜色
-        color = colors_map[label] if colors_map else None
-
-        # 绘制当前类别的所有谱线
-        for j, idx in enumerate(indices):
-            spectrum = recon_data[idx] + dis
-            if j == 0:
-                plt.plot(wavenumber, spectrum,
-                         label=f"Cluster{label}",
-                         c=color)
-            else:
-                plt.plot(wavenumber, spectrum,
-                         c=color)
-
-    # 设置图形属性
-    plt.title('Reconstruction Spectrum of Biological Cells')
-    plt.legend(prop={'size': 9}, bbox_to_anchor=(1.04, 0.5), loc='center')
-    plt.xlabel('Wavelength')
+    plt.xlabel('Wavenumber' if wavenumber is not None else 'Index')
     plt.ylabel('Intensity')
+    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=9)
+    plt.grid(alpha=0.25)
     plt.tight_layout()
-
-    # 保存并关闭图形
-    plt.savefig(save_path,bbox_inches='tight', dpi=500)
+    plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
+
+def plot_S(S, matched_S, matched_chem, save_path, wavenumber):
+    valid_idx = np.where((wavenumber >= 450) & (wavenumber <= 1800))[0]
+    wn_valid = wavenumber[valid_idx]
+    stack_gap = float(np.mean(np.max(matched_chem, axis=1)))  
+
+    S = F.normalize(S, p=2, dim=1)
+    S = S.detach().cpu().numpy()
+
+    plt.figure(figsize=(12, 8))
+    n_components = S.shape[0]
+    palette = sns.color_palette('husl', n_colors=len(n_components))
+
+    for i in range(n_components):
+        plt.plot(wn_valid, matched_S[i,:] -i * stack_gap, ls='--',color=palette[i], label=f'Component {i+1} : {matched_chem[i]}')
+        plt.plot(wavenumber, S[i,:] -i * stack_gap, color=palette[i])
+     
+    plt.xlabel('Wavenumber')
+    plt.ylabel('Intensity')
+    plt.title('MCR Component Spectra')
+    plt.legend()
+    plt.grid(alpha=0.25)
+    plt.savefig(save_path)
 
 def leiden_clustering(spectra, n_neighbors=20, resolution=1.0, seed=42):
     """使用Leiden算法进行聚类
