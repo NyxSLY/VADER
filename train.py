@@ -131,7 +131,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         # 训练一个epoch
         recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
-        print(model.c_log_var[:,1])
 
         train_metrics = train_epoch(
             model=model, weights=weights,
