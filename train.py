@@ -55,11 +55,7 @@ def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch,
         if writer is not None and batch_idx % 10 == 0:
             step = epoch * len(data_loader) + batch_idx
             for key, value in total_metrics.items():
-                writer.add_scalar(
-                    f'Batch/{key}', 
-                    value / (batch_idx + 1), 
-                    step
-                )
+                writer.add_scalar( f'Batch/{key}',  value / (batch_idx + 1), step )
             
                 
     # 计算平均指标
@@ -130,6 +126,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     best_epoch = -1
 
     for epoch in range(0, epochs):
+        print(f"\nEpoch [{epoch+1}/{epochs}]")
         # 更新权重
         weights = weight_scheduler.get_weights(epoch)
 
@@ -148,25 +145,11 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         )
         
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
-        # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z)
-        # 添加进度打印
-        print(f"\nEpoch [{epoch+1}/{epochs}]")
         
         # skip update kmeans centers
         if (epoch + 1) % model_params['update_interval'] == 0:
             model.update_kmeans_centers(z)
 
-        if (epoch + 1) % model_params['save_interval'] == 0:
-           np.savetxt(os.path.join(paths['plot'], f'S_values_epoch_{epoch+1}.txt'),  S.detach().cpu().numpy(), fmt='%.6f') 
-
-        # 保存物质匹配情况
-        if not os.path.exists(os.path.join(paths['training_log'], "matched_chems.txt")):
-            with open(os.path.join(paths['training_log'], "matched_chems.txt"), "w") as f:
-                f.write("Epoch\tMatched_Chems\n")  
-        
-        with open(os.path.join(paths['training_log'], "matched_chems.txt"), "a") as f:
-            f.write(f'{epoch+1}\t{ matched_chems}\n')
-            
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
         lr_gmm = model_params['learning_rate'] if scheduler_gmm is None else scheduler_gmm.get_last_lr()[0]
@@ -183,7 +166,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             gmm_probs = gamma.detach().cpu().numpy()
             gmm_labels = np.argmax(gmm_probs, axis=1)
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
-            proportions = counts / len(gmm_labels)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
         
         # 同步评估

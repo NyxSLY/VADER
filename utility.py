@@ -1,24 +1,13 @@
-import time
 import numpy as np
 import torch
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
-import matplotlib
-from sklearn.manifold import TSNE
 from typing import Optional, Dict, Union, Any, Tuple, Mapping
-from torch.distributions import Normal
 import random
 from torch.utils.data import DataLoader, TensorDataset
 import os
-from scipy.optimize import linear_sum_assignment
-from scipy.spatial.distance import cdist, pdist
-import datetime, pywt
-from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
-from scipy.sparse import spmatrix, csr_matrix
 import seaborn as sns
-from matplotlib.colors import LinearSegmentedColormap
-import torch.nn.functional as F
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap, BoundaryNorm
+import umap 
 
 def set_random_seed(seed):
     random.seed(seed)       # 设置 Python 内置随机数生成器的种子
@@ -132,101 +121,15 @@ def prepare_data_loader(
         tensor_gpu_labels
     )
 
-def choose_kmeans(model,dataloader,num_classes):
-    print("开始k-means方法比较实验...")
-    # 选择并更新kmeans方法
-    results = compare_kmeans_methods(
-        model=model,
-        dataloader=dataloader,
-        num_classes=num_classes,
-        n_runs=5
-    )
-    kmeans_method = ('k-means++' if np.mean(results['kmeans++']['silhouette']) >
-                                    np.mean(results['kmeans']['silhouette']) else 'random')
-    print(f"\n选择使用{kmeans_method}方法")
-    return kmeans_method
-
-
-def sample_plot(
-        generated_samples: np.ndarray,
-        generated_labels: np.ndarray,
-        ncol: int = 2,
-        title: Optional[str] = 'Generated Samples by Category',
-        colors_map: Optional[Dict[int, str]] = None,
-        save_path: Optional[str] = None
-) -> None:
-    """
-    按照聚类类别展示生成的样本，每个类别占一行，通过ncol控制每行展示的样本数量。
-
-    Args:
-        generated_samples: 形状为(n_samples, n_features)的生成样本数组
-        generated_labels: 长度为n_samples的标签数组
-        ncol: 每行展示的样本数量，默认为2
-        colors_map： colors dict
-        title: 图像标题，默认为'Generated Samples by Category'
-        save_path: 图像保存路径，若为None则不保存
-
-    Returns:
-        None
-    """
-    # 输入验证
-    if len(generated_samples) != len(generated_labels):
-        raise ValueError(
-            f"Samples and labels length mismatch: {len(generated_samples)} != {len(generated_labels)}"
-        )
-    # 获取唯一标签
-    unique_labels = np.unique(generated_labels)
-    nrow = len(unique_labels)  # 行数等于类别数
-    if colors_map is None:
-        colors = sns.color_palette('husl', n_colors=num_classes)
-        colors_list = LinearSegmentedColormap.from_list('custom', colors)
-        colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
-    width = ncol*10
-    height = nrow * 3
-    plt.figure(figsize=(width, height))
-
-    if title:
-        plt.suptitle(title, fontsize=12, y=0.95)
-
-    # 为每个类别绘制样本
-    for i, label in enumerate(unique_labels):
-        # 获取当前类别的所有样本
-        indices = np.where(generated_labels == label)[0]
-        samples = generated_samples[indices]
-        color = colors_map[label]
-        # 确定要展示的样本数量
-        n_samples = min(len(samples), ncol)
-
-        # 在当前行绘制样本
-        for j in range(n_samples):
-            plt.subplot(nrow, ncol, i * ncol + j + 1)
-            plt.plot(samples[j], c=color, linewidth=1.5)
-
-            if j == 0:  # 只在每行第一个子图显示类别标签
-                plt.title(f'Category {label}', fontsize=10, pad=5)
-
-
-    # 调整布局
-    plt.tight_layout()
-
-    # 保存或显示图像
-    if save_path:
-        plt.savefig(save_path, bbox_inches='tight', dpi=500)
-        plt.close()
-    else:
-        plt.show()
-
-
 def visualize_clusters(
     z: np.ndarray,
     labels: np.ndarray,
     gmm_labels: np.ndarray,
     leiden_labels: np.ndarray,
+    ari_gmm: float,
+    ari_leiden: float,
     save_path: str,
-    colors_map: Optional[Mapping[int, Any]] = None,
-    random_state: int = 42,
-    fig_size: Tuple[int, int] = (10, 8),
-    title: Optional[str] = None
+    random_state: int = 42
 ) -> None:
     """
     z visualization
@@ -238,25 +141,13 @@ def visualize_clusters(
         colors_map: colors dict
         random_state: t-SNE的随机种子，默认为42
         fig_size: 图像尺寸，默认为(10, 8)
-        title: plot title
 
     Returns:
         None
     """
-    # 输入验证
-    if len(z) != len(labels):
-        raise ValueError(
-            f"Features and labels length mismatch: {len(z)} != {len(labels)}"
-        )
 
-    if title is None:
-        title = " "
-
-    tsne = TSNE(n_components=2, random_state=random_state)
-    z_tsne = tsne.fit_transform(z)
-
-    ari_gmm = adjusted_rand_score(labels, gmm_labels)
-    ari_leiden = adjusted_rand_score(labels, leiden_labels)
+    umap_reducer = umap.UMAP( n_components=2, n_neighbors=15,  min_dist=0.1, metric='euclidean') # , random_state=random_state
+    z_umap = umap_reducer.fit_transform(z)
 
     # 绘图
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(22, 8))
@@ -264,7 +155,7 @@ def visualize_clusters(
     # 创建大调色板
     colors = sns.color_palette('husl', n_colors=len(np.unique(labels)))
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
-    scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=custom_cmap)
+    scatter1 = ax1.scatter(z_umap[:, 0], z_umap[:, 1], c=labels, cmap=custom_cmap)
     ax1.set_title('True Labels')
     legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
@@ -272,7 +163,7 @@ def visualize_clusters(
     # 绘制GMM预测聚类结果的散点图
     colors = sns.color_palette('husl', n_colors=len(np.unique(gmm_labels)))
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
-    scatter2 = ax2.scatter(z_tsne[:, 0], z_tsne[:, 1], c=gmm_labels, cmap=custom_cmap)
+    scatter2 = ax2.scatter(z_umap[:, 0], z_umap[:, 1], c=gmm_labels, cmap=custom_cmap)
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
     legend2 = ax2.legend(*scatter2.legend_elements(num=len(np.unique(gmm_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
@@ -280,14 +171,52 @@ def visualize_clusters(
     # 绘制Leiden预测聚类结果的散点图
     colors = sns.color_palette('husl', n_colors=len(np.unique(leiden_labels)))
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
-    scatter3 = ax3.scatter(z_tsne[:, 0], z_tsne[:, 1], c=leiden_labels, cmap=custom_cmap)
+    scatter3 = ax3.scatter(z_umap[:, 0], z_umap[:, 1], c=leiden_labels, cmap=custom_cmap)
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
     legend3 = ax3.legend(*scatter3.legend_elements(num=len(np.unique(leiden_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax3.add_artist(legend3)
     
     # 保存图像
-    plt.xlabel('t-SNE Component 1')
-    plt.ylabel('t-SNE Component 2')
+    plt.xlabel('UMAP Component 1')
+    plt.ylabel('UMAP Component 2')
+    plt.tight_layout()
+    plt.savefig(save_path, bbox_inches='tight', dpi=500)
+    plt.close()
+
+def plot_UMAP(
+    X: np.ndarray,
+    labels: np.ndarray,
+    save_path: str,
+    random_state: int = 42):
+
+    umap_reducer = umap.UMAP( n_components=2, n_neighbors=15,  min_dist=0.1, metric='euclidean') # , random_state=random_state
+    z_umap = umap_reducer.fit_transform(X)
+
+    # 绘图
+    uniq_labels = np.unique(labels)
+    n_classes = len(uniq_labels)
+    print(n_classes)
+    label_to_idx = {lbl: i for i, lbl in enumerate(uniq_labels)}
+    labels_idx = np.array([label_to_idx[lbl] for lbl in labels])
+    
+    if n_classes == 2:
+        palette = ['#F28E2B', '#9E9E9E']  # 橙 + 灰
+    else:
+        palette = sns.color_palette('husl', n_colors=n_classes)
+    cmap = ListedColormap(palette)
+    norm = BoundaryNorm(np.arange(n_classes+1)-0.5, n_classes)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sc = ax.scatter(z_umap[:, 0], z_umap[:, 1], c=labels_idx, cmap=cmap, norm=norm, s=10, linewidths=0, alpha=0.5)
+
+    handles, _ = sc.legend_elements()
+    for h, lbl in zip(handles, uniq_labels):
+        h.set_label(str(lbl))
+    ax.legend(handles=handles, title="Label", loc='best', fontsize='small', frameon=False)
+
+    ax.set_xlabel('UMAP 1')
+    ax.set_ylabel('UMAP 2')
+    ax.grid(alpha=0.2)
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
@@ -338,7 +267,7 @@ def plot_spectra(
 def plot_S(S, matched_S, matched_chem, save_path, wavenumber):
     valid_idx = np.where((wavenumber >= 450) & (wavenumber <= 1800))[0]
     wn_valid = wavenumber[valid_idx]
-    stack_gap = float(np.mean(np.max(matched_S, axis=1)))  
+    stack_gap = float(np.mean(np.max(matched_S, axis=1))) * 1.5
 
     S = S.detach().cpu().numpy()
     row_max_valid = np.max(S[:, valid_idx], axis=1, keepdims=True) + 1e-12
@@ -400,18 +329,6 @@ def leiden_clustering(spectra, n_neighbors=20, resolution=1.0, seed=42):
     )
     
     return np.array(partition.membership)
-
-def compute_cluster_means(spectra, clusters):
-    """计算每个簇的平均光谱"""
-    unique_clusters = np.unique(clusters)
-    cluster_means = []
-    
-    for cluster_id in unique_clusters:
-        cluster_mask = clusters == cluster_id
-        mean_spectrum = np.mean(spectra[cluster_mask], axis=0)
-        cluster_means.append(mean_spectrum)
-        
-    return np.array(cluster_means)
 
 class WeightScheduler:
     def __init__(self, init_weights, max_weights, n_epochs, resolution):

@@ -8,7 +8,7 @@ import os
 import networkx as nx
 from sklearn.neighbors import NearestNeighbors
 from community import community_louvain
-from utility import leiden_clustering, compute_cluster_means
+from utility import leiden_clustering
 import math
 from scipy.optimize import linear_sum_assignment
 from ramanbiolib.search import PeakMatchingSearch, SpectraSimilaritySearch
@@ -519,7 +519,7 @@ class VaDE(nn.Module):
         if lamb3 > 0:
             kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) * lamb3 # - mean.pow(2) - torch.exp(log_var)
         else:
-            kl_standard = np.array([0])  
+            kl_standard = torch.tensor(0.0, device=self.device)
 
         # 4. GMM熵项
         if lamb4 > 0:

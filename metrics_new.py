@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.optimize import linear_sum_assignment
-from utility import plot_spectra, visualize_clusters,plot_S
+from utility import plot_spectra, visualize_clusters,plot_S,plot_UMAP
 from config import config
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
@@ -117,33 +117,40 @@ class ModelEvaluator:
 
             # 打印评估结果
             if (epoch+1) % config.get_model_params()['save_interval'] == 0:
-                # 保存Z
+                # ======== 保存Z ========
                 # z_save_path = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
                 # np.savetxt(z_save_path,z_cpu)
 
-                # 保存gmm_labels
+                # ======== 保存gmm_labels ========
                 # gmm_labels_path = os.path.join(self.paths['pth'], f'Epoch_{epoch+1}_gmm_labels.txt')
                 # np.savetxt(gmm_labels_path, gmm_labels, fmt='%d')
 
-                # 保存S和匹配到的物质
+                # ======== 保存S和匹配到的物质 ========
                 S_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_spectra_comp.png')
                 plot_S(self.model.encoder.S, matched_S, matched_chem, S_plot_path, self.model.wavenumber)
+                np.savetxt(os.path.join(self.paths['plot'], f'S_values_epoch_{epoch+1}.txt'),  self.model.encoder.S.detach().cpu().numpy(), fmt='%.6f') 
 
-                # 保存t-SNE可视化
+                # ======== 保存t-SNE可视化 ========
                 if t_plot :
-                    tsne_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_tsne_plot.png')
-                    visualize_clusters(z=z_cpu, labels=y_true, gmm_labels=gmm_labels, leiden_labels=z_leiden_labels, save_path=tsne_plot_path)
-
-                # 保存模型
+                    UMAP_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_UMAP_plot.png')
+                    visualize_clusters(z=z_cpu, labels=y_true, gmm_labels=gmm_labels, leiden_labels=z_leiden_labels,
+                                        ari_gmm = metrics['gmm_ari'], ari_leiden = metrics['leiden_ari'], save_path=UMAP_plot_path)
+                              
+                # ======== 保存模型 ========
                 # model_path = os.path.join(self.paths['pth'],f'epoch_{epoch}_gmm_acc_{metrics["gmm_acc"]:.2f}_gmm_nmi_{metrics["gmm_nmi"]:.2f}_gmm_ari_{metrics["gmm_ari"]:.2f}.pth')
                 # torch.save(self.model.state_dict(), model_path)
 
-                # 保存重构可视化
+                # ======== 保存重构可视化 ========
                 if r_plot:
+                    # 重构光谱
                     recon_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_plot.png')
                     plot_spectra( recon_data=recon_x_cpu, labels=y_true, save_path=recon_plot_path, wavenumber=self.model.wavenumber)
                     # recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
                     # np.savetxt(recon_txt_path, recon_x_cpu)
+                    # 与原始数据的UMAP降维图
+                    X = np.vstack([self.model.tensor_gpu_data.detach().cpu().numpy(), recon_x_cpu])
+                    Y = np.array(['Raw'] * (X.shape[0]//2) + ['generate'] * (X.shape[0]//2))
+                    plot_UMAP(X, Y, os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_UMAP.png'))
 
             return metrics
 
