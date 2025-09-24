@@ -195,7 +195,6 @@ def plot_UMAP(
     # 绘图
     uniq_labels = np.unique(labels)
     n_classes = len(uniq_labels)
-    print(n_classes)
     label_to_idx = {lbl: i for i, lbl in enumerate(uniq_labels)}
     labels_idx = np.array([label_to_idx[lbl] for lbl in labels])
     

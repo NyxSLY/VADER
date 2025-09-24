@@ -81,75 +81,6 @@ class Decoder(nn.Module):
     def forward(self, z):
         return self.net(torch.matmul(z,self.S))
 
-class Gaussian(nn.Module):
-    def __init__(self, num_clusters, latent_dim, global_label_mapping=None):
-        super(Gaussian, self).__init__()
-        self.num_clusters = num_clusters
-        self.latent_dim = latent_dim
-        self.global_label_mapping = global_label_mapping # 全局标签映射
-        
-        # 初始化参数
-        self.pi = nn.Parameter(torch.ones(num_clusters) / num_clusters)
-        self.means = nn.Parameter(torch.zeros(num_clusters, latent_dim))
-        self.log_variances = nn.Parameter(torch.zeros(num_clusters, latent_dim))
-
-        
-    def update_parameters(self, cluster_centers=None, variances=None, weights=None):
-        """更新GMM参数"""
-        print('Update gmm parameters..............\n')
-        with torch.no_grad():
-            if cluster_centers is not None:
-                self.means.data.copy_(cluster_centers)
-            if variances is not None:
-                self.log_variances.data.copy_(variances)
-            if weights is not None:
-                self.pi.data.copy_(weights)
-
-    def forward(self, z, labels_batch=None):
-        if labels_batch is not None: # 如果有批次标签，就使用它
-            # labels_batch 预计是 1D 的标签张量
-            y_labels_tensor = labels_batch.cpu().numpy() # Convert to numpy for mapping
-            
-            # 使用全局映射重映射批次标签
-            if self.global_label_mapping is not None:
-                remapped_labels_np = np.array([self.global_label_mapping[label.item()] for label in y_labels_tensor])
-                y_labels_tensor_remapped = torch.tensor(remapped_labels_np, device=z.device, dtype=torch.long)
-            else:
-                # Fallback if no global mapping, though it should exist if prior_y was given
-                unique_batch_labels = torch.unique(labels_batch)
-                batch_label_mapping = {old_label.item(): new_label for new_label, old_label in enumerate(unique_batch_labels)}
-                remapped_labels_np = np.array([batch_label_mapping[label.item()] for label in y_labels_tensor])
-                y_labels_tensor_remapped = torch.tensor(remapped_labels_np, device=z.device, dtype=torch.long)
-
-            # 为 gamma 创建独热编码，使用全局 num_clusters
-            gamma = F.one_hot(y_labels_tensor_remapped, num_classes=self.num_clusters).float()
-            y = y_labels_tensor_remapped # y 也应该是重映射后的标签
-
-        else: # 如果没有批次标签，则回退到原来的GMM计算方式
-            y = self.gaussian_log_prob(z)  # log p(c|z) # 计算条件概率/可能性
-            gamma = F.softmax(y, dim=1)  # gamma(c)
-
-        # 计算条件均值
-        means = torch.sum(gamma.unsqueeze(2) * self.means.unsqueeze(0), dim=1)
-        # print(self.means[1,:])
-
-        # 返回所有需要的值
-        return self.means,self.log_variances, y, gamma, self.pi  
-
-    def gaussian_log_prob(self, z):
-        """计算log p(z|c)"""
-        z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        means_expanded = self.means.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        log_vars_expanded = self.log_variances.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = self.pi.unsqueeze(0)  # [1, num_clusters]
-    
-        log_p_c = (
-            torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
-            - 0.5 * torch.sum(torch.log(2*math.pi*torch.exp(log_vars_expanded)), dim=2)  # 常数项和方差项
-            - torch.sum((z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
-        )
-        return log_p_c
-
 
 class VaDE(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim,  device, l_c_dim, n_components, S,wavenumber,
@@ -178,8 +109,11 @@ class VaDE(nn.Module):
 
         self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
         # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
-        # Pass global_label_mapping to Gaussian
-        self.gaussian = Gaussian(self.num_classes, n_components, global_label_mapping=self.global_label_mapping)
+        self.pi_ = nn.Parameter(torch.full((self.n_components,), 1.0 / float(self.n_components), dtype=torch.float32, device=self.device),requires_grad=True)
+        self.c_mean = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+        self.c_log_var = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+       
+        
         self.cluster_centers = None
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
@@ -219,7 +153,27 @@ class VaDE(nn.Module):
         else:
             self.load_state_dict(torch.load('./nc9_pretrain_model_none_bn.pk'))
             
+    def gaussian_pdfs_log(self,x,mus,log_sigma2s):
+        G=[]
+        for c in range(self.num_clusters):
+            G.append(self.gaussian_pdf_log(x,mus[c:c+1,:],log_sigma2s[c:c+1,:]).view(-1,1))
+        return torch.cat(G,1)
 
+
+    @staticmethod
+    def gaussian_pdf_log(x,mu,log_sigma2):
+        return -0.5*(torch.sum(np.log(np.pi*2)+log_sigma2+(x-mu).pow(2)/torch.exp(log_sigma2),1)) #这里需要改
+
+    def predict(self,x):
+        z_mean, z_log_var,_ = self.encoder(x)
+        z = torch.randn_like(z_mean) * torch.exp(z_log_var / 2) + z_mean
+        pi = self.pi_
+        c_log_var = self.c_log_var
+        c_mean = self.c_mean
+        c_yita = torch.exp(torch.log(pi.unsqueeze(0))+self.gaussian_pdfs_log(z,c_mean,c_log_var))
+
+        yita=c_yita.detach().cpu().numpy()
+        return np.argmax(yita,axis=1)
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
@@ -266,14 +220,15 @@ class VaDE(nn.Module):
         num_clusters = len(np.unique(labels))
 
         # 如果聚类数量发生变化，需要重新初始化高斯分布
-        if num_clusters != self.gaussian.num_clusters:
-            print(f"Number of clusters changed from {self.gaussian.num_clusters} to {num_clusters}. Reinitializing Gaussian.")
+        if num_clusters != self.n_components:
+            print(f"Number of clusters changed from {self.n_components} to {num_clusters}. Reinitializing Gaussian.")
             self.num_clusters = num_clusters
-            self.gaussian = Gaussian(num_clusters, self.n_components, global_label_mapping=self.global_label_mapping).to(self.device)
-            self.gaussian.update_parameters(cluster_centers=cluster_centers)
+            self.pi_ = nn.Parameter(torch.full((self.num_clusters,), 1.0 / float(self.n_components), dtype=torch.float32, device=self.device),requires_grad=True)
+            self.c_mean = nn.Parameter(torch.zeros(self.num_clusters, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.c_log_var = nn.Parameter(torch.zeros(self.num_clusters, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
 
         # 直接用聚类中心更新高斯分布参数
-        self.cluster_centers = cluster_centers
+        self.c_mean.data.copy_(cluster_centers)
     
     def optimal_transport(self,A, B, alpha):
         n, d = A.shape
@@ -364,47 +319,6 @@ class VaDE(nn.Module):
         match_specs = np.array(match_specs)
         return match_specs, match_chems
 
-    @torch.no_grad()
-    def update_kmeans_centers(self, z):
-        print(f'Update clustering centers..........')
-        encoded_data_cpu = z.cpu().numpy()
-
-        # update the clustering centers
-        if self.prior_y is not None:
-            ml_labels = self.prior_y
-            cluster_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
-            cluster_var = np.array([np.log(encoded_data_cpu[ml_labels == i].var(axis=0) + 1e-6) for i in np.unique(ml_labels)]) 
-        else:
-            ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
-            cluster_var = self.gaussian.log_variances.data
-        
-        cluster_pi = self.gaussian.pi.data
-        gaussian_means = self.gaussian.means.cpu().numpy()
-        
-        num_ml_centers = len(np.unique(ml_labels))
-
-        """align"""
-        if num_ml_centers != self.gaussian.num_clusters:
-            print(f"Numberof clusters changed from {self.gaussian.num_clusters} to {num_ml_centers} .Reinitializing Gaussian.")
-            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-            array_var = self.gaussian.log_variances.cpu().numpy()
-            array_pi = self.gaussian.pi.cpu().numpy()
-            aligned_gaussian_var = self.change_var(array_var,num_ml_centers,w=1.0)
-            aligned_gaussian_pi = self.change_pi(array_pi,num_ml_centers,w=0.5)
-            self.gaussian = Gaussian(num_ml_centers, self.n_components,global_label_mapping=self.global_label_mapping).to(self.device)
-            cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
-            cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
-        else:
-            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-            array_var = self.gaussian.log_variances.cpu().numpy()
-            array_pi = self.gaussian.pi.cpu().numpy()
-            aligned_gaussian_var = self.change_var(array_var,num_ml_centers,w=1.0)
-            aligned_gaussian_pi = self.change_pi(array_pi,num_ml_centers,w=0.5)
-            cluster_var = torch.tensor(aligned_gaussian_var,device = self.device)
-            cluster_pi = torch.tensor(aligned_gaussian_pi,device = self.device)
-        cluster_centers_t = torch.tensor(cluster_centers,device = self.device)
-        self.gaussian.update_parameters(cluster_centers=cluster_centers_t, variances=cluster_var, weights=cluster_pi)
- 
 
     def reparameterize(self, concentration, log_var):
         """
@@ -425,23 +339,20 @@ class VaDE(nn.Module):
 
     def forward(self,x, labels_batch=None): # Add labels_batch parameter
         """模型前向传播"""
-        mean, log_var, S= self.encoder(x)
-        z = self.reparameterize(mean, log_var)
-        
-        # 通过GMM获取所有需要的值
-        means, log_variances, y, gamma, pi = self.gaussian(z, labels_batch) # Pass labels_batch
-        
+        z_mean, z_log_var, S= self.encoder(x)
+        z = self.reparameterize(z_mean, z_log_var)
+
         # 解码
         # recon_x = self.decoder(z)
         recon_x = torch.matmul(z, S)
         
-        return recon_x, mean, means, log_var, z, gamma, pi, S
+        return recon_x, z_mean,z_log_var, z, S
 
     @torch.no_grad()
     def constraint_angle(self, x, weight=0.05):
         """
         S: 要约束的矩阵（一组组分或浓度行/列），shape [n, dim]
-        x: 原始输入矩阵
+        x: 原始输入矩阵z_
         """
         S_init = self.encoder.S
         m = x.mean(axis=0)  # 对列求均值
@@ -488,7 +399,7 @@ class VaDE(nn.Module):
         return weighted_mse
 
 
-    def compute_loss(self, x, recon_x, mean, log_var, gamma, S, matched_S,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
+    def compute_loss(self, x, recon_x, z_mean, z_log_var, gamma, S, matched_S,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
         # 1. 重构损失
         if lamb1 > 0:
             recon_loss = lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
@@ -497,18 +408,18 @@ class VaDE(nn.Module):
 
         # 2. GMM先验的KL散度       
         gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
-        mean = mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        log_var = log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        z_mean = z_mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        z_log_var = z_log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
         
-        gaussian_means = self.gaussian.means.unsqueeze(0)  # [1, n_clusters, latent_dim]
-        gaussian_log_vars = self.gaussian.log_variances.unsqueeze(0)  # [1, n_clusters, latent_dim]
+        gaussian_means = self.c_mean.unsqueeze(0)  # [1, n_clusters, latent_dim]
+        gaussian_log_vars = self.c_log_var.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
         if lamb2 > 0:
             kl_gmm = torch.sum(
                 0.5 * gamma_t * (
                     self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
-                    torch.exp(log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                    torch.exp(z_log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
+                    (z_mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
             ) * lamb2
@@ -517,13 +428,13 @@ class VaDE(nn.Module):
 
         # 3. VAE的KL散度
         if lamb3 > 0:
-            kl_standard = -0.5 * torch.sum(1 + log_var, dim=2) * lamb3 # - mean.pow(2) - torch.exp(log_var)
+            kl_VAE = -0.5 * torch.sum(1 + z_log_var, dim=2) * lamb3 # - z_mean.pow(2) - torch.exp(log_var)
         else:
-            kl_standard = torch.tensor(0.0, device=self.device)
+            kl_VAE = torch.tensor(0.0, device=self.device)
 
         # 4. GMM熵项
         if lamb4 > 0:
-            pi = self.gaussian.pi.unsqueeze(0)  # [1, n_clusters]
+            pi = self.pi_.unsqueeze(0)  # [1, n_clusters]
             entropy = lamb4 * (
                 -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
                 torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
@@ -552,23 +463,23 @@ class VaDE(nn.Module):
             SS = torch.matmul(S, S.t())
             I = torch.eye(S.shape[0], device=self.device)
             ortho_loss = ((SS - I) ** 2).sum()
-            unsimilaity_S = lamb7 * ortho_loss
+            unsimilarity_S = lamb7 * ortho_loss
         else:
-            unsimilaity_S = np.array([0])
+            unsimilarity_S = np.array([0])
 
         # 总损失
-        loss = recon_loss.mean() + kl_standard.mean() + kl_gmm.mean() +  entropy.mean()  + match_loss_bioDB.mean() + spectral_constraints.mean() + unsimilaity_S.mean()
+        loss = recon_loss.mean() + kl_VAE.mean() + kl_gmm.mean() +  entropy.mean()  + match_loss_bioDB.mean() + spectral_constraints.mean() + unsimilarity_S.mean()
         
         # 返回损失字典
         loss_dict = {
             'total_loss': loss,
             'recon_loss': recon_loss.mean().item(),
             'kl_gmm': kl_gmm.mean().item(),
-            'kl_VAE': kl_standard.mean().item(),
+            'kl_VAE': kl_VAE.mean().item(),
             'entropy': entropy.mean().item(),
             'weighted_spectral': spectral_constraints.mean().item(),
             'match_loss': match_loss_bioDB.mean().item(),
-            'match_loss': unsimilaity_S.mean().item()
+            'unsimilarity_loss': unsimilarity_S.mean().item()
         }
         
         return loss_dict

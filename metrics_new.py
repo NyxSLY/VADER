@@ -64,7 +64,7 @@ class ModelEvaluator:
     def evaluate_epoch(
         self,
         recon_x,
-        gamma,
+        gmm_labels,
         z,
         labels: torch.Tensor,
         matched_S,
@@ -83,8 +83,6 @@ class ModelEvaluator:
         with torch.no_grad():
             # 转换数据到CPU
             z_cpu = z.detach().cpu().numpy()
-            gmm_probs = gamma.detach().cpu().numpy()
-            gmm_labels = np.argmax(gmm_probs, axis=1)
             recon_x_cpu = recon_x.detach().cpu().numpy()
             y_true = labels.cpu().numpy()
 
@@ -106,7 +104,7 @@ class ModelEvaluator:
             }
 
             # 解包训练指标
-            train_metrics_names = ['total_loss', 'recon_loss', 'kl_gmm', 'kl_standard', 'entropy', 'peak_loss', 'spectral_loss', 'clustering_confidence_loss', 'cluster_separation_loss']
+            train_metrics_names = ['total_loss', 'recon_loss', 'kl_gmm', 'kl_VAE', 'entropy', 'weighted_spectral', 'match_loss', 'unsimilarity_loss']
             train_metrics_dict = {name: train_metrics[name] for name in train_metrics_names}
 
             # 合并所有指标
@@ -170,12 +168,11 @@ class ModelEvaluator:
             ('Total Loss', metrics.get('total_loss', 0.0), '.2f'),
             ('Recon Loss', metrics.get('recon_loss', 0.0), '.2f'),
             ('KL GMM', metrics.get('kl_gmm', 0.0), '.2f'),
-            ('KL Standard', metrics.get('kl_standard', 0.0), '.2f'),
+            ('KL VAE', metrics.get('kl_VAE', 0.0), '.2f'),
             ('Entropy', metrics.get('entropy', 0.0), '.2f'),
-            ('Peak Loss', metrics.get('peak_loss', 0.0), '.2f'),
-            ('Spectral Loss', metrics.get('spectral_loss', 0.0), 'f'),
-            ('Clustering Confidence Loss', metrics.get('clustering_confidence_loss', 0.0), '.2f'),
-            ('Cluster Separation Loss', metrics.get('cluster_separation_loss', 0.0), '.2f')
+            ('Weiggted Spectral', metrics.get('weighted_spectral', 0.0), '.2f'),
+            ('Match Loss', metrics.get('match_loss', 0.0), 'f'),
+            ('Unsimilarity Loss', metrics.get('unsimilarity_loss', 0.0), '.2f')
         ]
 
         gmm_items = [

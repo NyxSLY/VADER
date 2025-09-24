@@ -26,23 +26,25 @@ def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch,
         data_x = x[0].to(model.device)
         
         # 前向传播   
-        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(data_x,  labels_batch = None if model.prior_y is None else x[1].to(model.device))
+        recon_x, z_mean,z_log_var, z,  S = model(data_x,  labels_batch = None if model.prior_y is None else x[1].to(model.device))
+        gamma = torch.exp(torch.log(model.pi_.unsqueeze(0)) + model.gaussian_pdfs_log(z, model.c_mean, model.c_log_var)) + 1e-10
+        gamma=gamma/(gamma.sum(1).view(-1,1))
         
         # 获取GMM的输出
         # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z, labels_batch = None if model.prior_y is None else x[1].to(model.device))
         
         # 损失计算
 
-        loss_dict = model.compute_loss(data_x, recon_x, mean, log_var, gamma, S, matched_S,
+        loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S,
                                        weights['lamb1'], weights['lamb2'], weights['lamb3'], weights['lamb4'],
                                        weights['lamb5'], weights['lamb6'], weights['lamb7'])
 
         # 反向传播
         optimizer_nn.zero_grad()
-        optimizer_gmm.zero_grad()
+        # optimizer_gmm.zero_grad()
         loss_dict['total_loss'].backward()
         optimizer_nn.step()
-        optimizer_gmm.step()
+        # optimizer_gmm.step()
         
         # 更新总指标
         for key, value in loss_dict.items():
@@ -76,7 +78,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     # 初始化优化器和其他组件
     # optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
     optimizer_nn = optim.Adam(chain(model.encoder.parameters()), lr=model_params['learning_rate'])
-    optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model_params['learning_rate'])
+    # optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model_params['learning_rate'])
     
     if model_params.get('use_lr_scheduler', False):
         print("使用学习率调度器")
@@ -90,11 +92,11 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             T_max=epochs,
             eta_min=model_params['learning_rate'] * 0.01
         )
-        scheduler_gmm = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer_gmm,
-            T_max=epochs,
-            eta_min=model_params['learning_rate'] * 0.01
-        )
+        # scheduler_gmm = optim.lr_scheduler.CosineAnnealingLR(
+        #     optimizer_gmm,
+        #     T_max=epochs,
+        #     eta_min=model_params['learning_rate'] * 0.01
+        # )
     else:
         print("使用固定学习率")
         scheduler_nn = None
@@ -118,12 +120,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         n_epochs=epochs,
         resolution=model_params['resolution']
     )
-    recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
+    recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
     model.init_kmeans_centers(z)
-
-    # 初始化 best_gmm_acc 和 best_epoch
-    best_leiden_acc = -1.0
-    best_epoch = -1
 
     for epoch in range(0, epochs):
         print(f"\nEpoch [{epoch+1}/{epochs}]")
@@ -131,14 +129,15 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         weights = weight_scheduler.get_weights(epoch)
 
         # 训练一个epoch
-        recon_x, mean, gaussian_means, log_var, z, gamma, pi, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
+        recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
+        print(model.c_log_var[:,1])
 
         train_metrics = train_epoch(
             model=model, weights=weights,
             data_loader=dataloader,
             optimizer_nn=optimizer_nn,
-            optimizer_gmm=optimizer_gmm,
+            optimizer_gmm=optimizer_nn,
             epoch=epoch,
             writer=writer,
             matched_S = matched_comp
@@ -147,31 +146,29 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         
         # skip update kmeans centers
-        if (epoch + 1) % model_params['update_interval'] == 0:
-            model.update_kmeans_centers(z)
+        # if (epoch + 1) % model_params['update_interval'] == 0:
+        #     model.update_kmeans_centers(z)
 
         # 更新学习率
         lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
         lr_gmm = model_params['learning_rate'] if scheduler_gmm is None else scheduler_gmm.get_last_lr()[0]
         if scheduler_nn is not None:
             scheduler_nn.step()
-        if scheduler_gmm is not None:
-            scheduler_gmm.step()
+        # if scheduler_gmm is not None:
+        #     scheduler_gmm.step()
 
         
         if writer is not None:
             writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
-            writer.add_scalar('Learning_rate_gmm', lr_gmm, epoch)
 
-            gmm_probs = gamma.detach().cpu().numpy()
-            gmm_labels = np.argmax(gmm_probs, axis=1)
+            gmm_labels = model.predict(tensor_gpu_data)
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
         
         # 同步评估
         metrics = evaluator.evaluate_epoch(
             recon_x,
-            gamma,
+            gmm_labels,
             z,
             labels, 
             matched_S = matched_comp,
@@ -183,16 +180,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             r_plot = r_plot
         )
 
-        # 在训练了100个epoch以后，总是记录gmm_acc最大的epoch的pth
-        if epoch >= 100:
-            current_leiden_acc = metrics['leiden_acc']
-            if current_leiden_acc > best_leiden_acc:
-                best_leiden_acc = current_leiden_acc
-                best_epoch = epoch
-                print(f"新的最佳GMM准确率: {best_leiden_acc:.4f} 在 epoch {best_epoch + 1}")
-                torch.save(model.state_dict(), os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth'))
-                print(f"模型已保存到 {os.path.join(paths['training_log'], f'Epoch_{best_epoch + 1}_Acc={best_leiden_acc:.2f}_model.pth')}")
-            
         # 检查早停条件
         if check_early_stopping(metrics, model_params['min_loss_threshold']):
             print(f'达到最小损失阈值,提前停止训练。总损失:{metrics["total_loss"]:.6f}, '
