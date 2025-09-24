@@ -4,7 +4,6 @@
 
 import os
 import yaml
-import datetime
 import shutil
 from typing import Dict, Any
 
@@ -93,18 +92,9 @@ class ProjectConfig:
     def get_project_paths(
         self,
         project_dir: str,
-        num_classes: int,
-        lamb1=None, lamb2=None, lamb3=None, lamb4=None, lamb5=None, lamb6=None,
         memo: str = "test"
     ) -> Dict[str, str]:
         """生成并创建项目路径"""
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-
-        # 参数标记
-        params = [str(v) for v in (lamb1, lamb2, lamb3, lamb4, lamb5, lamb6) if v is not None]
-        folder_params = "_".join(params) if params else ""
-        base_folder_name = f"class{num_classes}"
-
         # 最终训练路径
         train_path = os.path.join(project_dir, memo)
 

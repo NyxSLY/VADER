@@ -33,7 +33,7 @@ def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch,
         
         # 损失计算
 
-        loss_dict = model.compute_loss(data_x, recon_x, mean, log_var, z, gamma, S, matched_S,
+        loss_dict = model.compute_loss(data_x, recon_x, mean, log_var, gamma, S, matched_S,
                                        weights['lamb1'], weights['lamb2'], weights['lamb3'], weights['lamb4'],
                                        weights['lamb5'], weights['lamb6'], weights['lamb7'])
 

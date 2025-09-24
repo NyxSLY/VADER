@@ -341,6 +341,7 @@ class VaDE(nn.Module):
 
         for i in range(0,S_valid.shape[0]):
             unknown_comp = S_valid[i].cpu().numpy()
+            print(f'Max: {np.max(unknown_comp)},    Min: {np.min(unknown_comp)}')
             search_results = spectra_search.search(
                 unknown_comp,
                 class_filter=None,

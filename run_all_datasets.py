@@ -35,17 +35,7 @@ def train_on_dataset(
     project_dir = create_project_folders(project_tag)
     weight_scheduler_config = config.get_weight_scheduler_config()
     n_component = S.shape[0]
-    paths = config.get_project_paths(
-        project_dir,
-        n_component,
-        lamb1=weight_scheduler_config['init_weights']['lamb1'],
-        lamb2=weight_scheduler_config['init_weights']['lamb2'],
-        lamb3=weight_scheduler_config['init_weights']['lamb3'],
-        lamb4=weight_scheduler_config['init_weights']['lamb4'],
-        lamb5=weight_scheduler_config['init_weights']['lamb5'],
-        lamb6=weight_scheduler_config['init_weights']['lamb6'],
-        memo=memo,
-    )
+    paths = config.get_project_paths( project_dir, memo=memo)
     l_c_dim = config.encoder_type(model_params['encoder_type'], paths['train_path'])
     model = VaDE(
         input_dim=input_dim,
@@ -73,7 +63,6 @@ def train_on_dataset(
         dataloader=dataloader,
         tensor_gpu_data=tensor_gpu_data,
         labels=tensor_gpu_labels,
-        num_classes=n_component,
         paths=paths,
         epochs = epochs
     )
