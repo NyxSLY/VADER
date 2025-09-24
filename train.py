@@ -192,13 +192,13 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             gamma,
             z,
             labels, 
-            epoch, 
-            lr_nn, 
-            train_metrics, 
-            t_plot, 
-            r_plot,
             matched_S = matched_comp,
-            matched_chem = matched_chems
+            matched_chem = matched_chems,
+            epoch = epoch, 
+            lr = lr_nn, 
+            train_metrics = train_metrics, 
+            t_plot = t_plot, 
+            r_plot = r_plot
         )
 
         # 在训练了100个epoch以后，总是记录gmm_acc最大的epoch的pth

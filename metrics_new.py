@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from scipy.optimize import linear_sum_assignment
-from utility import plot_spectra, visualize_clusters
+from utility import plot_spectra, visualize_clusters,plot_S
 from config import config
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
@@ -67,6 +67,8 @@ class ModelEvaluator:
         gamma,
         z,
         labels: torch.Tensor,
+        matched_S,
+        matched_chem,
         epoch: int,
         lr: float,
         train_metrics: Dict[str, float],
@@ -88,12 +90,6 @@ class ModelEvaluator:
 
             # 计算Leiden聚类标签
             z_leiden_labels = leiden_clustering(z_cpu, resolution=self.resolution)
-
-            # 打印 gmm_labels 和 y_true 的交叉表进行手动检查
-            print("\n--- GMM Labels vs True Labels Contingency Table ---")
-            contingency_table = pd.crosstab(y_true, gmm_labels)
-            print(contingency_table)
-            print("---------------------------------------------------\n")
 
             # 计算评估指标
             gmm_metrics = self.compute_clustering_metrics(gmm_labels, y_true)
@@ -121,10 +117,33 @@ class ModelEvaluator:
 
             # 打印评估结果
             if (epoch+1) % config.get_model_params()['save_interval'] == 0:
-                self._save_results(epoch+1, metrics, lr, z_cpu, recon_x_cpu, y_true, gmm_labels, z_leiden_labels, t_plot, r_plot)
-                # 保存gmm_labels为txt文件
-                gmm_labels_path = os.path.join(self.paths['pth'], f'Epoch_{epoch+1}_gmm_labels.txt')
-                np.savetxt(gmm_labels_path, gmm_labels, fmt='%d')
+                # 保存Z
+                # z_save_path = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
+                # np.savetxt(z_save_path,z_cpu)
+
+                # 保存gmm_labels
+                # gmm_labels_path = os.path.join(self.paths['pth'], f'Epoch_{epoch+1}_gmm_labels.txt')
+                # np.savetxt(gmm_labels_path, gmm_labels, fmt='%d')
+
+                # 保存S和匹配到的物质
+                S_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_spectra_comp.png')
+                plot_S(self.model.encoder.S, matched_S, matched_chem, S_plot_path, self.model.wavenumber)
+
+                # 保存t-SNE可视化
+                if t_plot :
+                    tsne_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_tsne_plot.png')
+                    visualize_clusters(z=z_cpu, labels=y_true, gmm_labels=gmm_labels, leiden_labels=z_leiden_labels, save_path=tsne_plot_path)
+
+                # 保存模型
+                # model_path = os.path.join(self.paths['pth'],f'epoch_{epoch}_gmm_acc_{metrics["gmm_acc"]:.2f}_gmm_nmi_{metrics["gmm_nmi"]:.2f}_gmm_ari_{metrics["gmm_ari"]:.2f}.pth')
+                # torch.save(self.model.state_dict(), model_path)
+
+                # 保存重构可视化
+                if r_plot:
+                    recon_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_plot.png')
+                    plot_spectra( recon_data=recon_x_cpu, labels=y_true, save_path=recon_plot_path, wavenumber=self.model.wavenumber)
+                    # recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
+                    # np.savetxt(recon_txt_path, recon_x_cpu)
 
             return metrics
 
@@ -172,63 +191,6 @@ class ModelEvaluator:
         print(gmm_str)
         print(z_leiden_str)
 
-    def _save_results(
-        self,
-        epoch: int,
-        metrics: Dict[str, float],
-        lr: float,
-        z_cpu: np.ndarray,
-        recon_x_cpu: np.ndarray,
-        labels:np.ndarray,
-        gmm_labels: np.ndarray,
-        leiden_labels: np.ndarray,
-        t_plot: bool,
-        r_plot: bool,
-        wavenumber:Optional[np.ndarray] = None
-    ) -> None:
-        """
-        保存评估结果,包括日志文件、TensorBoard 记录和可视化。
-
-        Args:
-            epoch: 当前 epoch 编号
-            metrics: 评估指标字典
-            z_cpu: 编码后的特征
-            recon_x_cpu: 重构后的数据
-            colors_map: 类别到颜色的映射字典
-            labels: 标签数据
-            # num_classes: 类别数量
-            # unique_label: 一标签值数组
-        """
-        if not self.paths:
-            print("Warning: No paths specified for saving results")
-            return
-
-        # 保存成分光谱
-        spectra_comp = F.normalize(self.model.encoder.S, p=2, dim=1)
-        spectra_comp_cpu = spectra_comp.detach().cpu().numpy()
-        plt.figure(figsize=(12, 8))
-        x_axis = range(spectra_comp_cpu.shape[1])
-        n_components = spectra_comp_cpu.shape[0]
-        # 为每个成分绘制一条线
-        for i in range(n_components):
-            plt.plot(x_axis, spectra_comp_cpu[i,:], label=f'Component {i+1}')
-        
-        plt.xlabel('Wavenumber')
-        plt.ylabel('Intensity')
-        plt.title('MCR Component Spectra')
-        plt.legend()
-        plt.grid(True)
-        plt.savefig(os.path.join(self.paths['plot'], f'epoch_{epoch}_spectra_comp.png'))
-
-        # 保存t-SNE可视化
-        self._save_tsne_plot(epoch, z_cpu, labels, gmm_labels, leiden_labels, t_plot)
-
-        # 保存模型
-        # model_path = os.path.join(self.paths['pth'],f'epoch_{epoch}_gmm_acc_{metrics["gmm_acc"]:.2f}_gmm_nmi_{metrics["gmm_nmi"]:.2f}_gmm_ari_{metrics["gmm_ari"]:.2f}.pth')
-        # torch.save(self.model.state_dict(), model_path)
-
-        # 保存重构可视化
-        self._save_recon_plot(epoch, recon_x_cpu, labels, wavenumber,r_plot)
 
     def _save_to_tensorboard(self, epoch: int, metrics: Dict[str, float]) -> None:
         """
@@ -248,50 +210,3 @@ class ModelEvaluator:
             self.writer.add_scalar('Leiden/ACC', metrics['leiden_acc'], epoch)
             self.writer.add_scalar('Leiden/NMI', metrics['leiden_nmi'], epoch)
             self.writer.add_scalar('Leiden/ARI', metrics['leiden_ari'], epoch)
-
-    def _save_tsne_plot(
-        self,
-        epoch: int,
-        z_cpu: np.ndarray,
-        labels: np.ndarray,
-        gmm_labels:np.ndarray,  
-        leiden_labels:np.ndarray,
-        plot: bool
-    ) -> None:
-        """
-        保存 t-SNE 可视化。
-
-        Args:
-            epoch: 当前 epoch 编号
-            z_cpu: 编码后的特征
-            labels: 标签数据
-            colors_map: 类别到颜色的映射字典
-        """
-        tsne_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_tsne_plot.png')
-        # tsne_txt_pth = os.path.join(self.paths['plot'],f'epoch_{epoch}_z_value.txt')
-        # np.savetxt(tsne_txt_pth,z_cpu)
-        if plot :
-            visualize_clusters(z=z_cpu, labels=labels, gmm_labels=gmm_labels, leiden_labels=leiden_labels, save_path=tsne_plot_path)
-
-    def _save_recon_plot(
-        self,
-        epoch: int,
-        recon_x_cpu: np.ndarray,
-        labels: np.ndarray,
-        wavenumber: np.ndarray,
-        plot: bool
-    ) -> None:
-        """
-        保存重构可视化。
-        """
-        recon_plot_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_plot.png')
-        # recon_txt_path = os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_x_value.txt')
-        # np.savetxt(recon_txt_path, recon_x_cpu)
-        
-        if plot:
-            plot_spectra(
-                recon_data=recon_x_cpu,
-                labels=labels,
-                save_path=recon_plot_path,
-                wavenumber=wavenumber
-            )

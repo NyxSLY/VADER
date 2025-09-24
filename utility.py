@@ -293,7 +293,7 @@ def visualize_clusters(
     plt.close()
 
 def plot_spectra(
-        X: np.ndarray,
+        recon_data: np.ndarray,
         labels: np.ndarray,
         save_path: str,
         wavenumber: Optional[np.ndarray] = None
@@ -307,16 +307,16 @@ def plot_spectra(
     Returns:
         None
     """
-    x = np.arange(X.shape[1]) if wavenumber is None else wavenumber
+    x = np.arange(recon_data.shape[1]) if wavenumber is None else wavenumber
     unique_labels = np.unique(labels)  
-    stack_gap = float(np.mean(np.max(X, axis=1))) * 0.6 
+    stack_gap = float(np.mean(np.max(recon_data, axis=1))) * 0.6 
 
     palette = sns.color_palette('husl', n_colors=len(unique_labels))
     colors_map = {lbl: palette[i] for i, lbl in enumerate(unique_labels)}
 
     plt.figure(figsize=(14, 4 + 0.6 * len(unique_labels)))
     for i, lbl in enumerate(unique_labels):
-        grp = X[labels == lbl]
+        grp = recon_data[labels == lbl]
         if grp.size == 0:
             continue
         mean = grp.mean(axis=0)
@@ -338,14 +338,15 @@ def plot_spectra(
 def plot_S(S, matched_S, matched_chem, save_path, wavenumber):
     valid_idx = np.where((wavenumber >= 450) & (wavenumber <= 1800))[0]
     wn_valid = wavenumber[valid_idx]
-    stack_gap = float(np.mean(np.max(matched_chem, axis=1)))  
+    stack_gap = float(np.mean(np.max(matched_S, axis=1)))  
 
-    S = F.normalize(S, p=2, dim=1)
     S = S.detach().cpu().numpy()
+    row_max_valid = np.max(S[:, valid_idx], axis=1, keepdims=True) + 1e-12
+    S = S / row_max_valid
 
     plt.figure(figsize=(12, 8))
     n_components = S.shape[0]
-    palette = sns.color_palette('husl', n_colors=len(n_components))
+    palette = sns.color_palette('husl', n_colors=n_components)
 
     for i in range(n_components):
         plt.plot(wn_valid, matched_S[i,:] -i * stack_gap, ls='--',color=palette[i], label=f'Component {i+1} : {matched_chem[i]}')
