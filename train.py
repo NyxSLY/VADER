@@ -7,16 +7,14 @@ from config import config
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
-from torch.multiprocessing import Process, Queue
 from contextlib import contextmanager
-import time
 import os
 from itertools import chain
-import sys
+
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
 
-def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch, writer, matched_S):
+def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S):
     """训练一个epoch"""
     model.train()
     total_metrics = defaultdict(float)
@@ -30,9 +28,6 @@ def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch,
         gamma = torch.exp(torch.log(model.pi_.unsqueeze(0)) + model.gaussian_pdfs_log(z, model.c_mean, model.c_log_var)) + 1e-10
         gamma=gamma/(gamma.sum(1).view(-1,1))
         
-        # 获取GMM的输出
-        # gmm_means, gmm_log_variances, y, gamma, pi = model.gaussian(z, labels_batch = None if model.prior_y is None else x[1].to(model.device))
-        
         # 损失计算
 
         loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S,
@@ -40,11 +35,9 @@ def train_epoch(model, weights, data_loader, optimizer_nn, optimizer_gmm, epoch,
                                        weights['lamb5'], weights['lamb6'], weights['lamb7'])
 
         # 反向传播
-        optimizer_nn.zero_grad()
-        # optimizer_gmm.zero_grad()
+        optimizer.zero_grad()
         loss_dict['total_loss'].backward()
-        optimizer_nn.step()
-        # optimizer_gmm.step()
+        optimizer.step()
         
         # 更新总指标
         for key, value in loss_dict.items():
@@ -74,33 +67,18 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     weight_config = config.get_weight_scheduler_config()
     t_plot = model_params['tsne_plot']
     r_plot = model_params['recon_plot']
-
-    # 初始化优化器和其他组件
-    # optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
-    optimizer_nn = optim.Adam(chain(model.encoder.parameters()), lr=model_params['learning_rate'])
-    # optimizer_gmm = optim.Adam(model.gaussian.parameters(), lr=model_params['learning_rate'])
+    optimizer = optim.Adam(chain(model.encoder.parameters()), lr=model_params['learning_rate'])
     
     if model_params.get('use_lr_scheduler', False):
         print("使用学习率调度器")
-        # scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        #     optimizer,
-        #     T_max=model_params['epochs'],
-        #     eta_min=model_params['learning_rate'] * 0.01
-        # )
-        scheduler_nn = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer_nn,
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
             T_max=epochs,
             eta_min=model_params['learning_rate'] * 0.01
         )
-        # scheduler_gmm = optim.lr_scheduler.CosineAnnealingLR(
-        #     optimizer_gmm,
-        #     T_max=epochs,
-        #     eta_min=model_params['learning_rate'] * 0.01
-        # )
     else:
         print("使用固定学习率")
-        scheduler_nn = None
-        scheduler_gmm = None
+        scheduler = None
         
     device = model.device
     model_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
@@ -131,12 +109,14 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         # 训练一个epoch
         recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
+        print(model.c_mean[:,1])
+        print(model.c_log_var[:,1])
+        print(model.pi_)
 
         train_metrics = train_epoch(
             model=model, weights=weights,
             data_loader=dataloader,
-            optimizer_nn=optimizer_nn,
-            optimizer_gmm=optimizer_nn,
+            optimizer=optimizer,
             epoch=epoch,
             writer=writer,
             matched_S = matched_comp
@@ -149,17 +129,13 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         #     model.update_kmeans_centers(z)
 
         # 更新学习率
-        lr_nn = model_params['learning_rate'] if scheduler_nn is None else scheduler_nn.get_last_lr()[0]
-        lr_gmm = model_params['learning_rate'] if scheduler_gmm is None else scheduler_gmm.get_last_lr()[0]
-        if scheduler_nn is not None:
-            scheduler_nn.step()
-        # if scheduler_gmm is not None:
-        #     scheduler_gmm.step()
+        lr = model_params['learning_rate'] if scheduler is None else scheduler.get_last_lr()[0]
+        if scheduler is not None:
+            scheduler.step()
 
         
         if writer is not None:
-            writer.add_scalar('Learning_rate_nn', lr_nn, epoch)
-
+            writer.add_scalar('Learning_raten', lr, epoch)
             gmm_labels = model.predict(tensor_gpu_data)
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
@@ -173,7 +149,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             matched_S = matched_comp,
             matched_chem = matched_chems,
             epoch = epoch, 
-            lr = lr_nn, 
+            lr = lr, 
             train_metrics = train_metrics, 
             t_plot = t_plot, 
             r_plot = r_plot
