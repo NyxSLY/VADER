@@ -10,6 +10,7 @@ import torch.multiprocessing as mp
 from contextlib import contextmanager
 import os
 from itertools import chain
+from torchviz import make_dot
 
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
@@ -29,7 +30,6 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
         gamma=gamma/(gamma.sum(1).view(-1,1))
         
         # 损失计算
-
         loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S,
                                        weights['lamb1'], weights['lamb2'], weights['lamb3'], weights['lamb4'],
                                        weights['lamb5'], weights['lamb6'], weights['lamb7'])
