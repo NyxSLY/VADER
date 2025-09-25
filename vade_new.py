@@ -113,7 +113,6 @@ class VaDE(nn.Module):
         self.c_mean = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
         self.c_log_var = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
        
-        
         self.cluster_centers = None
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
@@ -153,28 +152,20 @@ class VaDE(nn.Module):
         else:
             self.load_state_dict(torch.load('./nc9_pretrain_model_none_bn.pk'))
             
-    def gaussian_pdfs_log(self,x,mus,log_sigma2s):
-        G=[]
-        for c in range(self.num_clusters):
-            G.append(self.gaussian_pdf_log(x,mus[c:c+1,:],log_sigma2s[c:c+1,:]).view(-1,1))
-        return torch.cat(G,1)
+    def cal_gaussian_gamma(self,z):
+        z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
+        means_expanded = self.c_mean.unsqueeze(0)  # [1, num_clusters, latent_dim]
+        log_vars_expanded = self.c_log_var.unsqueeze(0)  # [1, num_clusters, latent_dim]
+        pi_expanded = self.pi_.unsqueeze(0)  # [1, num_clusters]
+    
+        gamma = (
+            torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
+            - 0.5 * torch.sum(torch.log(2*math.pi*torch.exp(log_vars_expanded)), dim=2)  # 常数项和方差项
+            - torch.sum((z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
+        )
 
+        return F.softmax(gamma,dim=1)
 
-    @staticmethod
-    def gaussian_pdf_log(x,mu,log_sigma2):
-        log2pi = torch.log(torch.tensor(2.0*math.pi, device=x.device, dtype=x.dtype))
-        return -0.5*(torch.sum(log2pi+log_sigma2+(x-mu).pow(2)/torch.exp(log_sigma2),1)) #这里需要改
-
-    def predict(self,x):
-        z_mean, z_log_var,_ = self.encoder(x)
-        z = torch.randn_like(z_mean) * torch.exp(z_log_var / 2) + z_mean
-        pi = self.pi_
-        c_log_var = self.c_log_var
-        c_mean = self.c_mean
-        c_yita = torch.exp(torch.log(pi.unsqueeze(0))+self.gaussian_pdfs_log(z,c_mean,c_log_var))
-
-        yita=c_yita.detach().cpu().numpy()
-        return np.argmax(yita,axis=1)
 
     def _apply_clustering(self, encoded_data):
         """应用选定的聚类方法"""
@@ -223,14 +214,37 @@ class VaDE(nn.Module):
         # 如果聚类数量发生变化，需要重新初始化高斯分布
         if num_clusters != self.n_components:
             print(f"Number of clusters changed from {self.n_components} to {num_clusters}. Reinitializing Gaussian.")
-            self.num_clusters = num_clusters
-            self.pi_ = nn.Parameter(torch.full((self.num_clusters,), 1.0 / float(self.n_components), dtype=torch.float32, device=self.device),requires_grad=True)
-            self.c_mean = nn.Parameter(torch.zeros(self.num_clusters, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
-            self.c_log_var = nn.Parameter(torch.zeros(self.num_clusters, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.num_classes = num_clusters
+            self.pi_ = nn.Parameter(torch.full((self.num_classes,), 1.0 / float(self.num_classes), dtype=torch.float32, device=self.device),requires_grad=True)
+            self.c_mean = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.c_log_var = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
 
         # 直接用聚类中心更新高斯分布参数
         self.c_mean.data.copy_(cluster_centers)
     
+    def update_kmeans_centers(self, z):
+        print(f'Update clustering centers..........')
+        encoded_data_cpu = z.detach().cpu().numpy()
+
+        # update the clustering centers
+        ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
+        num_ml_centers = len(np.unique(ml_labels))
+
+        """align"""
+        if num_ml_centers != self.num_classes:
+            print(f"Numberof clusters changed from {self.num_classes} to {num_ml_centers} .Reinitializing Gaussian.")
+            gaussian_means = self.c_mean.cpu().numpy()
+            cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
+            self.num_clusters = num_ml_centers
+            array_var = self.c_log_var.cpu().numpy()
+            array_pi = self.pi_.cpu().numpy()
+            aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
+            aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
+            self.pi_ = nn.Parameter(torch.tensor(aligned_gaussian_pi, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.c_mean = nn.Parameter(torch.tensor(cluster_centers, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.c_log_var = nn.Parameter(torch.tensor(aligned_gaussian_var, dtype=torch.float32, device=self.device),requires_grad=True)
+        self.c_mean.data.copy_(torch.tensor(cluster_centers,device = self.device))
+
     def optimal_transport(self,A, B, alpha):
         n, d = A.shape
         m, _ = B.shape
@@ -287,7 +301,6 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def match_components(self,S, min_similarity):
         valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
-        wavenumber = self.wavenumber[valid_idx]
         S_valid = S[:,valid_idx]
 
         match_specs = []
@@ -311,7 +324,6 @@ class VaDE(nn.Module):
                 match_chem = 'Unknown'
             else: 
                 match_id = top_similar['id'].iloc[0]
-                match_wave = np.array(search_results.database['wavenumbers'][match_id-1])
                 match_spec = np.array(search_results.database['intensity'][match_id-1])
                 match_chem = search_results.database['component'][match_id-1]
             match_specs.append(match_spec)

@@ -150,7 +150,7 @@ class ModelEvaluator:
                     Y = np.array(['Raw'] * (X.shape[0]//2) + ['generate'] * (X.shape[0]//2))
                     plot_UMAP(X, Y, os.path.join(self.paths['plot'], f'epoch_{epoch}_recon_UMAP.png'))
 
-            return metrics
+        return metrics
 
     def _print_metrics(self, epoch: int, lr: float, metrics: Dict[str, float]) -> None:
         """

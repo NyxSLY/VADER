@@ -11,6 +11,7 @@ from contextlib import contextmanager
 import os
 from itertools import chain
 from torchviz import make_dot
+import torch.nn.functional as F
 
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
@@ -26,8 +27,7 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
         
         # 前向传播   
         recon_x, z_mean,z_log_var, z,  S = model(data_x,  labels_batch = None if model.prior_y is None else x[1].to(model.device))
-        gamma = torch.exp(torch.log(model.pi_.unsqueeze(0)) + model.gaussian_pdfs_log(z, model.c_mean, model.c_log_var)) + 1e-10
-        gamma=gamma/(gamma.sum(1).view(-1,1))
+        gamma = model.cal_gaussian_gamma(z)
         
         # 损失计算
         loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S,
@@ -38,7 +38,7 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
         optimizer.zero_grad()
         loss_dict['total_loss'].backward()
         optimizer.step()
-        
+
         # 更新总指标
         for key, value in loss_dict.items():
             if isinstance(value, torch.Tensor):
@@ -67,6 +67,9 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     weight_config = config.get_weight_scheduler_config()
     t_plot = model_params['tsne_plot']
     r_plot = model_params['recon_plot']
+    
+    recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
+    model.init_kmeans_centers(z)
     optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
 
     if model_params.get('use_lr_scheduler', False):
@@ -80,12 +83,11 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         print("使用固定学习率")
         scheduler = None
         
-    device = model.device
     model_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
     writer = SummaryWriter(log_dir=paths['tensorboard_log']+f'/{model_name}')
     evaluator = ModelEvaluator(
         model=model,
-        device=device,
+        device=model.device,
         paths=paths,
         writer=writer,
         resolution=model_params['resolution']
@@ -98,8 +100,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         n_epochs=epochs,
         resolution=model_params['resolution']
     )
-    recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
-    model.init_kmeans_centers(z)
 
     for epoch in range(0, epochs):
         print(f"\nEpoch [{epoch+1}/{epochs}]")
@@ -109,9 +109,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         # 训练一个epoch
         recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
-        print(model.c_mean[:,1])
-        print(model.c_log_var[:,1])
-        print(model.pi_)
 
         train_metrics = train_epoch(
             model=model, weights=weights,
@@ -125,18 +122,19 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         
         # skip update kmeans centers
-        # if (epoch + 1) % model_params['update_interval'] == 0:
-        #     model.update_kmeans_centers(z)
+        if (epoch + 1) % model_params['update_interval'] == 0:
+            model.update_kmeans_centers(z)
+            optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
 
         # 更新学习率
         lr = model_params['learning_rate'] if scheduler is None else scheduler.get_last_lr()[0]
         if scheduler is not None:
             scheduler.step()
 
-        
         if writer is not None:
             writer.add_scalar('Learning_raten', lr, epoch)
-            gmm_labels = model.predict(tensor_gpu_data)
+            gamma = model.cal_gaussian_gamma(z)
+            gmm_labels = np.argmax(gamma.detach().cpu().numpy(), axis=1)
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
         
