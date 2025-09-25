@@ -162,7 +162,8 @@ class VaDE(nn.Module):
 
     @staticmethod
     def gaussian_pdf_log(x,mu,log_sigma2):
-        return -0.5*(torch.sum(np.log(np.pi*2)+log_sigma2+(x-mu).pow(2)/torch.exp(log_sigma2),1)) #这里需要改
+        log2pi = torch.log(torch.tensor(2.0*math.pi, device=x.device, dtype=x.dtype))
+        return -0.5*(torch.sum(log2pi+log_sigma2+(x-mu).pow(2)/torch.exp(log_sigma2),1)) #这里需要改
 
     def predict(self,x):
         z_mean, z_log_var,_ = self.encoder(x)
@@ -400,11 +401,12 @@ class VaDE(nn.Module):
 
 
     def compute_loss(self, x, recon_x, z_mean, z_log_var, gamma, S, matched_S,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
+        zero = torch.tensor(0.0, device=self.device)
         # 1. 重构损失
         if lamb1 > 0:
             recon_loss = lamb1 * F.mse_loss(recon_x, x, reduction='none').sum(-1)
         else:
-            recon_loss = np.array([0])
+            recon_loss = zero.expand(x.size(0))
 
         # 2. GMM先验的KL散度       
         gamma_t = gamma.unsqueeze(-1)  # [batch_size, num_clusters, 1]
@@ -415,22 +417,23 @@ class VaDE(nn.Module):
         gaussian_log_vars = self.c_log_var.unsqueeze(0)  # [1, n_clusters, latent_dim]
         
         if lamb2 > 0:
+            log2pi = torch.log(torch.tensor(2.0*math.pi, device=x.device, dtype=x.dtype))
             kl_gmm = torch.sum(
                 0.5 * gamma_t * (
-                    self.latent_dim * math.log(2*math.pi) + gaussian_log_vars +
+                    self.latent_dim * log2pi + gaussian_log_vars +
                     torch.exp(z_log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
                     (z_mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
                 ),
                 dim=(1,2)
             ) * lamb2
         else:
-            kl_gmm = np.array([0])
+            kl_gmm = zero.expand(z_mean.size(0))
 
         # 3. VAE的KL散度
         if lamb3 > 0:
             kl_VAE = -0.5 * torch.sum(1 + z_log_var, dim=2) * lamb3 # - z_mean.pow(2) - torch.exp(log_var)
         else:
-            kl_VAE = torch.tensor(0.0, device=self.device)
+            kl_VAE = zero.expand(gamma.size(0))
 
         # 4. GMM熵项
         if lamb4 > 0:
@@ -440,13 +443,13 @@ class VaDE(nn.Module):
                 torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
             )
         else:
-            entropy = np.array([0])
+            entropy = zero.expand(gamma.size(0))
 
         # 5. 峰加权损失，替换Recon_Loss
         if lamb5 > 0:
             spectral_constraints = lamb5 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
         else:
-            spectral_constraints = np.array([0])
+            spectral_constraints = zero.expand(recon_x.size(0))
 
         # 6. Match Loss of S
         if lamb6 > 0:
@@ -456,7 +459,7 @@ class VaDE(nn.Module):
             cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 
             match_loss_bioDB = lamb6 * (1 - cos_sim)
         else:
-            match_loss_bioDB = np.array([0])
+            match_loss_bioDB = zero.expand(S.size(0))
 
         # 7. Unsimilarity between S
         if lamb7 > 0:
@@ -465,7 +468,7 @@ class VaDE(nn.Module):
             ortho_loss = ((SS - I) ** 2).sum()
             unsimilarity_S = lamb7 * ortho_loss
         else:
-            unsimilarity_S = np.array([0])
+            unsimilarity_S = zero.expand(S.size(0))
 
         # 总损失
         loss = recon_loss.mean() + kl_VAE.mean() + kl_gmm.mean() +  entropy.mean()  + match_loss_bioDB.mean() + spectral_constraints.mean() + unsimilarity_S.mean()

@@ -13,7 +13,7 @@ model_params:
   latent_dim: 10
   intermediate_dim: [512,1024,2048]
   learning_rate: 1.0e-4
-  use_lr_scheduler: False
+  use_lr_scheduler: True
   batch_size: 128
   epochs: 1000
   device: "cuda:0"
@@ -47,7 +47,7 @@ model_params:
 weight_scheduler:
   init_weights:
     lamb1: 1000    # 重构损失
-    lamb2: 1     # GMM先验的KL散度  
+    lamb2: 10     # GMM先验的KL散度  
     lamb3: 1      # VAE的KL散度
     lamb4: 2000      # GMM熵项
     lamb5: 0    # 峰加权损失，替换Recon_Loss
@@ -55,7 +55,7 @@ weight_scheduler:
     lamb7: 0    # Unsimilarity between S
   max_weights:
     lamb1: 1000   # 重构损失
-    lamb2: 1      # GMM先验的KL散度   
+    lamb2: 10      # GMM先验的KL散度   
     lamb3: 1      # VAE的KL散度
     lamb4: 2000    # GMM熵项
     lamb5: 0    # 峰加权损失，替换Recon_Loss

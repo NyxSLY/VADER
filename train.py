@@ -67,8 +67,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     weight_config = config.get_weight_scheduler_config()
     t_plot = model_params['tsne_plot']
     r_plot = model_params['recon_plot']
-    optimizer = optim.Adam(chain(model.encoder.parameters()), lr=model_params['learning_rate'])
-    
+    optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+
     if model_params.get('use_lr_scheduler', False):
         print("使用学习率调度器")
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
