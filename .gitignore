@@ -21,6 +21,7 @@ lorentzian_peaks_random_colors.png
 tensor_baseline_plot.png
 tensor_line_plot.png
 out.log
+output.log
 # run.py
 !.gitignore
 
