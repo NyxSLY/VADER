@@ -58,7 +58,7 @@ class Decoder(nn.Module):
     def __init__(self, latent_dim,intermediate_dim, input_dim, n_components):
         super(Decoder, self).__init__()
         
-        self.S = nn.Parameter(torch.randn(n_components, latent_dim, dtype=torch.float32))
+        self.S = nn.Parameter(torch.randn(n_components, latent_dim, dtype=torch.float64))
 
         decoder_dims = intermediate_dim[::-1]
 
@@ -109,9 +109,9 @@ class VaDE(nn.Module):
 
         self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
         # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
-        self.pi_ = nn.Parameter(torch.full((self.n_components,), 1.0 / float(self.n_components), dtype=torch.float32, device=self.device),requires_grad=True)
-        self.c_mean = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
-        self.c_log_var = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+        self.pi_ = nn.Parameter(torch.full((self.n_components,), 1.0 / float(self.n_components), dtype=torch.float64, device=self.device),requires_grad=True)
+        self.c_mean = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
+        self.c_log_var = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
        
         self.cluster_centers = None
         self.pretrain_epochs = pretrain_epochs
@@ -215,9 +215,9 @@ class VaDE(nn.Module):
         if num_clusters != self.n_components:
             print(f"Number of clusters changed from {self.n_components} to {num_clusters}. Reinitializing Gaussian.")
             self.num_classes = num_clusters
-            self.pi_ = nn.Parameter(torch.full((self.num_classes,), 1.0 / float(self.num_classes), dtype=torch.float32, device=self.device),requires_grad=True)
-            self.c_mean = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
-            self.c_log_var = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.pi_ = nn.Parameter(torch.full((self.num_classes,), 1.0 / float(self.num_classes), dtype=torch.float64, device=self.device),requires_grad=True)
+            self.c_mean = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
+            self.c_log_var = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
 
         # 直接用聚类中心更新高斯分布参数
         self.c_mean.data.copy_(cluster_centers)
@@ -233,16 +233,16 @@ class VaDE(nn.Module):
         """align"""
         if num_ml_centers != self.num_classes:
             print(f"Numberof clusters changed from {self.num_classes} to {num_ml_centers} .Reinitializing Gaussian.")
-            gaussian_means = self.c_mean.cpu().numpy()
+            gaussian_means = self.c_mean.detach().cpu().numpy()
             cluster_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
             self.num_clusters = num_ml_centers
-            array_var = self.c_log_var.cpu().numpy()
-            array_pi = self.pi_.cpu().numpy()
+            array_var = self.c_log_var.detach().cpu().numpy()
+            array_pi = self.pi_.detach().cpu().numpy()
             aligned_gaussian_var = self.change_var(array_var,self.num_clusters,w=1.0)
             aligned_gaussian_pi = self.change_pi(array_pi,self.num_clusters,w=0.5)
-            self.pi_ = nn.Parameter(torch.tensor(aligned_gaussian_pi, dtype=torch.float32, device=self.device),requires_grad=True)
-            self.c_mean = nn.Parameter(torch.tensor(cluster_centers, dtype=torch.float32, device=self.device),requires_grad=True)
-            self.c_log_var = nn.Parameter(torch.tensor(aligned_gaussian_var, dtype=torch.float32, device=self.device),requires_grad=True)
+            self.pi_ = nn.Parameter(torch.tensor(aligned_gaussian_pi, dtype=torch.float64, device=self.device),requires_grad=True)
+            self.c_mean = nn.Parameter(torch.tensor(cluster_centers, dtype=torch.float64, device=self.device),requires_grad=True)
+            self.c_log_var = nn.Parameter(torch.tensor(aligned_gaussian_var, dtype=torch.float64, device=self.device),requires_grad=True)
         self.c_mean.data.copy_(torch.tensor(cluster_centers,device = self.device))
 
     def optimal_transport(self,A, B, alpha):
@@ -443,7 +443,7 @@ class VaDE(nn.Module):
 
         # 3. VAE的KL散度
         if lamb3 > 0:
-            kl_VAE = -0.5 * torch.sum(1 + z_log_var, dim=2) * lamb3 # - z_mean.pow(2) - torch.exp(log_var)
+            kl_VAE = (-0.5 * torch.sum(1 + z_log_var, dim=2))* lamb3  # - z_mean.pow(2) - torch.exp(z_log_var)
         else:
             kl_VAE = zero.expand(gamma.size(0))
 
@@ -465,7 +465,7 @@ class VaDE(nn.Module):
 
         # 6. Match Loss of S
         if lamb6 > 0:
-            matched_comp = torch.tensor(matched_S, dtype=torch.float32, device = self.device)
+            matched_comp = torch.tensor(matched_S, dtype=torch.float64, device = self.device)
             valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
             S_valid = S[:,valid_idx]
             cos_sim = F.cosine_similarity(S_valid, matched_comp, dim=1) 

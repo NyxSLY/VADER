@@ -97,7 +97,7 @@ async def run_all_datasets_async(datasets):
     return results
 
 def main():
-    project_tag = 'Test_MCREC/0925_Clustering'
+    project_tag = 'Test_MCREC/1009_balance_lamb12_20'
     datasets = [
         {
             'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy"),
@@ -131,7 +131,7 @@ def main():
             "device": "cuda:2",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
-            'epochs':   300,
+            'epochs':   100,
             'batch_size':   128,
             "memo": "Fungi_7",
             'n_gene': None
@@ -154,10 +154,10 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference.npy").astype(int), 
             "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_All/MCR_NCAll_Raw_30_component.npy"),axis=1),
             "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'), axis=0),
-            "device": "cuda:0",
+            "device": "cuda:1",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
-            'epochs':   1000,
+            'epochs':   100,
             'batch_size':   128,
             "memo": "NC_All",
             'n_gene': None
@@ -170,8 +170,8 @@ def main():
             "Wavenumber": np.arange(600, 1801),
             "device": "cuda:2",
             "project_tag": project_tag,
-            'Pretrain_epochs': 1000,
-            'epochs':   3000,
+            'Pretrain_epochs': 100,
+            'epochs':   500,
             'batch_size':   128,
             "memo": "Ocean_3"
         },
@@ -192,10 +192,10 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/Y_Neuron.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/MCR_Neuron_20_component.npy"),
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Neuron/Neuron_wave.npy'),
-            "device": "cuda:2",
+            "device": "cuda:3",
             "project_tag": project_tag,
-            'Pretrain_epochs': 300,
-            'epochs':   1000,
+            'Pretrain_epochs': 100,
+            'epochs':   300,
             'batch_size':   128,
             "memo": "Neuron"
         },
@@ -219,7 +219,7 @@ def main():
             "device": "cuda:1",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
-            'epochs': 300,
+            'epochs': 500,
             'batch_size': 128,
             "memo": "MTB_Scitific"
         },

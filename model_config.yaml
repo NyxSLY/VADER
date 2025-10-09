@@ -47,17 +47,17 @@ model_params:
 weight_scheduler:
   init_weights:
     lamb1: 1000    # 重构损失
-    lamb2: 10     # GMM先验的KL散度  
+    lamb2: 1     # GMM先验的KL散度  
     lamb3: 1      # VAE的KL散度
-    lamb4: 2000      # GMM熵项
+    lamb4: 1      # GMM熵项
     lamb5: 0    # 峰加权损失，替换Recon_Loss
     lamb6: 0    # Match Loss of S
     lamb7: 0    # Unsimilarity between S
   max_weights:
     lamb1: 1000   # 重构损失
-    lamb2: 10      # GMM先验的KL散度   
+    lamb2: 1      # GMM先验的KL散度   
     lamb3: 1      # VAE的KL散度
-    lamb4: 2000    # GMM熵项
+    lamb4: 1    # GMM熵项
     lamb5: 0    # 峰加权损失，替换Recon_Loss
     lamb6: 0    # Match Loss of S
     lamb7: 0    # Unsimilarity between S

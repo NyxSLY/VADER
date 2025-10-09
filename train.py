@@ -100,12 +100,12 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         n_epochs=epochs,
         resolution=model_params['resolution']
     )
+    # 更新权重
+    weights = weight_scheduler.get_weights(1)
 
     for epoch in range(0, epochs):
         print(f"\nEpoch [{epoch+1}/{epochs}]")
-        # 更新权重
-        weights = weight_scheduler.get_weights(epoch)
-
+        
         # 训练一个epoch
         recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
         matched_comp, matched_chems = model.match_components(S,0.7)
@@ -119,10 +119,16 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             matched_S = matched_comp
         )
         
+        target_lamb1 = 20 * train_metrics['kl_gmm'] * weights['lamb2'] / train_metrics['recon_loss']
+        weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
+        
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         
         # skip update kmeans centers
         if (epoch + 1) % model_params['update_interval'] == 0:
+            gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
+            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+            np.savetxt(gaussian_save_path,gaussian_para)
             model.update_kmeans_centers(z)
             optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
 
@@ -133,7 +139,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
 
         if writer is not None:
             writer.add_scalar('Learning_raten', lr, epoch)
-            gamma = model.cal_gaussian_gamma(z)
+            gamma = model.cal_gaussian_gamma(z)   # z是以前的，gamma是根据更新后的Gaussian计算的
             gmm_labels = np.argmax(gamma.detach().cpu().numpy(), axis=1)
             unique_labels, counts = np.unique(gmm_labels, return_counts=True)
             writer.add_scalar('GMM/number_of_clusters', len(unique_labels), epoch)
@@ -152,6 +158,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             t_plot = t_plot, 
             r_plot = r_plot
         )
+
+        gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_Acc={metrics['gmm_ari']}_Gaussian.txt")
+        gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+        np.savetxt(gaussian_save_path,gaussian_para)
 
         # 检查早停条件
         if check_early_stopping(metrics, model_params['min_loss_threshold']):
