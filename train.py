@@ -119,13 +119,13 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             matched_S = matched_comp
         )
         
-        target_lamb1 = 20 * train_metrics['kl_gmm'] * weights['lamb2'] / train_metrics['recon_loss']
-        weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
+        # target_lamb1 = 20 * train_metrics['kl_gmm'] * weights['lamb2'] / train_metrics['recon_loss']
+        # weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
         
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
         
         # skip update kmeans centers
-        if (epoch + 1) % model_params['update_interval'] == 0:
+        if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1:
             gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
             gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
             np.savetxt(gaussian_save_path,gaussian_para)
