@@ -18,24 +18,63 @@ from utility import plot_spectra, plot_UMAP
 
 set_random_seed(123)
 
-def generate_from_gaussian(means, log_vars, S, n, seed=42):
-    means = means.detach().cpu().numpy()
-    vars_ = np.exp(log_vars.detach().cpu().numpy())
-    S = S.detach().cpu().numpy()
+def generate_from_gaussian(model, n, method = 'Raw', gamma_thr = 0.9, seed=42):
+    means = model.c_mean.detach().cpu().numpy()
+    vars_ = np.exp(model.c_log_var.detach().cpu().numpy())
+    S = model.encoder.S.detach().cpu().numpy()
 
     C, D = means.shape
+    K = S.shape[1]
 
     rng = np.random.default_rng(seed)
     std = np.sqrt(vars_)
-    z = rng.normal(loc=means[:, None, :], scale=std[:, None, :], size=(C, n, D))
 
-    out = np.matmul(z, S)  # (C,n,K)
+    collected_X = []
+    collected_Y = []
+    
+    for c in range(C):
+        accepted_out_c = []
 
-    X = out.reshape(C * n, S.shape[1])
-    base = np.arange(C, dtype=int) 
-    Y = np.repeat(base, n)
+        mu_c = means[c]           # (D,)
+        std_c = std[c]            # (D,)
+
+        trials = 0
+        total = 0
+        while total < n and trials < 100:
+            trials += 1
+            z_c = rng.normal(loc=mu_c, scale=std_c, size=(100, D))
+            out_c = np.matmul(z_c, S)     # (batch_size, K)
+
+            if method == 'Raw':
+                keep_idx = np.arange(0, 100)
+
+            if method == 'Prob':
+                gamma = model.cal_gaussian_gamma(torch.tensor(z_c).float().to(model.device)).detach().cpu().numpy()  
+                gamma_c = gamma[:, c]  # (batch_size,)
+                keep_idx = np.where(gamma_c > gamma_thr)[0]   # 通过阈值的索引
+            
+            if method == 'Max':
+                gamma = model.cal_gaussian_gamma(torch.tensor(z_c).float().to(model.device)).detach().cpu().numpy() 
+                argmax_cls = np.argmax(gamma, axis=1)
+                keep_idx = np.where(argmax_cls == c)[0]   # 通过最大值的索引
+
+            if keep_idx.size > 0:
+                accepted_out_c.append(out_c[keep_idx,:])
+                total += out_c[keep_idx,:].shape[0]
+
+        # 合并
+        if len(accepted_out_c) > 0:
+            accepted_out_c = np.vstack(accepted_out_c)  # (m_ok, K)
+        else:
+            accepted_out_c = np.empty((0, K), dtype=float)
+    
+        collected_X.append(accepted_out_c)          # (n, K)
+        collected_Y.append(np.full(accepted_out_c.shape[0], c, dtype=int))  # (n,)
+        
+    X = np.vstack(collected_X)       # (C*n, K)
+    Y = np.concatenate(collected_Y)  # (C*n,)
+
     print(X.shape)
-
     return X, Y
 
 
@@ -89,13 +128,16 @@ def train_on_dataset(
         epochs = epochs
     )
 
+    # torch.save(model.state_dict(), '/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/NC9_clustering_model_300.pk')
+
     if n_gene is not None:
         # labels_batch = None if model.prior_y is None else labels.to(model.device)
-        gene_samples, gene_labels = generate_from_gaussian(model.c_mean,model.c_log_var,model.encoder.S,n_gene)
-        np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_X_gene_cVADER_{n_gene}.npy', gene_samples)
-        np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_Y_gene_cVADER_{n_gene}.npy', gene_labels)
-        plot_spectra( recon_data=gene_samples, labels=gene_labels, save_path=f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_VADER_{n_gene}_Spectra.png', wavenumber=model.wavenumber)
-        plot_UMAP(gene_samples, gene_labels,f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_VADER_{n_gene}_UMAP.png')
+        # Method: 'Raw', 'Prob', 'Max'
+        gene_samples, gene_labels = generate_from_gaussian(model, method = 'Raw',n=n_gene, gamma_thr = 0.7)
+        np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_X_gene_VADER_Raw_{n_gene}.npy', gene_samples)
+        np.save(f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_Y_gene_VADER_Raw_{n_gene}.npy', gene_labels)
+        plot_spectra( recon_data=gene_samples, labels=gene_labels, save_path=f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_VADER_Raw_{n_gene}_Spectra.png', wavenumber=model.wavenumber)
+        plot_UMAP(gene_samples, gene_labels,f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_VADER_Raw_{n_gene}_UMAP.png')
 
     print(f"[{project_tag}] 训练完成。\n")
 
@@ -165,13 +207,13 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference_9.npy").astype(int),
             "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/MCR_NC9_S_20.npy"),axis=1),
             "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'),axis=0),
-            "device": "cuda:0",
+            "device": "cuda:3",
             "project_tag": project_tag,
-            'Pretrain_epochs': 10,
-            'epochs':   10,
+            'Pretrain_epochs': 100,
+            'epochs':   300,
             'batch_size':   128,
             "memo": "NC_9",
-            'n_gene': 10
+            'n_gene': 10000
         },
         # {
         #     "train_data":  np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/X_reference.npy"), axis=1),
