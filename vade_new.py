@@ -108,10 +108,10 @@ class VaDE(nn.Module):
             self.global_label_mapping = None
 
         self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
-        # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, n_components)
-        self.pi_ = nn.Parameter(torch.full((self.n_components,), 1.0 / float(self.n_components), dtype=torch.float64, device=self.device),requires_grad=True)
-        self.c_mean = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
-        self.c_log_var = nn.Parameter(torch.zeros(self.n_components, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
+        # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, num_classes)
+        self.pi_ = nn.Parameter(torch.full((self.num_classes,), 1.0 / float(self.num_classes), dtype=torch.float64, device=self.device),requires_grad=True)
+        self.c_mean = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
+        self.c_log_var = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
        
         self.cluster_centers = None
         self.pretrain_epochs = pretrain_epochs
@@ -241,13 +241,13 @@ class VaDE(nn.Module):
             ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
             num_ml_centers = len(np.unique(ml_labels))
             aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-            aligned_var = self.change_var(gaussian_var,self.num_clusters,w=1.0)
-            aligned_pi = self.change_pi(gaussian_pi,self.num_clusters,w=0.5)  
+            aligned_var = self.change_var(gaussian_var,num_ml_centers,w=1.0)
+            aligned_pi = self.change_pi(gaussian_pi,num_ml_centers,w=0.5)  
 
         """align"""       
         if num_ml_centers != self.num_classes:
             print(f"Number of clusters changed from {self.num_classes} to {num_ml_centers} .Reinitializing Gaussian.")
-            self.num_clusters = num_ml_centers
+            self.num_classes = num_ml_centers
             self.pi_ = nn.Parameter(torch.tensor(aligned_pi, dtype=torch.float64, device=self.device),requires_grad=True)
             self.c_mean = nn.Parameter(torch.tensor(aligned_centers, dtype=torch.float64, device=self.device),requires_grad=True)
             self.c_log_var = nn.Parameter(torch.tensor(aligned_var, dtype=torch.float64, device=self.device),requires_grad=True)

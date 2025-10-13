@@ -128,7 +128,7 @@ def train_on_dataset(
         epochs = epochs
     )
 
-    torch.save(model.state_dict(), f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_clustering_model_300.pk')
+    torch.save(model.state_dict(), f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_clustering_model_{epochs}.pk')
 
     if n_gene is not None:
         # labels_batch = None if model.prior_y is None else labels.to(model.device)
@@ -163,7 +163,7 @@ async def run_all_datasets_async(datasets):
     return results
 
 def main():
-    project_tag = 'Test_MCREC/1013_Generate'
+    project_tag = 'Test_MCREC/1013_Generate_lamb20'
     datasets = [
         {
             'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy"),
@@ -207,7 +207,7 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference_9.npy").astype(int),
             "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/MCR_NC9_S_20.npy"),axis=1),
             "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'),axis=0),
-            "device": "cuda:3",
+            "device": "cuda:0",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
             'epochs':   300,
