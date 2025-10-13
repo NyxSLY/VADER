@@ -225,31 +225,33 @@ class VaDE(nn.Module):
     def update_kmeans_centers(self, z):
         print(f'Update clustering centers..........')
         encoded_data_cpu = z.detach().cpu().numpy()
+        gaussian_means = self.c_mean.detach().cpu().numpy()
+        gaussian_var = self.c_log_var.detach().cpu().numpy()
+        gaussian_pi = self.pi_.detach().cpu().numpy()
 
         # update the clustering centers
         if self.prior_y is not None:
             ml_labels = self.prior_y
-            cluster_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
+            unique_labels, counts = np.unique(ml_labels, return_counts=True)
+            num_ml_centers = len(unique_labels)
+            aligned_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0) for i in unique_labels])
+            aligned_var = np.array([np.log(encoded_data_cpu[ml_labels == i].std(axis=0).pow(2)) for i in unique_labels])
+            aligned_pi = counts / len(ml_labels)
         else:
             ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
             num_ml_centers = len(np.unique(ml_labels))
-
-        """align"""
-        gaussian_means = self.c_mean.detach().cpu().numpy()
-        gaussian_var = self.c_log_var.detach().cpu().numpy()
-        gaussian_pi = self.pi_.detach().cpu().numpy()
-        aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-        if num_ml_centers != self.num_classes:
-            print(f"Numberof clusters changed from {self.num_classes} to {num_ml_centers} .Reinitializing Gaussian.")
-            self.num_clusters = num_ml_centers
+            aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
             aligned_var = self.change_var(gaussian_var,self.num_clusters,w=1.0)
-            aligned_pi = self.change_pi(gaussian_pi,self.num_clusters,w=0.5)
+            aligned_pi = self.change_pi(gaussian_pi,self.num_clusters,w=0.5)  
+
+        """align"""       
+        if num_ml_centers != self.num_classes:
+            print(f"Number of clusters changed from {self.num_classes} to {num_ml_centers} .Reinitializing Gaussian.")
+            self.num_clusters = num_ml_centers
             self.pi_ = nn.Parameter(torch.tensor(aligned_pi, dtype=torch.float64, device=self.device),requires_grad=True)
             self.c_mean = nn.Parameter(torch.tensor(aligned_centers, dtype=torch.float64, device=self.device),requires_grad=True)
             self.c_log_var = nn.Parameter(torch.tensor(aligned_var, dtype=torch.float64, device=self.device),requires_grad=True)
         else:
-            aligned_var = self.change_var(gaussian_var,self.num_clusters,w=1.0)
-            aligned_pi = self.change_pi(gaussian_pi,self.num_clusters,w=0.5)
             self.c_mean.data.copy_(torch.tensor(aligned_centers,device = self.device))
             self.c_log_var.data.copy_(torch.tensor(aligned_var,device = self.device))
             self.pi_.data.copy_(torch.tensor(aligned_pi,device = self.device))
@@ -298,7 +300,7 @@ class VaDE(nn.Module):
             array = np.vstack((array, padding))
         return array
 
-    def  change_pi(self,array,n,w=1):
+    def change_pi(self,array,n,w=1):
         if array.shape[0]>=n:
             array = array[:n]
         else:
