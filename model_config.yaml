@@ -23,7 +23,7 @@ model_params:
   resolution: 0.8 #initial
   train_config:
     save_interval: 50
-    update_interval: 50
+    update_interval: 10
     early_stop_patience: 5
     min_loss_threshold:
       total: 0.5
