@@ -156,13 +156,12 @@ class VaDE(nn.Module):
         z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
         means_expanded = self.c_mean.unsqueeze(0)  # [1, num_clusters, latent_dim]
         log_vars_expanded = self.c_log_var.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = self.pi_.unsqueeze(0)  # [1, num_clusters]
+        pi_expanded = self.pi_.view(1, -1, 1).expand(z.shape[0], -1, z.shape[1])  # [1, num_clusters, 1]
     
-        gamma = (
-            torch.log(pi_expanded) * self.latent_dim                   # 混合权重项
-            - 0.5 * torch.sum(torch.log(2*math.pi*torch.exp(log_vars_expanded)), dim=2)  # 常数项和方差项
-            - torch.sum((z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
-        )
+        gamma = torch.sum(
+            torch.log(pi_expanded)                   # 混合权重项
+            - 0.5 * torch.log(2*math.pi*torch.exp(log_vars_expanded))  # 常数项和方差项
+            - (z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
 
         return F.softmax(gamma,dim=1)
 
