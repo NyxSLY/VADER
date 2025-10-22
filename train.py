@@ -123,14 +123,6 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
         
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
-        
-        # skip update kmeans centers
-        if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1:
-            gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
-            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
-            np.savetxt(gaussian_save_path,gaussian_para)
-            model.update_kmeans_centers(z)
-            optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
 
         # 更新学习率
         lr = model_params['learning_rate'] if scheduler is None else scheduler.get_last_lr()[0]
@@ -159,9 +151,19 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             r_plot = r_plot
         )
 
-        gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_Acc={metrics['gmm_ari']}_Gaussian.txt")
-        gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
-        np.savetxt(gaussian_save_path,gaussian_para)
+        
+        # skip update kmeans centers
+        if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1:
+            model.update_kmeans_centers(z)
+            gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
+            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+            np.savetxt(gaussian_save_path,gaussian_para)
+            optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
+        else:
+            gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_Acc={metrics['gmm_ari']}_Gaussian.txt")
+            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+            np.savetxt(gaussian_save_path,gaussian_para)
+
 
         # 检查早停条件
         if check_early_stopping(metrics, model_params['min_loss_threshold']):
