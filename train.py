@@ -119,8 +119,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             matched_S = matched_comp
         )
         
-        target_lamb1 = 20 * train_metrics['kl_gmm'] * weights['lamb1'] / train_metrics['recon_loss']
-        weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
+        # target_lamb1 = 20 * train_metrics['kl_gmm'] * weights['lamb1'] / train_metrics['recon_loss']
+        # weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
         
         # model.constraint_angle(tensor_gpu_data, weight=0.05) # 角度约束，保证峰形
 

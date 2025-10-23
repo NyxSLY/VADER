@@ -451,7 +451,7 @@ class VaDE(nn.Module):
         else:
             kl_gmm = zero.expand(z_mean.size(0))
 
-        # 3. VAE的KL散度
+        # 3. VAE的正则化
         if lamb3 > 0:
             kl_VAE = (-0.5 * torch.sum(1 + z_log_var, dim=2))* lamb3  # - z_mean.pow(2) - torch.exp(z_log_var)
         else:
@@ -474,6 +474,12 @@ class VaDE(nn.Module):
             spectral_constraints = zero.expand(recon_x.size(0))
 
         # 6. Match Loss of S
+            # weight = gamma ** 2 / gamma.sum(0)
+            # p = (weight.T / weight.sum(1)).T
+            
+            # # 计算p和gamma(q)之间的KL散度
+            # match_loss_bioDB = F.kl_div(torch.log(p + 1e-10), gamma, reduction='sum') * lamb6
+
         if lamb6 > 0:
             matched_comp = torch.tensor(matched_S, dtype=torch.float64, device = self.device)
             valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
