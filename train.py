@@ -26,7 +26,7 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
         data_x = x[0].to(model.device)
         
         # 前向传播   
-        recon_x, z_mean,z_log_var, z,  S = model(data_x,  labels_batch = None if model.prior_y is None else x[1].to(model.device))
+        recon_x, z_mean,z_log_var, z,  S = model( data_x )
         gamma = model.cal_gaussian_gamma(z)
         
         # 损失计算
@@ -68,7 +68,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
     t_plot = model_params['tsne_plot']
     r_plot = model_params['recon_plot']
     
-    recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,  labels_batch = None if model.prior_y is None else labels.to(model.device))
+    recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data)
     model.init_kmeans_centers(z)
     optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
 
@@ -107,7 +107,7 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         print(f"\nEpoch [{epoch+1}/{epochs}]")
         
         # 训练一个epoch
-        recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data,   labels_batch = None if model.prior_y is None else labels.to(model.device))
+        recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data)
         matched_comp, matched_chems = model.match_components(S,0.7)
 
         train_metrics = train_epoch(

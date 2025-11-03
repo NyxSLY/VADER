@@ -360,7 +360,7 @@ class VaDE(nn.Module):
         # CS+σ
         return concentration + eps * std
 
-    def forward(self,x, labels_batch=None): # Add labels_batch parameter
+    def forward(self,x): # Add labels_batch parameter
         """模型前向传播"""
         z_mean, z_log_var, S= self.encoder(x)
         z = self.reparameterize(z_mean, z_log_var)
