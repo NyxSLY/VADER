@@ -233,9 +233,10 @@ class VaDE(nn.Module):
             ml_labels = self.prior_y
             unique_labels, counts = np.unique(ml_labels, return_counts=True)
             num_ml_centers = len(unique_labels)
-            aligned_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0) for i in unique_labels])
-            aligned_var = np.array([np.log(encoded_data_cpu[ml_labels == i].std(axis=0)**2) for i in unique_labels])
-            aligned_pi = counts / len(ml_labels)
+            alpha = 0.1
+            aligned_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0)*alpha + (1-alpha)*gaussian_means[i] for i in unique_labels])
+            aligned_var = np.array([np.log(encoded_data_cpu[ml_labels == i].std(axis=0)**2)*alpha + (1-alpha)*gaussian_var[i] for i in unique_labels])
+            aligned_pi = counts / len(ml_labels)*alpha + (1-alpha)*gaussian_pi
         else:
             ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
             num_ml_centers = len(np.unique(ml_labels))

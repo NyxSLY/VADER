@@ -6503,10 +6503,9 @@ GMM ACC: 0.3561, GMM NMI: 0.6303, GMM ARI: 0.2260/home/gene/zhangym/.conda/envs/
   spectra_a = (spectra_a - np.min(spectra_a))/(np.max(spectra_a) - np.min(spectra_a))
 /home/gene/zhangym/.conda/envs/ID_PY390/lib/python3.9/site-packages/ramanbiolib/search.py:1042: RuntimeWarning: invalid value encountered in divide
   spectra_a = (spectra_a - np.min(spectra_a))/(np.max(spectra_a) - np.min(spectra_a))
-00]
-LR: 0.0001, Total Loss: 1211.78, Recon Loss: 1132.06, KL GMM: 56.49, KL VAE: 24.20, Entropy: -0.97, Weiggted Spectral: 0.00, Match Loss: 0.000000, Unsimilarity Loss: 0.00
-GMM ACC: 0.4953, GMM NMI: 0.5166, GMM ARI: 0.3912
-Z_Leiden ACC: 0.5183, Z_Leiden NMI: 0.6310, Z_Leiden ARI: 0.4828
+/home/gene/zhangym/.conda/envs/ID_PY390/lib/python3.9/multiprocessing/resource_tracker.py:216: UserWarning: resource_tracker: There appear to be 13 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+NMI: 0.6310, Z_Leiden ARI: 0.4828
 
 Epoch [197/500]
 LR: 0.0001, Total Loss: 1212.94, Recon Loss: 1133.05, KL GMM: 56.47, KL VAE: 24.39, Entropy: -0.97, Weiggted Spectral: 0.00, Match Loss: 0.000000, Unsimilarity Loss: 0.00
