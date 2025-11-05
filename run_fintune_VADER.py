@@ -28,6 +28,7 @@ def main():
     X = np.flip(np.load(X_fn), axis=1)
     y = np.load(y_fn).astype(int)
     Wavenumber = np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'), axis=0)
+    S = np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_All/MCR_NCAll_Raw_30_component.npy"),axis=1)
     np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_All/MCR_NCAll_Raw_30_component.npy"),axis=1)
     print(f'Finetune VADER on dataset of {X.shape}')
 
@@ -38,22 +39,18 @@ def main():
     save_file = '/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Model/NC_All_cVADER_Finetune_300.pk'
 
     set_random_seed(123)
-    model = VaDE( input_dim= X_fn.shape[1], intermediate_dim=[512,1024,2048], latent_dim=n_component, tensor_gpu_data=X, n_components=n_component,
-            S=torch.tensor(S.copy()).float().to(device), wavenumber = wave, prior_y=np.arange(0, n_cluster),
-            device=device, l_c_dim='', encoder_type='basic', pretrain_epochs=50, num_classes=n_cluster, clustering_method='leiden', resolution=0.8 ).to(device)
+    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader( X, y, batch_size, device)
+    input_dim = tensor_data.shape[1]
 
+
+    model = VaDE( input_dim= X_fn.shape[1], intermediate_dim=[512,1024,2048], latent_dim=S.shape[0], tensor_gpu_data=X, n_components=n_component,
+            S=torch.tensor(S.copy()).float().to(device), wavenumber = Wavenumber, prior_y=y,
+            device=device, l_c_dim='', encoder_type='basic', pretrain_epochs=50, num_classes=n_cluster, clustering_method='leiden', resolution=0.8 ).to(device)
+    model.load_state_dict(torch.load(model_file))
 
     model_params = config.get_model_params()
     device = set_device(device)
-    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(
-        train_data, train_label, batch_size, device
-    )
-    input_dim = tensor_data.shape[1]
-    project_dir = create_project_folders(project_tag)
-    weight_scheduler_config = config.get_weight_scheduler_config()
-    n_component = S.shape[0]
-    paths = config.get_project_paths( project_dir, memo=memo)
-    l_c_dim = config.encoder_type(model_params['encoder_type'], paths['train_path'])
+
     model = VaDE(
         input_dim=input_dim,
         intermediate_dim=model_params['intermediate_dim'],
