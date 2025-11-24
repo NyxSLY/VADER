@@ -20,24 +20,31 @@ except IndexError:
     memo = 'test'
 
 def main():
-    # 读取数据
-    # oc_train_data = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_data_fil_191.txt", delimiter=" ")
-    # oc_train_label = np.loadtxt("/mnt/mt3/wangmc/lvfy/plotdata/oc_labels_to_confmatrix.txt", delimiter=" ").astype(int)
-    # # nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9.npy")
-    # nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/processed_NC_9_label.npy").astype(int)
-    nc_data_org = np.load(r"/mnt/sda/zhangym/VADER/Data/X_reference.npy")
-    #nc_labels_org = np.load(r"/mnt/sda/zhangym/VADER/Data/y_reference.npy").astype(int)
-    nc_data_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/X_reference.npy")
-    nc_labels_org = np.load("/mnt/c/Users/ASUS/OneDrive/work/VADER/VADERdata/y_reference.npy").astype(int)
-    # nc_data_org = np.load("/home/zym/DESC/Datasets/NC-30-species/X_reference.npy")
-    # nc_labels_org = np.load("/home/zym/DESC/Datasets/NC-30-species/y_reference.npy").astype(int)
-    keep_indices = np.where((nc_labels_org == 2) | (
-                nc_labels_org == 9) |  # (nc_labels ==25) | (nc_labels ==26) | (nc_labels ==27) | (nc_labels ==29)|\n",
-                            (nc_labels_org == 18) | (nc_labels_org == 21) |
-                            (nc_labels_org == 1) | (nc_labels_org == 5) | (nc_labels_org == 13) | (
-                                        nc_labels_org == 20) | (nc_labels_org == 24))
-    oc_train_data = nc_data_org[keep_indices]
-    oc_train_label = nc_labels_org[keep_indices]
+    # NC
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/X_reference.npy")
+    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/y_reference.npy").astype(int)
+    
+    # keep_indices = np.where(np.isin(oc_train_label, [1,2,5,9,13,18,20,21,24]))
+    # oc_train_data = oc_train_data[keep_indices]
+    # oc_train_label = oc_train_label[keep_indices]
+    
+    # S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_NC9_S_20.npy")
+
+    # HP_15
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_X_processed.npy")
+    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP_Y_processed.npy").astype(int) 
+    # S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_HP_S_10.npy").T
+
+
+    # # Algae
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
+    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
+    # S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_Algae_S_10.npy")
+    
+    # Ocean
+    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy")
+    # oc_train_label = np.repeat([0,1,2],50)
+
 
 
     # 准备数据
@@ -48,8 +55,8 @@ def main():
 
     # 获取模型配置
     input_dim = tensor_data.shape[1]
-    num_classes = len(unique_label)
-    project_dir = create_project_folders("home_pc")
+    num_classes = 10 # len(unique_label)
+    project_dir = create_project_folders("Test_MCR")
     
     weight_scheduler_config = config.get_weight_scheduler_config()
     paths = config.get_project_paths(project_dir, num_classes,
@@ -67,6 +74,9 @@ def main():
         input_dim=input_dim,
         intermediate_dim=model_params['intermediate_dim'],
         latent_dim=model_params['latent_dim'],
+        tensor_gpu_data=tensor_gpu_data,
+        n_components=10,
+        S = torch.tensor(S).float().to(device),
         lamb1=weight_scheduler_config['init_weights']['lamb1'],
         lamb2=weight_scheduler_config['init_weights']['lamb2'],
         lamb3=weight_scheduler_config['init_weights']['lamb3'],
@@ -95,6 +105,8 @@ def main():
         dataloader=dataloader,
         learning_rate=1e-5
     )
+
+    
 
     print("\n开始模型训练...")
     # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))

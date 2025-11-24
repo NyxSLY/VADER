@@ -1,19 +1,13 @@
-import time
 import numpy as np
 import torch
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
-import matplotlib
-from sklearn.manifold import TSNE
-from typing import Optional, Dict, Union, Any,Tuple
-from torch.distributions import Normal
+from typing import Optional, Dict, Union, Any, Tuple, Mapping
 import random
 from torch.utils.data import DataLoader, TensorDataset
 import os
-from scipy.optimize import linear_sum_assignment
-import datetime, pywt
-from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
+import seaborn as sns
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap, BoundaryNorm
+import umap 
 
 def set_random_seed(seed):
     random.seed(seed)       # 设置 Python 内置随机数生成器的种子
@@ -27,6 +21,7 @@ def set_device(dev):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     elif dev:
         device = torch.device(dev)
+    # device = torch.device("cpu")
     return device
 
 def create_project_folders(project_name: str) -> str:
@@ -69,7 +64,7 @@ def prepare_data_loader(
     data: np.ndarray,
     labels: np.ndarray,
     batch_size: int = 128,
-    device : str = None,
+    device: Optional[str] = None,
     shuffle: bool = True
 ) -> Tuple[DataLoader, np.ndarray, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
@@ -126,280 +121,15 @@ def prepare_data_loader(
         tensor_gpu_labels
     )
 
-def compare_kmeans_methods(model, dataloader, num_classes, n_runs=5):
-    """比较普通k-means和k-means++的性能
-
-    Args:
-        model: VaDE模型实例
-        dataloader: 数据加载器
-        num_classes: 聚类数量
-        n_runs: 运行次数
-    """
-    # 获取编码数据
-    all_encoded_data = []
-    for data in dataloader:
-        x, _ = data
-        with torch.no_grad():
-            mean, _ = model.encoder(x)
-        all_encoded_data.append(mean)
-    encoded_data = torch.cat(all_encoded_data, dim=0).cpu().numpy()
-
-    # 存储结果
-    results = {
-        'kmeans': {'inertia': [], 'silhouette': [], 'time': []},
-        'kmeans++': {'inertia': [], 'silhouette': [], 'time': []}
-    }
-
-    # 多次运行实验
-    for i in range(n_runs):
-        print(f"\nRun {i + 1}/{n_runs}")
-
-        # 普通k-means
-        start_time = time.time()
-        kmeans = KMeans(
-            n_clusters=num_classes,
-            init='random',
-            n_init=1,
-            random_state=42 + i
-        )
-        kmeans.fit(encoded_data)
-        km_time = time.time() - start_time
-
-        results['kmeans']['inertia'].append(kmeans.inertia_)
-        results['kmeans']['silhouette'].append(
-            silhouette_score(encoded_data, kmeans.labels_))
-        results['kmeans']['time'].append(km_time)
-
-        # k-means++
-        start_time = time.time()
-        kmeans_plus = KMeans(
-            n_clusters=num_classes,
-            init='k-means++',
-            n_init=1,
-            random_state=42 + i
-        )
-        kmeans_plus.fit(encoded_data)
-        kmpp_time = time.time() - start_time
-
-        results['kmeans++']['inertia'].append(kmeans_plus.inertia_)
-        results['kmeans++']['silhouette'].append(
-            silhouette_score(encoded_data, kmeans_plus.labels_))
-        results['kmeans++']['time'].append(kmpp_time)
-
-        # 打印当前运行的结果
-        print(f"K-means    - Inertia: {kmeans.inertia_:.2f}, "
-              f"Silhouette: {results['kmeans']['silhouette'][-1]:.4f}, "
-              f"Time: {km_time:.2f}s")
-        print(f"K-means++  - Inertia: {kmeans_plus.inertia_:.2f}, "
-              f"Silhouette: {results['kmeans++']['silhouette'][-1]:.4f}, "
-              f"Time: {kmpp_time:.2f}s")
-
-    # 打印统计结果
-    print("\nAverage Results:")
-    for method in ['kmeans', 'kmeans++']:
-        print(f"\n{method}:")
-        print(f"Inertia: {np.mean(results[method]['inertia']):.2f} "
-              f"± {np.std(results[method]['inertia']):.2f}")
-        print(f"Silhouette: {np.mean(results[method]['silhouette']):.4f} "
-              f"± {np.std(results[method]['silhouette']):.4f}")
-        print(f"Time: {np.mean(results[method]['time']):.2f} "
-              f"± {np.std(results[method]['time']):.2f}s")
-
-    return results
-
-def choose_kmeans(model,dataloader,num_classes):
-    print("开始k-means方法比较实验...")
-    # 选择并更新kmeans方法
-    results = compare_kmeans_methods(
-        model=model,
-        dataloader=dataloader,
-        num_classes=num_classes,
-        n_runs=5
-    )
-    kmeans_method = ('k-means++' if np.mean(results['kmeans++']['silhouette']) >
-                                    np.mean(results['kmeans']['silhouette']) else 'random')
-    print(f"\n选择使用{kmeans_method}方法")
-    return kmeans_method
-
-def add_noise_to_signal(signal, noise_level=0.05):
-    noise = np.random.randn(1,signal.shape[0])*noise_level
-    return signal + noise
-
-def shift_signal(signal):
-    shift=random.choices([-3, 0, 3], weights=[0.1,8,0.1])[0]
-    return np.roll(signal, shift)
-
-def smooth_edges(signal, smooth_width=5):
-    smoothed_data = signal.copy()
-    # 平滑开头
-    for i in range(smooth_width):
-        smoothed_data[:,i] = np.mean(smoothed_data[:,:i+smooth_width],axis = 1)
-    # 平滑结尾
-    for i in range(smooth_width):
-        smoothed_data[:,-i-1] = np.mean(smoothed_data[:,-smooth_width+i:],axis = 1)
-
-    return smoothed_data
-
-def scale_signal(signal, scale_range=(0.9, 1.1)):
-    scale_factor = np.random.uniform(*scale_range)
-    return signal * scale_factor
-
-def perturb_signal(signal, perturb_level=0.01):
-    perturbation = np.random.normal(0, perturb_level, signal.shape[0])
-    return signal + perturbation
-
-def interpolate_z(z1, z2, steps=10, mode='extrapolation'):
-    interpolations = []
-    arr = np.random.rand(steps)
-    for alpha in arr:
-        if mode == 'linear':
-            z_interp = z1 * (1 - alpha) + z2 * alpha
-        elif mode == 'extrapolation':
-            z_interp = z1 + alpha * (z2 - z1)
-        interpolations.append(z_interp)
-    return interpolations
-
-def feature_swap_z(z1,z2,num=5):
-    random_integers = np.random.randint(0,z1.shape[0],size=(5))
-    swap = torch.zeros(z1.size(), dtype=torch.bool)
-    swap[random_integers] =True
-    z_swap = z1 * (~swap) + z2 * swap
-    return z_swap
-
-def generate_spectra_from_means(means,model, num_samples_per_label=100, noise_level=0.01,num=3):
-    model.eval()
-    generated_samples = []
-    generated_labels = []
-    z_samples = []
-    mean_labels = means.shape[0]
-    
-    for label in range(mean_labels):
-        mean = means[label].unsqueeze(0)
-        latent_samples = []
-        
-        # Step 1: Add noise to means
-        for _ in range(num_samples_per_label):
-            noisy_mean = add_noise_to_signal(mean, noise_level=noise_level)
-            #shifted_mean = shift_signal(noisy_mean)
-            scaled_mean = scale_signal(noisy_mean)
-            latent_samples.append(scaled_mean)
-        
-        latent_samples = np.array(latent_samples)
-        latent_samples_tensor = torch.from_numpy(latent_samples).float()
-
-        # Step 3: Interpolation and Step 4: Feature Swap
-        num_generated = 0
-        while num_generated < num_samples_per_label:
-            for i in range(0, len(latent_samples_tensor) - 1, 2):
-                z1 = latent_samples_tensor[i]
-                z2 = latent_samples_tensor[num_samples_per_label-1-i]
-                
-                # Interpolation
-                interpolations = interpolate_z(z1, z2, steps=1)
-                for z_interp in interpolations:
-                    # Feature Swap
-                    swaps = feature_swap_z(z1, z_interp,num=3)
-                    for z_swap in swaps:
-                        z_samples.append(z_swap)
-                        x_spec = model.decoder(z_swap.unsqueeze(0))
-                        x_spec_np = x_spec.detach().numpy()
-                        x_spec_np_shift = shift_signal(x_spec_np)
-                        x_spec_np_smooth = smooth_edges(x_spec_np_shift)
-                        generated_samples.append(x_spec_np_smooth)
-                        generated_labels.append(label)
-                        num_generated += 1
-                        if num_generated >= num_samples_per_label:
-                            break
-                if num_generated >= num_samples_per_label:
-                    break
-            if num_generated >= num_samples_per_label:
-                break
-
-    generated_samples = np.vstack(generated_samples)
-    generated_labels = np.array(generated_labels)
-    z_samples = np.vstack(z_samples)
-    
-    return generated_samples, generated_labels
-
-def sample_plot(
-        generated_samples: np.ndarray,
-        generated_labels: np.ndarray,
-        ncol: int = 2,
-        title: Optional[str] = 'Generated Samples by Category',
-        colors_map: Optional[Dict[int, str]] = None,
-        save_path: Optional[str] = None
-) -> None:
-    """
-    按照聚类类别展示生成的样本，每个类别占一行，通过ncol控制每行展示的样本数量。
-
-    Args:
-        generated_samples: 形状为(n_samples, n_features)的生成样本数组
-        generated_labels: 长度为n_samples的标签数组
-        ncol: 每行展示的样本数量，默认为2
-        colors_map： colors dict
-        title: 图像标题，默认为'Generated Samples by Category'
-        save_path: 图像保存路径，若为None则不保存
-
-    Returns:
-        None
-    """
-    # 输入验证
-    if len(generated_samples) != len(generated_labels):
-        raise ValueError(
-            f"Samples and labels length mismatch: {len(generated_samples)} != {len(generated_labels)}"
-        )
-    # 获取唯一标签
-    unique_labels = np.unique(generated_labels)
-    nrow = len(unique_labels)  # 行数等于类别数
-    if colors_map is None:
-        colors_list = matplotlib.colormaps.get_cmap('tab10')
-        colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
-    width = ncol*10
-    height = nrow * 3
-    plt.figure(figsize=(width, height))
-
-    if title:
-        plt.suptitle(title, fontsize=12, y=0.95)
-
-    # 为每个类别绘制样本
-    for i, label in enumerate(unique_labels):
-        # 获取当前类别的所有样本
-        indices = np.where(generated_labels == label)[0]
-        samples = generated_samples[indices]
-        color = colors_map[label]
-        # 确定要展示的样本数量
-        n_samples = min(len(samples), ncol)
-
-        # 在当前行绘制样本
-        for j in range(n_samples):
-            plt.subplot(nrow, ncol, i * ncol + j + 1)
-            plt.plot(samples[j], c=color, linewidth=1.5)
-
-            if j == 0:  # 只在每行第一个子图显示类别标签
-                plt.title(f'Category {label}', fontsize=10, pad=5)
-
-
-    # 调整布局
-    plt.tight_layout()
-
-    # 保存或显示图像
-    if save_path:
-        plt.savefig(save_path, bbox_inches='tight', dpi=500)
-        plt.close()
-    else:
-        plt.show()
-
-
 def visualize_clusters(
     z: np.ndarray,
     labels: np.ndarray,
-    gmm_labels:np.ndarray,
-    leiden_labels:np.ndarray,
+    gmm_labels: np.ndarray,
+    leiden_labels: np.ndarray,
+    ari_gmm: float,
+    ari_leiden: float,
     save_path: str,
-    colors_map: Optional[Dict[int, str]] = None,
-    random_state: int = 42,
-    fig_size: Tuple[int, int] = (10, 8),
-    title: Optional[str] = None
+    random_state: int = 42
 ) -> None:
     """
     z visualization
@@ -411,177 +141,151 @@ def visualize_clusters(
         colors_map: colors dict
         random_state: t-SNE的随机种子，默认为42
         fig_size: 图像尺寸，默认为(10, 8)
-        title: plot title
 
     Returns:
         None
     """
-    # 输入验证
-    if len(z) != len(labels):
-        raise ValueError(
-            f"Features and labels length mismatch: {len(z)} != {len(labels)}"
-        )
 
-    if title is None:
-        title = " "
-
-    tsne = TSNE(n_components=2, random_state=random_state)
-    z_tsne = tsne.fit_transform(z)
-
-    ari_gmm = adjusted_rand_score(labels, gmm_labels)
-    ari_leiden = adjusted_rand_score(labels, leiden_labels)
+    umap_reducer = umap.UMAP( n_components=2, n_neighbors=15,  min_dist=0.1, metric='euclidean') # , random_state=random_state
+    z_umap = umap_reducer.fit_transform(z)
 
     # 绘图
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(22, 8))
     
-    # 绘制真实标签的散点图
-    scatter1 = ax1.scatter(z_tsne[:, 0], z_tsne[:, 1], c=labels, cmap=colors_map)
+    # 创建大调色板
+    colors = sns.color_palette('husl', n_colors=len(np.unique(labels)))
+    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    scatter1 = ax1.scatter(z_umap[:, 0], z_umap[:, 1], c=labels, cmap=custom_cmap)
     ax1.set_title('True Labels')
     legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
     
     # 绘制GMM预测聚类结果的散点图
-    scatter2 = ax2.scatter(z_tsne[:, 0], z_tsne[:, 1], c=gmm_labels, cmap='tab20')
+    colors = sns.color_palette('husl', n_colors=len(np.unique(gmm_labels)))
+    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    scatter2 = ax2.scatter(z_umap[:, 0], z_umap[:, 1], c=gmm_labels, cmap=custom_cmap)
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
     legend2 = ax2.legend(*scatter2.legend_elements(num=len(np.unique(gmm_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
 
     # 绘制Leiden预测聚类结果的散点图
-    scatter3 = ax3.scatter(z_tsne[:, 0], z_tsne[:, 1], c=leiden_labels, cmap='tab20')
+    colors = sns.color_palette('husl', n_colors=len(np.unique(leiden_labels)))
+    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    scatter3 = ax3.scatter(z_umap[:, 0], z_umap[:, 1], c=leiden_labels, cmap=custom_cmap)
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
     legend3 = ax3.legend(*scatter3.legend_elements(num=len(np.unique(leiden_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax3.add_artist(legend3)
     
     # 保存图像
-    plt.xlabel('t-SNE Component 1')
-    plt.ylabel('t-SNE Component 2')
+    plt.xlabel('UMAP Component 1')
+    plt.ylabel('UMAP Component 2')
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
 
-
-def visualize_clusters1(
-    z: np.ndarray,
+def plot_UMAP(
+    X: np.ndarray,
     labels: np.ndarray,
     save_path: str,
-    colors_map: Optional[Dict[int, str]] = None,
-    random_state: int = 42,
-    fig_size: Tuple[int, int] = (10, 8),
-    title: Optional[str] = None
-) -> None:
-    """
-    z visualization
+    random_state: int = 42):
 
-    Args:
-        z: (n_samples, n_features)
-        labels: sample label
-        save_path: save plot to path
-        colors_map: colors dict
-        random_state: t-SNE的随机种子，默认为42
-        fig_size: 图像尺寸，默认为(10, 8)
-        title: plot title
+    umap_reducer = umap.UMAP( n_components=2, n_neighbors=15,  min_dist=0.1, metric='euclidean') # , random_state=random_state
+    z_umap = umap_reducer.fit_transform(X)
 
-    Returns:
-        None
-    """
-    # 输入验证
-    if len(z) != len(labels):
-        raise ValueError(
-            f"Features and labels length mismatch: {len(z)} != {len(labels)}"
-        )
+    # 绘图
+    uniq_labels = np.unique(labels)
+    n_classes = len(uniq_labels)
+    label_to_idx = {lbl: i for i, lbl in enumerate(uniq_labels)}
+    labels_idx = np.array([label_to_idx[lbl] for lbl in labels])
+    
+    if n_classes == 2:
+        palette = ['#F28E2B', '#9E9E9E']  # 橙 + 灰
+    else:
+        palette = sns.color_palette('husl', n_colors=n_classes)
+    cmap = ListedColormap(palette)
+    norm = BoundaryNorm(np.arange(n_classes+1)-0.5, n_classes)
 
-    if title is None:
-        title = " "
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sc = ax.scatter(z_umap[:, 0], z_umap[:, 1], c=labels_idx, cmap=cmap, norm=norm, s=10, linewidths=0, alpha=0.5)
 
-    tsne = TSNE(n_components=2, random_state=random_state)
-    z_tsne = tsne.fit_transform(z)
+    handles, _ = sc.legend_elements()
+    for h, lbl in zip(handles, uniq_labels):
+        h.set_label(str(lbl))
+    ax.legend(handles=handles, title="Label", loc='best', fontsize='small', frameon=False)
 
-    unique_labels = np.unique(labels)
-    if colors_map is None:
-        colors_list = matplotlib.colormaps.get_cmap('tab10')
-        colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
-
-    plt.figure(figsize=fig_size)
-    for label in unique_labels:
-        mask = (labels == label)
-        plt.scatter(
-            z_tsne[mask, 0],
-            z_tsne[mask, 1],
-            c=[colors_map[label]],
-            label=f'Cluster {label}',
-        )
-
-    plt.title(title)
-    plt.xlabel('t-SNE Component 1')
-    plt.ylabel('t-SNE Component 2')
-    plt.legend(bbox_to_anchor=(1.08, 0.5), loc='center')
+    ax.set_xlabel('UMAP 1')
+    ax.set_ylabel('UMAP 2')
+    ax.grid(alpha=0.2)
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
 
-def plot_reconstruction(
+def plot_spectra(
         recon_data: np.ndarray,
         labels: np.ndarray,
         save_path: str,
-        wavenumber: Optional[np.ndarray] = None,
-        colors_map: Optional[Dict[int, str]] = None
+        wavenumber: Optional[np.ndarray] = None
 ) -> None:
     """
     Args:
-        recon_data: (n_samples, n_features)
+        X: (n_samples, n_features)
         labels: sample labels
         save_path: save plot to path
         wavenumber: spec wavenumber
-        colors_map: colors dic
-
     Returns:
         None
     """
-    # 获取唯一标签及设置图形高度
-    unique_labels = np.unique(labels)
-    num_classes = len(unique_labels)
-    figure_height = 5 if num_classes <= 3 else 5 + 0.5 * num_classes
+    x = np.arange(recon_data.shape[1]) if wavenumber is None else wavenumber
+    unique_labels = np.unique(labels)  
+    stack_gap = float(np.mean(np.max(recon_data, axis=1))) * 0.6 
 
-    if colors_map is None:
-        colors_list = matplotlib.colormaps.get_cmap('tab10')
-        colors_map = {label: colors_list(i) for i, label in enumerate(unique_labels)}
-    # 设置波长范围
-    if wavenumber is None:
-        wavenumber = np.arange(recon_data.shape[1])
+    palette = sns.color_palette('husl', n_colors=len(unique_labels))
+    colors_map = {lbl: palette[i] for i, lbl in enumerate(unique_labels)}
 
-    # 创建图形
-    plt.figure(figsize=(15, figure_height))
+    plt.figure(figsize=(14, 4 + 0.6 * len(unique_labels)))
+    for i, lbl in enumerate(unique_labels):
+        grp = recon_data[labels == lbl]
+        if grp.size == 0:
+            continue
+        mean = grp.mean(axis=0)
+        sd = grp.std(axis=0, ddof=1) if grp.shape[0] > 1 else np.zeros_like(mean)
+        offset = -i * stack_gap
+        color = colors_map[lbl]
 
-    # 绘制每个类别的谱线
-    for i, label in enumerate(unique_labels):
-        # print(i,label)
-        indices = np.where(labels == label)[0]
-        dis = -1 * i
+        plt.fill_between(x, mean - sd + offset, mean + sd + offset, color=color, alpha=0.5, linewidth=0)
+        plt.plot(x, mean + offset, color=color, lw=2, label=f'Cluster {lbl} (n={grp.shape[0]})')
 
-        # 获取当前类别的颜色
-        color = colors_map[label] if colors_map else None
-
-        # 绘制当前类别的所有谱线
-        for j, idx in enumerate(indices):
-            spectrum = recon_data[idx] + dis
-            if j == 0:
-                plt.plot(wavenumber, spectrum,
-                         label=f"Cluster{label}",
-                         c=color)
-            else:
-                plt.plot(wavenumber, spectrum,
-                         c=color)
-
-    # 设置图形属性
-    plt.title('Reconstruction Spectrum of Biological Cells')
-    plt.legend(prop={'size': 9}, bbox_to_anchor=(1.04, 0.5), loc='center')
-    plt.xlabel('Wavelength')
+    plt.xlabel('Wavenumber' if wavenumber is not None else 'Index')
     plt.ylabel('Intensity')
+    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=9)
+    plt.grid(alpha=0.25)
     plt.tight_layout()
-
-    # 保存并关闭图形
-    plt.savefig(save_path,bbox_inches='tight', dpi=500)
+    plt.savefig(save_path, bbox_inches='tight', dpi=500)
     plt.close()
+
+def plot_S(S, matched_S, matched_chem, save_path, wavenumber):
+    valid_idx = np.where((wavenumber >= 450) & (wavenumber <= 1800))[0]
+    wn_valid = wavenumber[valid_idx]
+    stack_gap = float(np.mean(np.max(matched_S, axis=1))) * 1.5
+
+    S = S.detach().cpu().numpy()
+    row_max_valid = np.max(S[:, valid_idx], axis=1, keepdims=True) + 1e-12
+    S = S / row_max_valid
+
+    plt.figure(figsize=(12, 8))
+    n_components = S.shape[0]
+    palette = sns.color_palette('husl', n_colors=n_components)
+
+    for i in range(n_components):
+        plt.plot(wn_valid, matched_S[i,:] -i * stack_gap, ls='--',color=palette[i], label=f'Component {i+1} : {matched_chem[i]}')
+        plt.plot(wavenumber, S[i,:] -i * stack_gap, color=palette[i])
+     
+    plt.xlabel('Wavenumber')
+    plt.ylabel('Intensity')
+    plt.title('MCR Component Spectra')
+    plt.legend()
+    plt.grid(alpha=0.25)
+    plt.savefig(save_path)
 
 def leiden_clustering(spectra, n_neighbors=20, resolution=1.0, seed=42):
     """使用Leiden算法进行聚类
@@ -625,77 +329,36 @@ def leiden_clustering(spectra, n_neighbors=20, resolution=1.0, seed=42):
     
     return np.array(partition.membership)
 
-def compute_cluster_means(spectra, clusters):
-    """计算每个簇的平均光谱"""
-    unique_clusters = np.unique(clusters)
-    cluster_means = []
-    
-    for cluster_id in unique_clusters:
-        cluster_mask = clusters == cluster_id
-        mean_spectrum = np.mean(spectra[cluster_mask], axis=0)
-        cluster_means.append(mean_spectrum)
+class WeightScheduler:
+    def __init__(self, init_weights, max_weights, n_epochs, resolution):
+        """
+        Args:
+            init_weights: 初始权重字典 {'lamb1': 1.0, 'lamb2': 0.1, ...}
+            max_weights: 最终权重字典
+            n_epochs: 总训练轮数
+        """
+        self.init_weights = init_weights
+        self.max_weights = max_weights
+        self.n_epochs = n_epochs
+        self.warmup_epochs = n_epochs // 5  # 预热期为总轮数的1/5
+        self.resolution = resolution
         
-    return np.array(cluster_means)
-
-
-def wavelet_transform(data, wavelet='db4', level=3):
-    """
-    对数据进行小波变换
-    
-    参数:
-    data: numpy array, 形状为 (n_samples, n_features) 的输入数据
-    wavelet: str, 小波基函数类型，默认使用'db4'
-    level: int, 分解层数
-    
-    返回:
-    transformed_data: 小波变换后的数据
-    """
-    n_samples = data.shape[0]
-    transformed_data = []
-    
-    for i in range(n_samples):
-        # 对每个样本进行小波分解
-        coeffs = pywt.wavedec(data[i], wavelet, level=level)
-        # 将所有系数连接成一个向量
-        transformed = np.concatenate([coeffs[0]] + [c for c in coeffs[1:]])
-        transformed_data.append(transformed)
-    
-    return np.array(transformed_data)
-
-
-def inverse_wavelet_transform(transformed_data, original_length, wavelet='db4', level=3):
-    """
-    进行小波逆变换
-    
-    参数:
-    transformed_data: 小波变换后的数据
-    original_length: 原始信号长度
-    wavelet: str, 小波基函数类型
-    level: int, 分解层数
-    
-    返回:
-    reconstructed_data: 重构后的数据
-    """
-    n_samples = transformed_data.shape[0]
-    reconstructed_data = []
-    
-    # 计算每层的系数长度
-    coeffs_length = []
-    dummy_data = np.zeros(original_length)
-    dummy_coeffs = pywt.wavedec(dummy_data, wavelet, level=level)
-    for coeff in dummy_coeffs:
-        coeffs_length.append(len(coeff))
-    
-    for i in range(n_samples):
-        # 分离系数
-        pos = 0
-        coeffs = []
-        for length in coeffs_length:
-            coeffs.append(transformed_data[i, pos:pos+length])
-            pos += length
-        
-        # 重构信号
-        reconstructed = pywt.waverec(coeffs, wavelet)
-        reconstructed_data.append(reconstructed)
-    
-    return np.array(reconstructed_data)
+    def get_weights(self, epoch):
+        """获取当前epoch的权重"""
+        # 预热期：线性增加
+        if epoch < self.warmup_epochs:
+            ratio = epoch / self.warmup_epochs
+        else:
+            # 预热后：余弦退火
+            ratio = 0.5 * (1 + np.cos(
+                np.pi * (epoch - self.warmup_epochs) / 
+                (self.n_epochs - self.warmup_epochs)
+            ))
+             
+        weights = {}
+        for key in self.init_weights:
+            weights[key] = self.init_weights[key] + (
+                self.max_weights[key] - self.init_weights[key]
+            ) * ratio
+            
+        return weights 

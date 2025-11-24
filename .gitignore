@@ -4,9 +4,25 @@ nc_test/
 nc_test*/
 baseline/
 home_pc/
+Test_MCREC/
+Test_MCR/
 **/
 model_config.yaml
-run.py
+nohup.out
+none_pretrain_50.out
+none_pretrain_100.out
+none_pretrain_500.out
+none_pretrain_other.out
+batch_size=512.out
+batch_size=512_normal_pi.out
+pretrain_model_50.pk
+nc9_pretrain_model_none_bn.pk
+lorentzian_peaks_random_colors.png
+tensor_baseline_plot.png
+tensor_line_plot.png
+out.log
+output.log
+# run.py
 !.gitignore
 
 
