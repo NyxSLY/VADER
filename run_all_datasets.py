@@ -13,6 +13,7 @@ import sys
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
+import os
 
 try:
     memo = sys.argv[1]
@@ -66,7 +67,7 @@ def train_on_dataset(
     )
 
     # torch.save(model.state_dict(), f'/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Generated_Spectra/{memo}_VADER_{epochs}.pk')
-    # torch.save(model.state_dict(), f'/mnt/sda/gene/zhangym/VADER/VADER/Test_MCREC/1015_cVADER_lamb20/{memo}_cVADER_{epochs}.pk')
+    # torch.save(model.state_dict(), os.path.join(project_tag,memo, f'{memo}_model_dict_cVADER_{epochs}.pk'))
 
     print(f"[{project_tag}] 训练完成。\n")
 
@@ -92,7 +93,7 @@ async def run_all_datasets_async(datasets):
     return results
 
 def main():
-    project_tag = 'Test_MCREC/1027_VADER_match_loss'
+    project_tag = 'Test_MCREC/1205_VADER_softplus_cmean_change_update'
     datasets = [
         {
             'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy"),
@@ -101,7 +102,7 @@ def main():
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_wave.npy'),
             "device": "cuda:1",
             "project_tag": project_tag,
-            'Pretrain_epochs': 300,
+            'Pretrain_epochs': 200,
             'epochs': 600,
             'batch_size': 128,
             "memo": "Algae"
@@ -111,7 +112,7 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP/HP_Y_processed.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP/MCR_HP_S_10.npy"),
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/HP/HP_wave.npy'),
-            "device": "cuda:3",
+            "device": "cuda:4",
             "project_tag": project_tag,
             'Pretrain_epochs': 200,
             'epochs':   600,
@@ -135,7 +136,7 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_reference.npy").astype(int), 
             "S": np.flip(np.load(r"/mnt/sda/gene/zhangym/VADER/Data/NC_All/MCR_NCAll_Raw_30_component.npy"),axis=1),
             "Wavenumber": np.flip(np.load(r'/mnt/sda/gene/zhangym/VADER/Data/NC_9/wavenumbers.npy'), axis=0),
-            "device": "cuda:1",
+            "device": "cuda:4",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
             'epochs':   300,
@@ -148,7 +149,7 @@ def main():
             "train_label": np.repeat([0,1,2],50),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_3/MCR_Ocean3_10_component.npy"),
             "Wavenumber": np.arange(600, 1801),
-            "device": "cuda:0",
+            "device": "cuda:1",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
             'epochs':   500,
@@ -160,7 +161,7 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Marine_7/Marine_7_label.npy").astype(int),
             "S": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Marine_7/MCR_Marine7_10_component.npy'),
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Marine_7/Marine_7_wave.npy'),
-            "device": "cuda:3",
+            "device": "cuda:1",
             "project_tag": project_tag,
             'Pretrain_epochs': 200,
             'epochs':   600,
@@ -184,25 +185,25 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Probiotics/Y_probiotics.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Probiotics/MCR_Probiotics_20_component.npy"),
             "Wavenumber": np.linspace(500, 1800, 593),
-            "device": "cuda:0",
+            "device": "cuda:4",
             "project_tag": project_tag,
             'Pretrain_epochs': 300,
             'epochs':   1000,
             'batch_size':   128,
             "memo": "Probiotics"
         },
-        {
-            'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_X.npy"),
-            "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_Y.npy").astype(int),
-            "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_S_8.npy"),
-            "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_wave.npy'),
-            "device": "cuda:1",
-            "project_tag": project_tag,
-            'Pretrain_epochs': 100,
-            'epochs': 500,
-            'batch_size': 128,
-            "memo": "MTB_Scitific"
-        },
+        # {
+        #     'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_X.npy"),
+        #     "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_Y.npy").astype(int),
+        #     "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_S_8.npy"),
+        #     "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/MTB_drug/MTB_Drug_scientific_wave.npy'),
+        #     "device": "cuda:1",
+        #     "project_tag": project_tag,
+        #     'Pretrain_epochs': 100,
+        #     'epochs': 500,
+        #     'batch_size': 128,
+        #     "memo": "MTB_Scitific"
+        # },
 
         ## ATCC Datasets
         # {

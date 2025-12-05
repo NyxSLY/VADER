@@ -153,15 +153,16 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
 
         
         # skip update kmeans centers
+        idx = model.activate_clusters
         if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1:
             model.update_kmeans_centers(z)
             gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
-            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+            gaussian_para = np.hstack((F.softplus(model.c_mean[idx]).detach().cpu().numpy(), model.c_log_var[idx].detach().cpu().numpy(), model.pi_[idx].detach().cpu().numpy().reshape(-1, 1)))
             np.savetxt(gaussian_save_path,gaussian_para)
             optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
         else:
             gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_Acc={metrics['gmm_ari']}_Gaussian.txt")
-            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+            gaussian_para = np.hstack((F.softplus(model.c_mean[idx]).detach().cpu().numpy(), model.c_log_var[idx].detach().cpu().numpy(), model.pi_[idx].detach().cpu().numpy().reshape(-1, 1)))
             np.savetxt(gaussian_save_path,gaussian_para)
 
 

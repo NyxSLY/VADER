@@ -149,28 +149,32 @@ def visualize_clusters(
     umap_reducer = umap.UMAP( n_components=2, n_neighbors=15,  min_dist=0.1, metric='euclidean') # , random_state=random_state
     z_umap = umap_reducer.fit_transform(z)
 
+    def _build_cmap(num_colors):
+        n = max(1, int(num_colors))
+        palette = sns.color_palette('husl', n_colors=n)
+        if n == 1:
+            return ListedColormap(palette)
+        return LinearSegmentedColormap.from_list('custom', palette)
+
     # 绘图
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(22, 8))
     
     # 创建大调色板
-    colors = sns.color_palette('husl', n_colors=len(np.unique(labels)))
-    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    custom_cmap = _build_cmap(len(np.unique(labels)))
     scatter1 = ax1.scatter(z_umap[:, 0], z_umap[:, 1], c=labels, cmap=custom_cmap)
     ax1.set_title('True Labels')
     legend1 = ax1.legend(*scatter1.legend_elements(), title="Classes", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax1.add_artist(legend1)
     
     # 绘制GMM预测聚类结果的散点图
-    colors = sns.color_palette('husl', n_colors=len(np.unique(gmm_labels)))
-    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    custom_cmap = _build_cmap(len(np.unique(gmm_labels)))
     scatter2 = ax2.scatter(z_umap[:, 0], z_umap[:, 1], c=gmm_labels, cmap=custom_cmap)
     ax2.set_title(f'GMM Predicted Clusters\nARI: {ari_gmm:.3f}')
     legend2 = ax2.legend(*scatter2.legend_elements(num=len(np.unique(gmm_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')
     ax2.add_artist(legend2)
 
     # 绘制Leiden预测聚类结果的散点图
-    colors = sns.color_palette('husl', n_colors=len(np.unique(leiden_labels)))
-    custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
+    custom_cmap = _build_cmap(len(np.unique(leiden_labels)))
     scatter3 = ax3.scatter(z_umap[:, 0], z_umap[:, 1], c=leiden_labels, cmap=custom_cmap)
     ax3.set_title(f'Leiden Predicted Clusters\nARI: {ari_leiden:.3f}')
     legend3 = ax3.legend(*scatter3.legend_elements(num=len(np.unique(leiden_labels))), title="Clusters", bbox_to_anchor=(1.05, 1), loc='best', fontsize='small')

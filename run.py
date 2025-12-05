@@ -1,14 +1,16 @@
 import numpy as np
-import warnings  
+import warnings
+
+from sympy.geometry.plane import x  
 warnings.filterwarnings('ignore', category=FutureWarning)  
 
 from vade_new import VaDE
-from utility import create_project_folders,prepare_data_loader, set_random_seed,choose_kmeans,set_device
+from utility import create_project_folders,prepare_data_loader, set_random_seed,set_device
 from config import config
 from train import train_manager
 import torch
-from utility import wavelet_transform
 import sys
+
 set_random_seed(123)
 
 
@@ -37,86 +39,60 @@ def main():
 
 
     # # Algae
-    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_process.npy")
-    # oc_train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae_label.npy")[:,0].astype(int)
-    # S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/MCR_Algae_S_10.npy")
+    train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy")
+    train_label = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_label.npy")[:,0].astype(int)
+    S = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/MCR_Algae_S_10.npy")
+    Wavenumber = np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_wave.npy')
+    device = 'cuda:2'
+    pretrain_epochs = 1
+    epochs = 600
+    project_tag = 'Test_MCREC/1204_VADER_softplus_cmean_change_update'
+    memo = 'Algae'
     
-    # Ocean
-    # oc_train_data = np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_train_process.npy")
-    # oc_train_label = np.repeat([0,1,2],50)
-
-
 
     # 准备数据
     model_params = config.get_model_params()
-    device = set_device(model_params['device'])
+    device = set_device(device)
     batch_size = model_params['batch_size']
-    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(oc_train_data, oc_train_label,batch_size,device)
-
+    dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader(
+        train_data, train_label, batch_size, device
+    )
     # 获取模型配置
     input_dim = tensor_data.shape[1]
-    num_classes = 10 # len(unique_label)
-    project_dir = create_project_folders("Test_MCR")
+    n_component = S.shape[0]
+    project_dir = create_project_folders(project_tag)
     
-    weight_scheduler_config = config.get_weight_scheduler_config()
-    paths = config.get_project_paths(project_dir, num_classes,
-                                     lamb1=weight_scheduler_config['init_weights']['lamb1'],
-                                     lamb2=weight_scheduler_config['init_weights']['lamb2'],
-                                     lamb3=weight_scheduler_config['init_weights']['lamb3'],
-                                     lamb4=weight_scheduler_config['init_weights']['lamb4'],
-                                     lamb5=weight_scheduler_config['init_weights']['lamb5'],
-                                     lamb6=weight_scheduler_config['init_weights']['lamb6'], 
-                                     memo=memo)
+    paths = config.get_project_paths( project_dir, memo=memo)
     l_c_dim = config.encoder_type(model_params['encoder_type'], paths['train_path'])
 
     # 初始化模型
     model = VaDE(
         input_dim=input_dim,
         intermediate_dim=model_params['intermediate_dim'],
-        latent_dim=model_params['latent_dim'],
+        latent_dim=n_component,
         tensor_gpu_data=tensor_gpu_data,
-        n_components=10,
-        S = torch.tensor(S).float().to(device),
-        lamb1=weight_scheduler_config['init_weights']['lamb1'],
-        lamb2=weight_scheduler_config['init_weights']['lamb2'],
-        lamb3=weight_scheduler_config['init_weights']['lamb3'],
-        lamb4=weight_scheduler_config['init_weights']['lamb4'],
-        lamb5=weight_scheduler_config['init_weights']['lamb5'],
-        lamb6=weight_scheduler_config['init_weights']['lamb6'],
+        n_components=n_component,
+        S=torch.tensor(S).float().to(device),
+        wavenumber = Wavenumber,
+        prior_y=train_label,
         device=device,
         l_c_dim=l_c_dim,
-        batch_size=batch_size,
         encoder_type=model_params['encoder_type'],
-        pretrain_epochs=model_params['pretrain_epochs'],
-        num_classes=num_classes,
+        pretrain_epochs=pretrain_epochs,
+        num_classes=n_component,
         clustering_method=model_params['clustering_method'],
-        resolution_1=model_params['resolution_1'],
-        resolution_2=model_params['resolution_2']
+        resolution=model_params['resolution']
     ).to(device)
 
-    # model.eval()
-    #choose_kmeans_method = choose_kmeans(model,dataloader,num_classes)
-    # 更新模型的kmeans初始化方法
-    #model.kmeans_init = choose_kmeans_method
-    model.kmeans_init = 'random'
-    # 训练模型
-    print("\n开始预训练...  ")
-    model.pretrain(
-        dataloader=dataloader,
-        learning_rate=1e-5
-    )
+    model.pretrain(dataloader=dataloader, learning_rate=1e-5)
 
-    
-
-    print("\n开始模型训练...")
-    # model.state_dict(torch.load("/mnt/d/BaiduNetdiskWorkspace/OneDrive/work/VADER/Vader-11.21/Vader-11.21/nc/100000.0_1.0_0.0_0.0_class9_20241127-154315/pth/epoch_60_acc_0.49_nmi_0.59_ari_0.38.pth"))
     model = train_manager(
         model=model,
         dataloader=dataloader,
         tensor_gpu_data=tensor_gpu_data,
         labels=tensor_gpu_labels,
-        num_classes=num_classes,
         paths=paths,
+        epochs = epochs
     )
 
     return model

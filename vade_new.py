@@ -107,18 +107,21 @@ class VaDE(nn.Module):
             self.num_classes = num_classes # Use the provided num_classes if no prior_y
             self.global_label_mapping = None
 
-        self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
-        # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, num_classes)
-        self.pi_ = nn.Parameter(torch.full((self.num_classes,), 1.0 / float(self.num_classes), dtype=torch.float64, device=self.device),requires_grad=True)
-        self.c_mean = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
-        self.c_log_var = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
-       
         self.cluster_centers = None
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
+        self.max_clusters = 30
+        self.activate_clusters = list(range(self.num_classes))
         self.resolution = resolution
         self.clustering_method = clustering_method
         self.input_dim = input_dim
+
+        self.encoder = Encoder(input_dim, intermediate_dim=intermediate_dim, latent_dim=latent_dim, n_components=n_components, S=S)
+        # self.decoder = Decoder(latent_dim, intermediate_dim, input_dim, num_classes)
+        self.pi_ = nn.Parameter(torch.full((self.max_clusters,), 1.0 / float(self.max_clusters), dtype=torch.float64, device=self.device),requires_grad=True)
+        self.c_mean = nn.Parameter(torch.zeros(self.max_clusters, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
+        self.c_log_var = nn.Parameter(torch.zeros_like(self.c_mean),requires_grad=True)
+       
 
         self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])  
         
@@ -153,10 +156,11 @@ class VaDE(nn.Module):
             self.load_state_dict(torch.load('./nc9_pretrain_model_none_bn.pk'))
             
     def cal_gaussian_gamma(self,z):
+        idx = self.activate_clusters
         z_expanded = z.unsqueeze(1)  # [batch_size, 1, latent_dim]
-        means_expanded = self.c_mean.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        log_vars_expanded = self.c_log_var.unsqueeze(0)  # [1, num_clusters, latent_dim]
-        pi_expanded = self.pi_.view(1, -1, 1).expand(z.shape[0], -1, z.shape[1])  # [1, num_clusters, 1]
+        means_expanded = F.softplus(self.c_mean[idx]).unsqueeze(0)  # [1, num_clusters, latent_dim]
+        log_vars_expanded = self.c_log_var[idx].unsqueeze(0)  # [1, num_clusters, latent_dim]
+        pi_expanded = self.pi_[idx].view(1, -1, 1).expand(z.shape[0], -1, z.shape[1])  # [1, num_clusters, 1]
     
         gamma = torch.sum(
             torch.log(pi_expanded)                   # 混合权重项
@@ -207,107 +211,73 @@ class VaDE(nn.Module):
         else:
             labels, cluster_centers = self._apply_clustering(encoded_data)
         
-        cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        cluster_centers = torch.tensor(cluster_centers, device=self.device, dtype=self.c_mean.dtype,)
         num_clusters = len(np.unique(labels))
-
-        # 如果聚类数量发生变化，需要重新初始化高斯分布
-        if num_clusters != self.n_components:
-            print(f"Number of clusters changed from {self.n_components} to {num_clusters}. Reinitializing Gaussian.")
-            self.num_classes = num_clusters
-            self.pi_ = nn.Parameter(torch.full((self.num_classes,), 1.0 / float(self.num_classes), dtype=torch.float64, device=self.device),requires_grad=True)
-            self.c_mean = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
-            self.c_log_var = nn.Parameter(torch.zeros(self.num_classes, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
-
-        # 直接用聚类中心更新高斯分布参数
-        self.c_mean.data.copy_(cluster_centers)
+        # 更新高斯聚类参数
+        self.num_classes = num_clusters
+        new_idx = torch.tensor(list(range(num_clusters)), device=self.device, dtype=torch.long)
+        new_mean = self.c_mean.detach().clone()
+        new_mean[new_idx] = cluster_centers
+        self.activate_clusters = new_idx
+        self.c_mean.data.copy_(new_mean)
     
     def update_kmeans_centers(self, z):
         print(f'Update clustering centers..........')
-        encoded_data_cpu = z.detach().cpu().numpy()
-        gaussian_means = self.c_mean.detach().cpu().numpy()
+        encoded_data = z.detach().cpu().numpy()
+        gaussian_means = F.softplus(self.c_mean).detach().cpu().numpy()
         gaussian_var = self.c_log_var.detach().cpu().numpy()
         gaussian_pi = self.pi_.detach().cpu().numpy()
 
         # update the clustering centers
         if self.prior_y is not None:
             ml_labels = self.prior_y
-            unique_labels, counts = np.unique(ml_labels, return_counts=True)
-            num_ml_centers = len(unique_labels)
-            alpha = 0.1
-            aligned_centers = np.array([encoded_data_cpu[ml_labels == i].mean(axis=0)*alpha + (1-alpha)*gaussian_means[i] for i in unique_labels])
-            aligned_var = np.array([np.log(encoded_data_cpu[ml_labels == i].std(axis=0)**2)*alpha + (1-alpha)*gaussian_var[i] for i in unique_labels])
-            aligned_pi = counts / len(ml_labels)*alpha + (1-alpha)*gaussian_pi
-        else:
-            ml_labels, cluster_centers = self._apply_clustering(encoded_data_cpu)
-            num_ml_centers = len(np.unique(ml_labels))
-            aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-            aligned_var = self.change_var(gaussian_var,num_ml_centers,w=1.0)
-            aligned_pi = self.change_pi(gaussian_pi,num_ml_centers,w=0.5)  
+            cluster_centers = np.array([encoded_data[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
 
-        """align"""       
-        if num_ml_centers != self.num_classes:
-            print(f"Number of clusters changed from {self.num_classes} to {num_ml_centers} .Reinitializing Gaussian.")
-            self.num_classes = num_ml_centers
-            self.pi_ = nn.Parameter(torch.tensor(aligned_pi, dtype=torch.float64, device=self.device),requires_grad=True)
-            self.c_mean = nn.Parameter(torch.tensor(aligned_centers, dtype=torch.float64, device=self.device),requires_grad=True)
-            self.c_log_var = nn.Parameter(torch.tensor(aligned_var, dtype=torch.float64, device=self.device),requires_grad=True)
         else:
-            self.c_mean.data.copy_(torch.tensor(aligned_centers,device = self.device))
-            self.c_log_var.data.copy_(torch.tensor(aligned_var,device = self.device))
-            self.pi_.data.copy_(torch.tensor(aligned_pi,device = self.device))
+            ml_labels, cluster_centers = self._apply_clustering(encoded_data)
+
+        new_idx, aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
+        aligned_var, aligned_pi = self.change_var_pi(gaussian_var,gaussian_pi,new_idx,w=1.0)
+
+        """align"""    
+        self.activate_clusters = np.array(new_idx, dtype=int)
+        self.c_mean.data.copy_(torch.tensor(aligned_centers,device = self.device))
+        self.c_log_var.data.copy_(torch.tensor(aligned_var,device = self.device))
+        self.pi_.data.copy_(torch.tensor(aligned_pi,device = self.device))
 
     def optimal_transport(self,A, B, alpha):
         n, d = A.shape
         m, _ = B.shape
 
-        # 计算成本矩阵
+        if n > m:
+            raise ValueError(f"Number of new centers ({n}) exceeds max clusters ({m}).")
+
         cost_matrix = np.linalg.norm(A[:, None, :] - B[None, :, :], axis=2)
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)  # 解指派问题
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-        # 用匹配的值替换对应位置
-        if n>= m:
-            aligned_B = np.zeros_like(A)
-            B_new = np.zeros((n,d))
-            B_new[:m,:]=B
-            for i, j in zip(row_ind, col_ind):
-                aligned_B[j] = A[i]  # Match B[j] to A[i]
-            
-            unmatched_A_indices = set(range(n)) - set(row_ind)
-            for idx in unmatched_A_indices:
-                r = aligned_B.shape[0]
-                aligned_B[r-1] = A[idx]  # Use unmatched A directly
-                B_new[r-1] = A[idx]
-            aligned_B = alpha * aligned_B + (1 - alpha) * B_new
-        # Handle unmatched B (truncate if needed)
-        elif n < m:
-            aligned_B = np.zeros_like(B)
-            for i, j in zip(row_ind, col_ind):
-                aligned_B[j] = A[i]  # Match B[j] to A[i]
+        aligned_B = B.copy()
+        matched_indices = col_ind.copy()
+        for a_idx, b_idx in zip(row_ind, col_ind):
+            aligned_B[b_idx] = alpha * A[a_idx] + (1 - alpha) * B[b_idx]
 
-            unmatched_B_indices = set(range(m)) - set(col_ind)
-            aligned_B = np.delete(aligned_B, list(unmatched_B_indices), axis=0)
-            B = np.delete(B, list(unmatched_B_indices), axis=0)
-            aligned_B = alpha * aligned_B + (1 - alpha) * B
-
-        return aligned_B
+        print(col_ind)
+        return matched_indices, aligned_B
     
-    def change_var(self,array,n,w=1):
-        if array.shape[0]>=n:
-            array = array[:n]
-        else:
-            mean_value = np.mean(array, axis=0)*w
-            padding = np.tile(mean_value, (n - array.shape[0], 1))
-            array = np.vstack((array, padding))
-        return array
-
-    def change_pi(self,array,n,w=1):
-        if array.shape[0]>=n:
-            array = array[:n]
-        else:
-            mean_value = np.mean(array)*w
-            padding = np.full(n - array.shape[0], mean_value)
-            array = np.concatenate((array, padding))
-        return array
+    def change_var_pi(self,var,pi,idx,w=1):
+        if isinstance(idx, set):
+            idx = np.array(sorted(idx), dtype=int)
+        current_var = var[idx]
+        current_pi = pi[idx]
+        new_mask = np.isclose(current_pi, 1.0 / self.max_clusters)
+        old_mask = ~new_mask
+        if new_mask.any() and old_mask.any():
+            mean_var = current_var[old_mask].mean(axis=0) * w
+            mean_pi = current_pi[old_mask].mean() * w
+            current_var[new_mask] = mean_var
+            current_pi[new_mask] = mean_pi
+        var[idx] = current_var
+        pi[idx] = current_pi
+        return var, pi
 
     @torch.no_grad()
     def match_components(self,S, min_similarity):
@@ -436,8 +406,9 @@ class VaDE(nn.Module):
         z_mean = z_mean.unsqueeze(1)  # [batch_size, 1, latent_dim]
         z_log_var = z_log_var.unsqueeze(1)  # [batch_size, 1, latent_dim]
         
-        gaussian_means = self.c_mean.unsqueeze(0)  # [1, n_clusters, latent_dim]
-        gaussian_log_vars = self.c_log_var.unsqueeze(0)  # [1, n_clusters, latent_dim]
+        idx = self.activate_clusters
+        gaussian_means = F.softplus(self.c_mean[idx]).unsqueeze(0)  # [1, n_clusters, latent_dim]
+        gaussian_log_vars = self.c_log_var[idx].unsqueeze(0)  # [1, n_clusters, latent_dim]
         
         if lamb2 > 0:
             log2pi = torch.log(torch.tensor(2.0*math.pi, device=x.device, dtype=x.dtype))
@@ -460,7 +431,7 @@ class VaDE(nn.Module):
 
         # 4. GMM熵项
         if lamb4 > 0:
-            pi = self.pi_.unsqueeze(0)  # [1, n_clusters]
+            pi = self.pi_[idx].unsqueeze(0)  # [1, n_clusters]
             entropy = lamb4 * (
                 -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +
                 torch.sum(torch.log(gamma + 1e-10) * gamma, dim=-1)
