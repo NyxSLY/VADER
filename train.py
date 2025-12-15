@@ -16,7 +16,38 @@ import torch.nn.functional as F
 # 添加这行来设置多进程启动方法
 mp.set_start_method('spawn', force=True)
 
-def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S):
+# train.py (新增辅助函数)
+
+def get_full_dataset_P(model, data_loader, alpha=1.0):
+    """
+    遍历整个数据集，计算所有样本的软分配 Q (gamma)，并计算目标分布 P。
+    """
+    model.eval() # 切换到评估模式 (不更新权重, 禁用 dropout/batchnorm)
+    all_z = []
+    all_gamma = []
+    
+    with torch.no_grad(): # 禁用梯度计算
+        for x in data_loader:
+            data_x = x[0].to(model.device)
+            
+            # 1. 前向传播获取 z
+            _, _, _, z, _ = model(data_x) 
+            all_z.append(z)
+            
+            # 2. 计算软分配 Q (gamma)
+            gamma_batch = model.cal_desc_gamma(z) # 使用T-Kernel
+            all_gamma.append(gamma_batch)
+            
+    # 合并结果
+    z_all = torch.cat(all_z, dim=0)
+    gamma_all = torch.cat(all_gamma, dim=0) # 整个数据集的 Q (N_total, K)
+    
+    # 3. 计算目标分布 P
+    P_all = model.cal_target_distribution(gamma_all) # (N_total, K)
+    
+    return P_all.cpu().numpy(), z_all.cpu().numpy()
+
+def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S, P_target=None):
     """训练一个epoch"""
     model.train()
     total_metrics = defaultdict(float)
@@ -28,9 +59,15 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
         # 前向传播   
         recon_x, z_mean,z_log_var, z,  S = model( data_x )
         gamma = model.cal_gaussian_gamma(z)
+        gamma_desc = model.cal_desc_gamma(z)
+        P_batch = None
+        if P_target is not None:
+             start_idx = batch_idx * data_x.size(0)
+             end_idx = start_idx + data_x.size(0)
+             P_batch = P_target[start_idx:end_idx]
         
         # 损失计算
-        loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S,
+        loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S, P_batch,gamma_desc,
                                        weights['lamb1'], weights['lamb2'], weights['lamb3'], weights['lamb4'],
                                        weights['lamb5'], weights['lamb6'], weights['lamb7'])
 
@@ -109,6 +146,8 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
         # 训练一个epoch
         recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data)
         matched_comp, matched_chems = model.match_components(S,0.7)
+        P_target_np, z_all_np = get_full_dataset_P(model, dataloader)
+        P_target = torch.tensor(P_target_np, dtype=torch.float32).to(model.device)
 
         train_metrics = train_epoch(
             model=model, weights=weights,
@@ -116,8 +155,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             optimizer=optimizer,
             epoch=epoch,
             writer=writer,
-            matched_S = matched_comp
+            matched_S = matched_comp,
+            P_target=P_target
         )
+        recon_x, z_mean, z_log_var, z, S = model(tensor_gpu_data)
         
         # target_lamb1 = 20 * train_metrics['kl_gmm'] * weights['lamb1'] / train_metrics['recon_loss']
         # weights['lamb1'] =  target_lamb1 * 0.1 + weights['lamb1'] * 0.9
@@ -151,18 +192,15 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             r_plot = r_plot
         )
 
-        
         # skip update kmeans centers
-        idx = model.activate_clusters
-        if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1:
+        if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1 : # and epoch < 52
             model.update_kmeans_centers(z)
             gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
-            gaussian_para = np.hstack((F.softplus(model.c_mean[idx]).detach().cpu().numpy(), model.c_log_var[idx].detach().cpu().numpy(), model.pi_[idx].detach().cpu().numpy().reshape(-1, 1)))
+            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
             np.savetxt(gaussian_save_path,gaussian_para)
-            optimizer = optim.Adam(model.parameters(), lr=model_params['learning_rate'])
         else:
             gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_Acc={metrics['gmm_ari']}_Gaussian.txt")
-            gaussian_para = np.hstack((F.softplus(model.c_mean[idx]).detach().cpu().numpy(), model.c_log_var[idx].detach().cpu().numpy(), model.pi_[idx].detach().cpu().numpy().reshape(-1, 1)))
+            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
             np.savetxt(gaussian_save_path,gaussian_para)
 
 

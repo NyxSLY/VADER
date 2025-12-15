@@ -14,6 +14,26 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 import os
+from pathlib import Path
+import shutil
+
+SNAPSHOT_FILES = [
+    "run_all_datasets.py",
+    "vade_new.py",
+    "metrics_new.py",
+    "utility.py",
+    "train.py",
+    "model_config.yaml"
+]
+
+def snapshot_sources(project_root: str) -> None:
+    dest = Path(project_root) / "source_snapshot"
+    dest.mkdir(parents=True, exist_ok=True)
+    repo_root = Path(__file__).resolve().parent
+    for name in SNAPSHOT_FILES:
+        src = repo_root / name
+        if src.exists():
+            shutil.copy2(src, dest / name)
 
 try:
     memo = sys.argv[1]
@@ -93,14 +113,15 @@ async def run_all_datasets_async(datasets):
     return results
 
 def main():
-    project_tag = 'Test_MCREC/1205_VADER_softplus_cmean_change_update'
+    project_tag = 'Test_MCREC/1211_VADER_softplus'
+    snapshot_sources(project_tag)
     datasets = [
         {
             'train_data': np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_process.npy"),
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_label.npy")[:,0].astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Algae/MCR_Algae_S_10.npy"),
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Algae/Algae_wave.npy'),
-            "device": "cuda:1",
+            "device": "cuda:0",
             "project_tag": project_tag,
             'Pretrain_epochs': 200,
             'epochs': 600,
@@ -112,7 +133,7 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP/HP_Y_processed.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/HP/MCR_HP_S_10.npy"),
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/HP/HP_wave.npy'),
-            "device": "cuda:4",
+            "device": "cuda:3",
             "project_tag": project_tag,
             'Pretrain_epochs': 200,
             'epochs':   600,
@@ -149,7 +170,7 @@ def main():
             "train_label": np.repeat([0,1,2],50),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Ocean_3/MCR_Ocean3_10_component.npy"),
             "Wavenumber": np.arange(600, 1801),
-            "device": "cuda:1",
+            "device": "cuda:2",
             "project_tag": project_tag,
             'Pretrain_epochs': 100,
             'epochs':   500,
@@ -161,31 +182,31 @@ def main():
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Marine_7/Marine_7_label.npy").astype(int),
             "S": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Marine_7/MCR_Marine7_10_component.npy'),
             "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Marine_7/Marine_7_wave.npy'),
-            "device": "cuda:1",
+            "device": "cuda:3",
             "project_tag": project_tag,
             'Pretrain_epochs': 200,
             'epochs':   600,
             'batch_size':   128,
             "memo": "Ocean_7"
         },
-        {
-            "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/X_Neuron.npy"),
-            "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/Y_Neuron.npy").astype(int),
-            "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/MCR_Neuron_20_component.npy"),
-            "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Neuron/Neuron_wave.npy'),
-            "device": "cuda:3",
-            "project_tag": project_tag,
-            'Pretrain_epochs': 100,
-            'epochs':   300,
-            'batch_size':   128,
-            "memo": "Neuron"
-        },
+        # {
+        #     "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/X_Neuron.npy"),
+        #     "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/Y_Neuron.npy").astype(int),
+        #     "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Neuron/MCR_Neuron_20_component.npy"),
+        #     "Wavenumber": np.load(r'/mnt/sda/gene/zhangym/VADER/Data/Neuron/Neuron_wave.npy'),
+        #     "device": "cuda:3",
+        #     "project_tag": project_tag,
+        #     'Pretrain_epochs': 100,
+        #     'epochs':   300,
+        #     'batch_size':   128,
+        #     "memo": "Neuron"
+        # },
         {
             "train_data":  np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Probiotics/X_probiotics.npy"),
             "train_label": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Probiotics/Y_probiotics.npy").astype(int),
             "S": np.load(r"/mnt/sda/gene/zhangym/VADER/Data/Probiotics/MCR_Probiotics_20_component.npy"),
             "Wavenumber": np.linspace(500, 1800, 593),
-            "device": "cuda:4",
+            "device": "cuda:2",
             "project_tag": project_tag,
             'Pretrain_epochs': 300,
             'epochs':   1000,

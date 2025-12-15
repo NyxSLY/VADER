@@ -22,7 +22,8 @@ except IndexError:
     memo = 'test'
 
 def main():
-    model_file = '/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Model/NC_All_cVADER_100_0.76.pk'
+    # model_file = '/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Model/NC_All_cVADER_100_0.76.pk'
+    model_file = '/mnt/sda/gene/zhangym/VADER/VADER/Test_MCREC/1205_cVADER_unlimited_clusters/NC_All/NC_All_model_dict_cVADER_300.pk'
     X_fn = '/mnt/sda/gene/zhangym/VADER/Data/NC_9/X_finetune.npy'
     y_fn = '/mnt/sda/gene/zhangym/VADER/Data/NC_9/y_finetune.npy'
     X = np.flip(np.load(X_fn), axis=1).copy()
@@ -35,13 +36,13 @@ def main():
     batch_size = 128
     n_cluster = 30
     device = "cuda:1"
-    save_file = '/mnt/sda/gene/zhangym/VADER/Augmentation/Gene_spectra/Model/NC_All_cVADER_Finetune_300.pk'
+    save_file = '/mnt/sda/gene/zhangym/VADER/VADER/Test_MCREC/1205_cVADER_unlimited_clusters/NC_All/NC_All_cVADER_Finetune_300.pk'
 
     set_random_seed(123)
     dataloader, unique_label, tensor_data, tensor_labels, tensor_gpu_data, tensor_gpu_labels = prepare_data_loader( X, y, batch_size, device)
     input_dim = tensor_data.shape[1]
     n_component = S.shape[0]
-    paths = config.get_project_paths( 'Test_MCREC/1027_VADER_match_loss', memo='NC_All_finetune')
+    paths = config.get_project_paths( 'Test_MCREC/NC_All/1205_cVADER_unlimited_clusters', memo='NC_All_finetune')
 
 
     model = VaDE( input_dim= X.shape[1], intermediate_dim=[512,1024,2048], latent_dim=S.shape[0], tensor_gpu_data=tensor_gpu_data, n_components=n_component,

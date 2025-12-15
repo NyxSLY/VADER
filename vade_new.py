@@ -48,10 +48,10 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         x = self.net(x)
-        concentration = F.softplus(self.to_concentration(x)) # 浓度均值，#仅非负约束：softplus
+        concentration = F.softplus(self.to_concentration(x)) # 浓度均值
         concentration_logvar = self.to_concentration_logvar(x)  # 浓度方差
-        S_pos = F.relu(self.S) # 非负，L2规范化（每个component平方和为1）
-        return concentration, concentration_logvar, S_pos
+        S = F.relu(self.S) # 非负
+        return concentration, concentration_logvar, S
 
 
 class Decoder(nn.Module):
@@ -102,16 +102,14 @@ class VaDE(nn.Module):
             
             unique_prior_labels = np.unique(self.prior_y)
             self.num_classes = len(unique_prior_labels) # Update num_classes based on prior_y
-            self.global_label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_prior_labels)}
         else:
             self.num_classes = num_classes # Use the provided num_classes if no prior_y
-            self.global_label_mapping = None
 
         self.cluster_centers = None
         self.pretrain_epochs = pretrain_epochs
         self.num_classes = num_classes
-        self.max_clusters = 30
-        self.activate_clusters = list(range(self.num_classes))
+        self.max_clusters = 50
+        self.activate_clusters = torch.arange(self.num_classes, device=self.device, dtype=torch.long)
         self.resolution = resolution
         self.clustering_method = clustering_method
         self.input_dim = input_dim
@@ -122,7 +120,6 @@ class VaDE(nn.Module):
         self.c_mean = nn.Parameter(torch.zeros(self.max_clusters, self.latent_dim, dtype=torch.float64, device=self.device),requires_grad=True)
         self.c_log_var = nn.Parameter(torch.zeros_like(self.c_mean),requires_grad=True)
        
-
         self.spectra_search = SpectraSimilaritySearch(wavenumbers=wavenumber[np.where((wavenumber <= 1800) & (wavenumber >= 450) )[0]])  
         
 
@@ -168,6 +165,52 @@ class VaDE(nn.Module):
             - (z_expanded - means_expanded).pow(2)/(2*torch.exp(log_vars_expanded)), dim=2)  # 指数项
 
         return F.softmax(gamma,dim=1)
+
+    def cal_desc_gamma(self, z, alpha=1.0):
+        """
+        根据 DESC 论文使用 Student's T-distribution 核计算软分配 Q (即 gamma)
+        z: 编码后的潜在特征 (N, latent_dim)
+        alpha: T 分布的自由度 (通常设为 1.0)
+        """
+        idx = self.activate_clusters
+        
+        # 只需要中心 c_mean，不需要 c_log_var
+        means = F.softplus(self.c_mean[idx]) # [num_active_clusters, latent_dim]
+        
+        # 计算 z 和所有中心之间的距离平方 (N, K)
+        # ||z_i - mu_j||^2
+        z_expanded = z.unsqueeze(1)    # (N, 1, latent_dim)
+        means_expanded = means.unsqueeze(0) # (1, K, latent_dim)
+        
+        # 计算欧氏距离平方
+        dist_sq = torch.sum((z_expanded - means_expanded).pow(2), dim=2) # (N, K)
+
+        # 计算 T-Kernel 相似度 Q_hat (未归一化)
+        # Q_hat_ij = (1 + ||z_i - mu_j||^2 / alpha) ^ (-(alpha + 1) / 2)
+        Q_hat = torch.pow((1.0 + dist_sq / alpha), -(alpha + 1.0) / 2.0) # (N, K)
+        
+        # 归一化，得到软分配 Q (即 gamma)
+        gamma = Q_hat / torch.sum(Q_hat, dim=1, keepdim=True)
+        
+        return gamma # (N, K)
+    
+    @torch.no_grad()
+    def cal_target_distribution(self, gamma):
+        """
+        根据当前的软分配 Q (gamma) 计算目标分布 P
+        gamma: (N, K)
+        """
+        # 1. 计算 Q_ij^2 / sum_i Q_ij
+        Q_sq = gamma.pow(2) # (N, K)
+        f_j = torch.sum(gamma, dim=0) # sum_i Q_ij (K,)
+        Q_norm = Q_sq / f_j # (N, K)
+        
+        # 2. 归一化
+        sum_Q_norm = torch.sum(Q_norm, dim=1, keepdim=True) # sum_k (N, 1)
+        
+        # P_ij
+        P = Q_norm / sum_Q_norm
+        return P
 
 
     def _apply_clustering(self, encoded_data):
@@ -215,32 +258,34 @@ class VaDE(nn.Module):
         num_clusters = len(np.unique(labels))
         # 更新高斯聚类参数
         self.num_classes = num_clusters
-        new_idx = torch.tensor(list(range(num_clusters)), device=self.device, dtype=torch.long)
+        new_idx = torch.arange(num_clusters, device=self.device, dtype=torch.long)
         new_mean = self.c_mean.detach().clone()
         new_mean[new_idx] = cluster_centers
         self.activate_clusters = new_idx
+
         self.c_mean.data.copy_(new_mean)
     
     def update_kmeans_centers(self, z):
         print(f'Update clustering centers..........')
         encoded_data = z.detach().cpu().numpy()
-        gaussian_means = F.softplus(self.c_mean).detach().cpu().numpy()
+        gaussian_means = self.c_mean.detach().cpu().numpy()
         gaussian_var = self.c_log_var.detach().cpu().numpy()
         gaussian_pi = self.pi_.detach().cpu().numpy()
 
         # update the clustering centers
         if self.prior_y is not None:
             ml_labels = self.prior_y
-            cluster_centers = np.array([encoded_data[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
-
+            new_idx = self.activate_clusters.detach().cpu().numpy()
+            aligned_centers = gaussian_means
+            aligned_centers[new_idx] = cluster_centers = np.array([encoded_data[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
         else:
             ml_labels, cluster_centers = self._apply_clustering(encoded_data)
-
-        new_idx, aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
+            new_idx, aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
+        
         aligned_var, aligned_pi = self.change_var_pi(gaussian_var,gaussian_pi,new_idx,w=1.0)
 
         """align"""    
-        self.activate_clusters = np.array(new_idx, dtype=int)
+        self.activate_clusters = torch.as_tensor( new_idx, device=self.device, dtype=torch.long )
         self.c_mean.data.copy_(torch.tensor(aligned_centers,device = self.device))
         self.c_log_var.data.copy_(torch.tensor(aligned_var,device = self.device))
         self.pi_.data.copy_(torch.tensor(aligned_pi,device = self.device))
@@ -393,7 +438,7 @@ class VaDE(nn.Module):
         return weighted_mse
 
 
-    def compute_loss(self, x, recon_x, z_mean, z_log_var, gamma, S, matched_S,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
+    def compute_loss(self, x, recon_x, z_mean, z_log_var, gamma, S, matched_S,P,gamma_desc,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
         zero = torch.tensor(0.0, device=self.device)
         # 1. 重构损失
         if lamb1 > 0:
@@ -440,18 +485,25 @@ class VaDE(nn.Module):
             entropy = zero.expand(gamma.size(0))
 
         # 5. 峰加权损失，替换Recon_Loss
+        # if lamb5 > 0:
+        #     spectral_constraints = lamb5 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+        # else:
+        #     spectral_constraints = zero.expand(recon_x.size(0))
+
+        # 5.1. DESC KL Loss
+        # weight = gamma ** 2 / gamma.sum(0)
+        # p = (weight.T / weight.sum(1)).T
+        # sum_p_norm = torch.sum(p, dim=1, keepdim=True) # sum_k (N, 1)
+        
+        # # P_ij
+        # p_norm = p / sum_p_norm
+        
+        # # 计算p和gamma(q)之间的KL散度
         if lamb5 > 0:
-            spectral_constraints = lamb5 * self.compute_spectral_constraints(x, recon_x).sum(-1) * self.input_dim
+            spectral_constraints = torch.sum(P * torch.log(P / (gamma_desc + 1e-10) + 1e-10), dim=1) * lamb5
         else:
             spectral_constraints = zero.expand(recon_x.size(0))
-
-        # 6. Match Loss of S
-            # weight = gamma ** 2 / gamma.sum(0)
-            # p = (weight.T / weight.sum(1)).T
-            
-            # # 计算p和gamma(q)之间的KL散度
-            # match_loss_bioDB = F.kl_div(torch.log(p + 1e-10), gamma, reduction='sum') * lamb6
-
+        
         if lamb6 > 0:
             matched_comp = torch.tensor(matched_S, dtype=torch.float64, device = self.device)
             valid_idx = np.where((self.wavenumber <= 1800) & (self.wavenumber >= 450) )[0]
