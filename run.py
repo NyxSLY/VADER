@@ -46,7 +46,7 @@ def main():
     device = 'cuda:2'
     pretrain_epochs = 1
     epochs = 600
-    project_tag = 'Test_MCREC/1211_cVADER_softplus_KLpq_update100'
+    project_tag = 'Test_MCREC/1215_cVADER_supervised'
     memo = 'Algae'
     
 

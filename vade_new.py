@@ -11,8 +11,24 @@ from community import community_louvain
 from utility import leiden_clustering
 import math
 from scipy.optimize import linear_sum_assignment
-from ramanbiolib.search import PeakMatchingSearch, SpectraSimilaritySearch
+from ramanbiolib.search import SpectraSimilaritySearch
 
+from gmmot import GW2
+
+def get_batch_gmm_stats(z, y_true, num_classes):
+    mask = torch.nn.functional.one_hot(y_true, num_classes=num_classes).float()
+    counts = mask.sum(dim=0)  # [num_classes]
+    safe_counts = counts.unsqueeze(1) + 1e-9
+    m_t = torch.matmul(mask.t(), z) / safe_counts
+    
+    m_t_sq = torch.matmul(mask.t(), z**2) / safe_counts
+    v_t = m_t_sq - m_t**2
+    v_t = torch.clamp(v_t, min=1e-6) # 数值保护
+    
+    w_t = counts / counts.sum()
+
+    active_mask = counts > 1 # 至少 2 个样本才算方差
+    return m_t[active_mask], v_t[active_mask], w_t[active_mask], active_mask
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, intermediate_dim, latent_dim, n_components, S):
@@ -247,10 +263,14 @@ class VaDE(nn.Module):
     @torch.no_grad()
     def init_kmeans_centers(self, z):
         encoded_data = z.cpu().numpy()
-        # update the clustering centers
         if self.prior_y is not None:
             labels = self.prior_y
-            cluster_centers = np.array([encoded_data[labels == i].mean(axis=0) for i in np.unique(labels)])
+            unique_labels = np.unique(labels) 
+            self.label_map = {
+                int(label): i for i, label in enumerate(unique_labels)
+            }
+            indexed_labels = np.array([self.label_map[int(l)] for l in labels])
+            cluster_centers = np.array([encoded_data[indexed_labels == i].mean(axis=0) for i in range(len(unique_labels))])
         else:
             labels, cluster_centers = self._apply_clustering(encoded_data)
         
@@ -265,30 +285,6 @@ class VaDE(nn.Module):
 
         self.c_mean.data.copy_(new_mean)
     
-    def update_kmeans_centers(self, z):
-        print(f'Update clustering centers..........')
-        encoded_data = z.detach().cpu().numpy()
-        gaussian_means = self.c_mean.detach().cpu().numpy()
-        gaussian_var = self.c_log_var.detach().cpu().numpy()
-        gaussian_pi = self.pi_.detach().cpu().numpy()
-
-        # update the clustering centers
-        if self.prior_y is not None:
-            ml_labels = self.prior_y
-            new_idx = self.activate_clusters.detach().cpu().numpy()
-            aligned_centers = gaussian_means
-            aligned_centers[new_idx] = cluster_centers = np.array([encoded_data[ml_labels == i].mean(axis=0) for i in np.unique(ml_labels)])
-        else:
-            ml_labels, cluster_centers = self._apply_clustering(encoded_data)
-            new_idx, aligned_centers = self.optimal_transport(cluster_centers, gaussian_means, 1)
-        
-        aligned_var, aligned_pi = self.change_var_pi(gaussian_var,gaussian_pi,new_idx,w=1.0)
-
-        """align"""    
-        self.activate_clusters = torch.as_tensor( new_idx, device=self.device, dtype=torch.long )
-        self.c_mean.data.copy_(torch.tensor(aligned_centers,device = self.device))
-        self.c_log_var.data.copy_(torch.tensor(aligned_var,device = self.device))
-        self.pi_.data.copy_(torch.tensor(aligned_pi,device = self.device))
 
     def optimal_transport(self,A, B, alpha):
         n, d = A.shape
@@ -438,7 +434,8 @@ class VaDE(nn.Module):
         return weighted_mse
 
 
-    def compute_loss(self, x, recon_x, z_mean, z_log_var, gamma, S, matched_S,P,gamma_desc,lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
+    def compute_loss(self, x, y, recon_x, z_mean, z_log_var, gamma, S, matched_S,P,gamma_desc,
+                     lamb1,lamb2,lamb3,lamb4,lamb5,lamb6,lamb7):
         zero = torch.tensor(0.0, device=self.device)
         # 1. 重构损失
         if lamb1 > 0:
@@ -457,25 +454,51 @@ class VaDE(nn.Module):
         
         if lamb2 > 0:
             log2pi = torch.log(torch.tensor(2.0*math.pi, device=x.device, dtype=x.dtype))
-            kl_gmm = torch.sum(
-                0.5 * gamma_t * (
+            # kl_distance_matrix = torch.sum(
+            #     0.5 * gamma_t * (
+            #         self.latent_dim * log2pi + gaussian_log_vars +
+            #         torch.exp(z_log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
+            #         (z_mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+            #     ),
+            #     dim=-1
+            # ) * lamb2
+            kl_distance_matrix = torch.sum(
+                0.5 * (
                     self.latent_dim * log2pi + gaussian_log_vars +
                     torch.exp(z_log_var) / (torch.exp(gaussian_log_vars) + 1e-10) +
-                    (z_mean - gaussian_means).pow(2) / (torch.exp(gaussian_log_vars) + 1e-10)
+                    (z_mean - gaussian_means) .pow(2) / (torch.exp(gaussian_log_vars) + 1e-10) - 
+                    (1 + z_log_var)
                 ),
                 dim=(1,2)
-            ) * lamb2
+            ) * lamb2 / gamma.shape[0]
+            # OT Loss
+            z = self.reparameterize(z_mean[:,0,:], z_log_var[:,0,:])
+            gamma = self.cal_gaussian_gamma(z)
+            with torch.no_grad():
+                m_t, C_t, w_t, active_mask = get_batch_gmm_stats(z, y.long(), 30)
+            m_s = gaussian_means[0,active_mask,:]
+            C_s = torch.diag_embed(torch.exp(gaussian_log_vars[0,active_mask,:])+1e-4)
+            w_s = self.pi_[idx][active_mask]
+            w_s = w_s / w_s.sum()
+            GW_loss = GW2(w_s,w_t.detach().double(), m_s,m_t.detach().double(), C_s, C_t.detach().double())
+            kl_gmm = GW_loss*100 + kl_distance_matrix
+           
+            # if self.prior_y is not None:
+            #     y_true = torch.tensor(np.array([self.label_map[int(label)] for label in y.cpu().numpy()], dtype=np.int64), device=self.device).long()
+            #     chosen_kl = kl_distance_matrix.gather(1, y_true.unsqueeze(1)).squeeze()
+            #     log_pi_chosen = torch.log(self.pi_[y_true] + 1e-10)
+            #     kl_gmm = chosen_kl - log_pi_chosen
         else:
             kl_gmm = zero.expand(z_mean.size(0))
 
         # 3. VAE的正则化
-        if lamb3 > 0:
+        if lamb3 > 0 and self.prior_y is None:
             kl_VAE = (-0.5 * torch.sum(1 + z_log_var, dim=2))* lamb3  # - z_mean.pow(2) - torch.exp(z_log_var)
         else:
             kl_VAE = zero.expand(gamma.size(0))
 
         # 4. GMM熵项
-        if lamb4 > 0:
+        if lamb4 > 0 and self.prior_y is None:
             pi = self.pi_[idx].unsqueeze(0)  # [1, n_clusters]
             entropy = lamb4 * (
                 -torch.sum(torch.log(pi + 1e-10) * gamma, dim=-1) +

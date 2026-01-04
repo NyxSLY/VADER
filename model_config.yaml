@@ -46,7 +46,7 @@ model_params:
 # 权重调度器配置
 weight_scheduler:
   init_weights:
-    lamb1: 1000    # 重构损失
+    lamb1: 100    # 重构损失
     lamb2: 1     # GMM先验的KL散度  
     lamb3: 1      # VAE的KL散度
     lamb4: 1      # GMM熵项
@@ -54,7 +54,7 @@ weight_scheduler:
     lamb6: 1000    # Match Loss of S
     lamb7: 0    # Unsimilarity between S
   max_weights:
-    lamb1: 1000   # 重构损失
+    lamb1: 100   # 重构损失
     lamb2: 1      # GMM先验的KL散度   
     lamb3: 1      # VAE的KL散度
     lamb4: 1    # GMM熵项

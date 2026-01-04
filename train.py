@@ -51,13 +51,15 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
     """训练一个epoch"""
     model.train()
     total_metrics = defaultdict(float)
-    
+
     for batch_idx, x in enumerate(data_loader):
         # 数据准备
         data_x = x[0].to(model.device)
+        data_y = x[1]
         
         # 前向传播   
         recon_x, z_mean,z_log_var, z,  S = model( data_x )
+        z = model.reparameterize(z_mean, z_log_var)
         gamma = model.cal_gaussian_gamma(z)
         gamma_desc = model.cal_desc_gamma(z)
         P_batch = None
@@ -67,7 +69,7 @@ def train_epoch(model, weights, data_loader, optimizer, epoch, writer, matched_S
              P_batch = P_target[start_idx:end_idx]
         
         # 损失计算
-        loss_dict = model.compute_loss(data_x, recon_x, z_mean, z_log_var, gamma, S, matched_S, P_batch,gamma_desc,
+        loss_dict = model.compute_loss(data_x,data_y, recon_x, z_mean, z_log_var, gamma, S, matched_S, P_batch,gamma_desc,
                                        weights['lamb1'], weights['lamb2'], weights['lamb3'], weights['lamb4'],
                                        weights['lamb5'], weights['lamb6'], weights['lamb7'])
 
@@ -192,17 +194,10 @@ def train_manager(model, dataloader, tensor_gpu_data, labels, paths, epochs):
             r_plot = r_plot
         )
 
-        # skip update kmeans centers
-        if (epoch + 1) % model_params['update_interval'] == 0 and epoch != epochs - 1 : # and epoch < 52
-            model.update_kmeans_centers(z)
-            gaussian_save_path = os.path.join(paths['training_log'],f'epoch_{epoch}_Gaussian.txt')
-            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
-            np.savetxt(gaussian_save_path,gaussian_para)
-        else:
-            gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_Acc={metrics['gmm_ari']}_Gaussian.txt")
-            gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
-            np.savetxt(gaussian_save_path,gaussian_para)
 
+        gaussian_save_path = os.path.join(paths['training_log'],f"epoch_{epoch}_GMM_ARI={metrics['gmm_ari']}_Gaussian.txt")
+        gaussian_para = np.hstack((model.c_mean.detach().cpu().numpy(), model.c_log_var.detach().cpu().numpy(), model.pi_.detach().cpu().numpy().reshape(-1, 1)))
+        np.savetxt(gaussian_save_path,gaussian_para)
 
         # 检查早停条件
         if check_early_stopping(metrics, model_params['min_loss_threshold']):
